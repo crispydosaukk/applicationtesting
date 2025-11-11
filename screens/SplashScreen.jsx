@@ -98,17 +98,17 @@ export default function SplashScreen({ navigation }) {
 
   return (
     <LinearGradient
-      colors={[
-        '#e6f6f1',
-        '#fdf4f4',
-        '#f0e6f9',
-        '#e8f3fd',
-        '#e6faec'
-      ]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.container}
-    >
+  colors={[
+    '#ffdfdf', // soft light red
+    '#ffeceb', // pale rose transition
+    '#e9ffee', // mint green tint
+    '#d7f8d7', // soft green
+  ]}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 1 }}
+  style={styles.container}
+>
+
       <View style={styles.content}>
 
         <Animated.Image

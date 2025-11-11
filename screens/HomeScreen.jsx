@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import LinearGradient from "react-native-linear-gradient";
 
 export default function HomeScreen({ navigation }) {
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -23,7 +24,17 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={[
+        '#ffdfdf',
+        '#ffeceb',
+        '#e9ffee',
+        '#d7f8d7',
+      ]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
 
       <Text style={styles.smallTag}>We Provide Best Food Service</Text>
 
@@ -34,7 +45,7 @@ export default function HomeScreen({ navigation }) {
 
       <Animated.View style={[styles.imageWrapper, { transform: [{ translateY: floatAnim }] }]}>
         <Image
-          source={require("../assets/yourFoodImage.png")} // <-- Change image path
+          source={require("../assets/yourFoodImage.png")}
           style={styles.foodImage}
           resizeMode="cover"
         />
@@ -60,36 +71,32 @@ export default function HomeScreen({ navigation }) {
 
       </View>
 
-    </View>
+    </LinearGradient>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF9EF",
     alignItems: "center",
     paddingTop: 60,
   },
-
   smallTag: {
     fontSize: 14,
     color: "#8A6C54",
     marginTop: 10,
   },
-
   mainTitleWrap: {
     marginTop: 8,
     alignItems: "center",
   },
-
   mainTitleBlack: {
     fontSize: 27,
     fontWeight: "800",
     color: "#2D1B0F",
     textAlign: "center",
   },
-
   mainTitleOrange: {
     fontSize: 32,
     fontWeight: "900",
@@ -97,7 +104,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: -4,
   },
-
   imageWrapper: {
     width: 250,
     height: 250,
@@ -111,26 +117,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
   },
-
   foodImage: {
     width: "90%",
     height: "90%",
     borderRadius: 125,
   },
-
   subtitle: {
     marginTop: 28,
     fontSize: 17,
     color: "#2D1B0F",
     fontWeight: "500",
   },
-
   buttonArea: {
     width: "100%",
     alignItems: "center",
     marginTop: 45,
   },
-
   primaryBtn: {
     flexDirection: "row",
     width: "75%",
@@ -141,13 +143,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 18,
   },
-
   primaryBtnText: {
     fontSize: 18,
     fontWeight: "600",
     color: "#FFFFFF",
   },
-
   secondaryBtn: {
     flexDirection: "row",
     width: "75%",
@@ -159,23 +159,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
-
   secondaryBtnText: {
     fontSize: 18,
     fontWeight: "600",
     color: "#2D1B0F",
   },
-
   btnIcon: {
     marginRight: 8,
   },
-
   bottomLine: {
     fontSize: 15,
     color: "#2D1B0F",
     marginTop: 6,
   },
-
   linkText: {
     fontWeight: "700",
     textDecorationLine: "underline",
