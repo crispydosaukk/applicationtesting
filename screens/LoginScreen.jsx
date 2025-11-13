@@ -1,4 +1,3 @@
-// screens/LoginScreen.jsx
 import React, { useState } from "react";
 import {
   View,
@@ -7,16 +6,42 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import CountryPicker from "react-native-country-picker-modal";
+import { loginUser } from "../services/authService"; // your file
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen({ navigation }) {
-  const [countryCode, setCountryCode] = useState("GB");
-  const [callingCode, setCallingCode] = useState("44");
+  const [countryCode, setCountryCode] = useState("IN");
+  const [callingCode, setCallingCode] = useState("91");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState(""); // Added email input
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Validation Error", "Please enter email and password");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { user, token } = await loginUser(email, password);
+      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("user", JSON.stringify(user));
+      Alert.alert("Login Successful", `Welcome back, ${user.full_name}!`);
+      navigation.replace("Resturent"); // navigate to your main screen
+    } catch (error) {
+      Alert.alert("Login Failed", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <LinearGradient
@@ -31,9 +56,25 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.loginTitle}>Welcome Back...!</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
 
+        {/* Email Field */}
         <View style={styles.inputBox}>
-          <Text style={styles.label}>Mobile Number</Text>
-
+          <Text style={styles.label}>Email</Text>
+          <View style={styles.passwordRow}>
+            <Ionicons name="mail-outline" size={20} color="#8A6C54" />
+            <TextInput
+              placeholder="Enter email"
+              style={[styles.input, { flex: 1, marginLeft: 8 }]}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
+        </View>
+{/* 
+      
+        <View style={styles.inputBox}>
+          <Text style={styles.label}>Mobile Number (optional)</Text>
           <View style={styles.phoneRow}>
             <CountryPicker
               countryCode={countryCode}
@@ -47,9 +88,7 @@ export default function LoginScreen({ navigation }) {
                 setCallingCode(country.callingCode[0]);
               }}
             />
-
             <Text style={styles.countryCodeText}>+{callingCode}</Text>
-
             <TextInput
               placeholder="Enter mobile number"
               keyboardType="number-pad"
@@ -58,11 +97,11 @@ export default function LoginScreen({ navigation }) {
               onChangeText={setPhone}
             />
           </View>
-        </View>
+        </View> */}
 
+        {/* Password Field */}
         <View style={styles.inputBox}>
           <Text style={styles.label}>Password</Text>
-
           <View style={styles.passwordRow}>
             <Ionicons name="lock-closed-outline" size={20} color="#8A6C54" />
             <TextInput
@@ -75,21 +114,39 @@ export default function LoginScreen({ navigation }) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.primaryBtn}>
+        {/* Login Button */}
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={handleLogin}
+          disabled={loading}
+        >
           <LinearGradient
             colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.btnGradient}
           >
-            <Ionicons name="log-in-outline" size={22} color="#2D1B0F" style={{ marginRight: 8 }} />
-            <Text style={styles.primaryText}>Login</Text>
+            <Ionicons
+              name="log-in-outline"
+              size={22}
+              color="#2D1B0F"
+              style={{ marginRight: 8 }}
+            />
+            {loading ? (
+              <ActivityIndicator size="small" color="#2D1B0F" />
+            ) : (
+              <Text style={styles.primaryText}>Login</Text>
+            )}
           </LinearGradient>
         </TouchableOpacity>
 
+        {/* Footer */}
         <Text style={styles.footerText}>
           Don't have an account?{" "}
-          <Text style={styles.signupText} onPress={() => navigation.navigate("Signup")}>
+          <Text
+            style={styles.signupText}
+            onPress={() => navigation.navigate("Signup")}
+          >
             Create an account
           </Text>
         </Text>

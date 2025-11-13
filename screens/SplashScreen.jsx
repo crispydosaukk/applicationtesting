@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Image, StyleSheet, Animated, Easing } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SplashScreen({ navigation }) {
-
   const slideAnim = useRef(new Animated.Value(-320)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const bounceAnim = useRef(new Animated.Value(1)).current;
@@ -12,11 +12,11 @@ export default function SplashScreen({ navigation }) {
 
   // New bottom image animation values
   const bottomOpacity = useRef(new Animated.Value(0)).current;
-  const bottomTranslate = useRef(new Animated.Value(50)).current; // comes up from below
+  const bottomTranslate = useRef(new Animated.Value(50)).current;
   const bottomScale = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
-
+    // 🌀 Run splash animations in parallel
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -84,9 +84,19 @@ export default function SplashScreen({ navigation }) {
       })
     ]).start();
 
-    const timeout = setTimeout(() => {
-      navigation.replace("Home");
-    }, 7000);
+    // ⏳ After animation delay → check login status
+    const timeout = setTimeout(async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+       if (token) {
+          navigation.replace("Resturent"); // ✅ logged-in user
+        } else {
+          navigation.replace("Home"); // 🏠 not logged-in → show home screen
+        }
+      } catch (err) {
+        navigation.replace('Login');
+      }
+    }, 7000); // total animation time before redirect
 
     return () => clearTimeout(timeout);
   }, []);
@@ -98,17 +108,11 @@ export default function SplashScreen({ navigation }) {
 
   return (
     <LinearGradient
-  colors={[
-    '#ffdfdf', // soft light red
-    '#ffeceb', // pale rose transition
-    '#e9ffee', // mint green tint
-    '#d7f8d7', // soft green
-  ]}
-  start={{ x: 0, y: 0 }}
-  end={{ x: 1, y: 1 }}
-  style={styles.container}
->
-
+      colors={['#ffdfdf', '#ffeceb', '#e9ffee', '#d7f8d7']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
       <View style={styles.content}>
 
         <Animated.Image
@@ -137,7 +141,7 @@ export default function SplashScreen({ navigation }) {
 
         {/* Bottom-right floating image */}
         <Animated.Image
-          source={require('../assets/plate.png')} // Put your image here
+          source={require('../assets/plate.png')}
           style={[
             styles.bottomImage,
             {

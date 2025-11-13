@@ -57,7 +57,7 @@ export default function HomeScreen({ navigation }) {
 
       <View style={styles.buttonArea}>
         {/* Explore Menu Button */}
-        <TouchableOpacity onPress={() => navigation.navigate("MenuScreen")} style={styles.primaryBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate("Resturent")} style={styles.primaryBtn}>
           <LinearGradient
             colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
             start={{ x: 0, y: 0 }}
@@ -65,7 +65,7 @@ export default function HomeScreen({ navigation }) {
             style={styles.btnGradient}
           >
             <Ionicons name="restaurant-outline" size={20} color="#2D1B0F" style={styles.btnIcon} />
-            <Text style={styles.primaryBtnText}>Explore Menu</Text>
+            <Text style={styles.primaryBtnText}>Explore</Text>
           </LinearGradient>
         </TouchableOpacity>
 
