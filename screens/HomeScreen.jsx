@@ -36,9 +36,13 @@ export default function HomeScreen({ navigation }) {
     >
       <View style={styles.rope} />
 
-      <Animated.Text style={[styles.brandLogo, { transform: [{ rotate: swing }] }]}>
-        crispydosa
-      </Animated.Text>
+      <Animated.Image
+        source={require("../assets/logo.png")}
+        style={[
+          styles.brandLogoImage,
+          { transform: [{ rotate: swing }] },
+        ]}
+      />
 
       <View style={styles.mainTitleWrap}>
         <Text style={styles.mainTitleBlack}>Your Healthy Favorite</Text>
@@ -103,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 8,
   },
-  foodImage: { width: "90%", height: "90%", borderRadius: 125 },
+  foodImage: { width: "99%", height: "99%", borderRadius: 125 },
 
   subtitle: { marginTop: 28, fontSize: 17, color: "#2D1B0F", fontWeight: "500" },
 
@@ -153,6 +157,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 3, height: 4 },
     textShadowRadius: 8,
   },
-
+  
   rope: { width: 2, height: 40, backgroundColor: "#C49A6C", marginTop: -20 },
 });

@@ -9,7 +9,7 @@ import Resturent from './screens/Resturent.jsx';
 import LoginScreen from './screens/LoginScreen.jsx';
 import SignupScreen from './screens/SignupScreen.jsx';
 import NetworkErrorScreen from "./screens/NetworkErrorScreen";
-
+import Categories from './screens/categories/index.jsx';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -36,6 +36,7 @@ export default function App() {
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Resturent" component={Resturent} /> 
+        <Stack.Screen name="Categories" component={Categories} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
       </Stack.Navigator>

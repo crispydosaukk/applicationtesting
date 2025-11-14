@@ -15,18 +15,29 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import CountryPicker from "react-native-country-picker-modal";
+import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { registerUser } from "../services/authService";
 
 export default function SignupScreen({ navigation }) {
-  const [countryCode, setCountryCode] = useState("IN");
-  const [callingCode, setCallingCode] = useState("91");
+  // Default country set to UK
+  const [countryCode, setCountryCode] = useState("GB");
+  const [callingCode, setCallingCode] = useState("44");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // ✅ Validation Function
+  // New fields
+  const [preferredRestaurant, setPreferredRestaurant] = useState("");
+  const [dob, setDob] = useState(new Date());
+  const [showDobPicker, setShowDobPicker] = useState(false);
+  const [referralCode, setReferralCode] = useState(""); // optional
+  const [gender, setGender] = useState(""); // optional
+
+  // ✅ Validation
   const validateForm = () => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
     const phoneRegex = /^[0-9]+$/;
@@ -40,7 +51,6 @@ export default function SignupScreen({ navigation }) {
     if (!phoneRegex.test(phone))
       return "Phone number should contain digits only.";
 
-    // Country-based phone validation
     if (callingCode === "91" && phone.length !== 10)
       return "Indian phone numbers must be 10 digits.";
     if (callingCode === "44" && (phone.length < 10 || phone.length > 11))
@@ -53,7 +63,9 @@ export default function SignupScreen({ navigation }) {
       return "Password must be at least 6 characters long.";
     if (password !== confirmPassword) return "Passwords do not match.";
 
-    return null; // ✅ All good
+    if (!preferredRestaurant) return "Please select your preferred restaurant.";
+
+    return null;
   };
 
   const handleSignup = async () => {
@@ -64,12 +76,16 @@ export default function SignupScreen({ navigation }) {
     }
 
     try {
-      const data = await registerUser({
+      await registerUser({
         full_name: name,
         email,
         mobile_number: phone,
         country_code: `+${callingCode}`,
         password,
+        preferred_restaurant: preferredRestaurant,
+        date_of_birth: dob.toISOString().split("T")[0],
+        referral_code: referralCode || null,
+        gender: gender || null,
       });
       Alert.alert("Success", "Account created successfully!");
       navigation.navigate("Login");
@@ -188,6 +204,81 @@ export default function SignupScreen({ navigation }) {
               </View>
             </View>
 
+            {/* Preferred Restaurant */}
+            <View style={styles.inputBox}>
+              <Text style={styles.label}>Preferred Restaurant</Text>
+              <View style={styles.inputRow}>
+                <Picker
+                  selectedValue={preferredRestaurant}
+                  style={{ flex: 1 }}
+                  onValueChange={(itemValue) => setPreferredRestaurant(itemValue)}
+                >
+                  <Picker.Item label="Select Restaurant" value="" />
+                  <Picker.Item label="Restaurant A" value="Restaurant A" />
+                  <Picker.Item label="Restaurant B" value="Restaurant B" />
+                  <Picker.Item label="Restaurant C" value="Restaurant C" />
+                </Picker>
+              </View>
+            </View>
+
+           {/* DOB */}
+<View style={styles.inputBox}>
+  <Text style={styles.label}>Date of Birth</Text>
+  <TouchableOpacity
+    style={[styles.inputRow, { paddingVertical: 12 }]} // match other inputs
+    onPress={() => setShowDobPicker(true)}
+  >
+    <Text style={{ flex: 1, fontSize: 16, color: dob ? "#2D1B0F" : "#8A6C54" }}>
+      {dob ? dob.toDateString() : "Select date of birth"}
+    </Text>
+    <Ionicons name="calendar-outline" size={20} color="#8A6C54" />
+  </TouchableOpacity>
+  {showDobPicker && (
+    <DateTimePicker
+      value={dob}
+      mode="date"
+      display="default"
+      maximumDate={new Date()}
+      onChange={(event, selectedDate) => {
+        setShowDobPicker(false);
+        if (selectedDate) setDob(selectedDate);
+      }}
+    />
+  )}
+</View>
+
+
+            {/* Referral Code (Optional) */}
+            <View style={styles.inputBox}>
+              <Text style={styles.label}>Referral Code (Optional)</Text>
+              <View style={styles.inputRow}>
+                <Ionicons name="gift-outline" size={20} color="#8A6C54" />
+                <TextInput
+                  placeholder="Enter referral code"
+                  style={styles.input}
+                  value={referralCode}
+                  onChangeText={setReferralCode}
+                />
+              </View>
+            </View>
+
+            {/* Gender (Optional) */}
+            <View style={styles.inputBox}>
+              <Text style={styles.label}>Gender (Optional)</Text>
+              <View style={styles.inputRow}>
+                <Picker
+                  selectedValue={gender}
+                  style={{ flex: 1 }}
+                  onValueChange={(itemValue) => setGender(itemValue)}
+                >
+                  <Picker.Item label="Select Gender" value="" />
+                  <Picker.Item label="Male" value="male" />
+                  <Picker.Item label="Female" value="female" />
+                  <Picker.Item label="Other" value="other" />
+                </Picker>
+              </View>
+            </View>
+
             {/* Signup Button */}
             <TouchableOpacity style={styles.primaryBtn} onPress={handleSignup}>
               <LinearGradient
@@ -230,6 +321,17 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     paddingBottom: 100,
   },
+  inputRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#FFF9F0",
+  borderWidth: 1.8,
+  borderColor: "#D9A875",
+  borderRadius: 12,
+  paddingHorizontal: 12,
+  paddingVertical: 12, // add this if not already
+},
+
   logo: {
     width: 220,
     height: 110,
@@ -250,25 +352,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 8,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#2D1B0F",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#8A6C54",
-    textAlign: "center",
-    marginBottom: 25,
-  },
+  title: { fontSize: 26, fontWeight: "800", color: "#2D1B0F", textAlign: "center" },
+  subtitle: { fontSize: 14, color: "#8A6C54", textAlign: "center", marginBottom: 25 },
   inputBox: { marginBottom: 18 },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2D1B0F",
-    marginBottom: 6,
-  },
+  label: { fontSize: 14, fontWeight: "600", color: "#2D1B0F", marginBottom: 6 },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -287,42 +374,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF9F0",
     paddingHorizontal: 8,
   },
-  codeText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#2D1B0F",
-    marginHorizontal: 6,
-  },
-  input: {
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#2D1B0F",
-    flex: 1,
-  },
-  primaryBtn: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginTop: 10,
-    borderWidth: 2,
-    borderColor: "#2D1B0F",
-  },
-  btnGradient: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  primaryText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2D1B0F",
-  },
-  footerText: {
-    marginTop: 16,
-    textAlign: "center",
-    fontSize: 15,
-    color: "#2D1B0F",
-  },
+  codeText: { fontSize: 16, fontWeight: "700", color: "#2D1B0F", marginHorizontal: 6 },
+  input: { paddingVertical: 12, fontSize: 16, color: "#2D1B0F", flex: 1 },
+  primaryBtn: { borderRadius: 16, overflow: "hidden", marginTop: 10, borderWidth: 2, borderColor: "#2D1B0F" },
+  btnGradient: { flexDirection: "row", justifyContent: "center", alignItems: "center", paddingVertical: 14, borderRadius: 14 },
+  primaryText: { fontSize: 18, fontWeight: "700", color: "#2D1B0F" },
+  footerText: { marginTop: 16, textAlign: "center", fontSize: 15, color: "#2D1B0F" },
   link: { fontWeight: "700", textDecorationLine: "underline" },
 });
