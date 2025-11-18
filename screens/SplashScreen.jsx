@@ -140,7 +140,7 @@ export default function SplashScreen({ navigation }) {
         />
 
         {/* Bottom-right floating image */}
-        <Animated.Image
+        {/* <Animated.Image
           source={require('../assets/plate.png')}
           style={[
             styles.bottomImage,
@@ -153,7 +153,7 @@ export default function SplashScreen({ navigation }) {
             }
           ]}
           resizeMode="cover"
-        />
+        /> */}
 
       </View>
     </LinearGradient>

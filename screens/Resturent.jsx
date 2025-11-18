@@ -14,28 +14,25 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { logoutUser } from "../utils/authHelpers";
-import AppHeader from "./AppHeader"; // Reusable header component
-import RestaurantImg from "../assets/restaurant.png"; // Card image
+import AppHeader from "./AppHeader";
+import RestaurantImg from "../assets/restaurant.png"; // fallback
+import { fetchRestaurants } from "../services/restaurantService";
 
 const { width } = Dimensions.get("window");
 
-// Single Restaurant Card
-function RestaurentCard({ name, address, veg = true, services = ["In-store", "Kerbside"], onPress }) {
+function RestaurentCard({ name, address, photo, veg = true, services = ["In-store", "Kerbside"], onPress }) {
   return (
     <TouchableOpacity style={cardStyles.container} onPress={onPress}>
-      <Image source={RestaurantImg} style={cardStyles.image} />
+      <Image source={photo ? { uri: photo } : RestaurantImg} style={cardStyles.image} />
       <View style={cardStyles.infoBox}>
         <Text style={cardStyles.name}>{name}</Text>
-
         {veg && (
           <View style={cardStyles.vegBadge}>
             <Ionicons name="leaf-outline" size={16} color="#1b8d3b" />
             <Text style={cardStyles.vegText}>100% Pure Veg</Text>
           </View>
         )}
-
         <Text style={cardStyles.address}>{address}</Text>
-
         <View style={cardStyles.services}>
           {services.map((service, idx) => (
             <View key={idx} style={cardStyles.serviceItem}>
@@ -58,6 +55,7 @@ export default function Resturent({ navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [restaurants, setRestaurants] = useState([]);
 
   const scrollRef = useRef(null);
 
@@ -67,13 +65,6 @@ export default function Resturent({ navigation }) {
     require("../assets/welcome.png"),
   ];
 
-  const restaurants = [
-    { name: "Shree Krishna Restaurant", address: "12 MG Road, Near City Center" },
-    { name: "Spicy Delight", address: "45 Park Street, Downtown" },
-    { name: "Crispy Dosa House", address: "78 MG Road, City Center" },
-    { name: "Veggie Paradise", address: "23 Church Lane, Uptown" },
-  ];
-
   // Load User
   useEffect(() => {
     const loadUser = async () => {
@@ -81,6 +72,15 @@ export default function Resturent({ navigation }) {
       if (storedUser) setUser(JSON.parse(storedUser));
     };
     loadUser();
+  }, []);
+
+  // Fetch Restaurants
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      const data = await fetchRestaurants();
+      setRestaurants(data);
+    };
+    loadRestaurants();
   }, []);
 
   // Auto Slider
@@ -100,19 +100,16 @@ export default function Resturent({ navigation }) {
     return () => clearInterval(timer);
   }, [activeIndex]);
 
-  // Filtered Restaurants
   const filteredRestaurants = restaurants.filter(r =>
     r.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <View style={styles.container}>
-      {/* Reusable Header */}
       <AppHeader user={user} navigation={navigation} onMenuPress={() => setMenuVisible(true)} />
 
       <View style={styles.underline} />
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search-outline" size={22} color="#666" />
         <TextInput
@@ -124,17 +121,13 @@ export default function Resturent({ navigation }) {
         />
       </View>
 
-      {/* Image Slider */}
       <View style={{ marginTop: 20 }}>
         <ScrollView
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           ref={scrollRef}
-          onScroll={(e) => {
-            const x = e.nativeEvent.contentOffset.x;
-            setActiveIndex(Math.round(x / width));
-          }}
+          onScroll={e => setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
           scrollEventThrottle={16}
         >
           {sliderImages.map((img, index) => (
@@ -157,19 +150,21 @@ export default function Resturent({ navigation }) {
         </View>
       </View>
 
-      {/* Restaurant Cards */}
       <ScrollView style={{ marginTop: 10 }}>
         {filteredRestaurants.map((r, idx) => (
           <RestaurentCard
             key={idx}
             name={r.name}
             address={r.address}
-            onPress={() => navigation.navigate("Categories")}
+            photo={r.photo}
+            onPress={() =>
+              navigation.navigate("Categories", { userId: r.userId })
+            }
           />
         ))}
       </ScrollView>
 
-      {/* Menu Modal */}
+
       <Modal transparent visible={menuVisible} animationType="fade">
         <View style={{ flex: 1 }}>
           <Pressable style={styles.modalOverlay} onPress={() => setMenuVisible(false)} />
