@@ -8,27 +8,23 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppHeader from "../AppHeader";
+import { fetchCategories } from "../../services/categoryService";
 
 const { width } = Dimensions.get("window");
-const ITEM_WIDTH = (width - 40) / 2; // two items per row with spacing
+const ITEM_WIDTH = (width - 40) / 2;
 
-export default function Categories({ navigation }) {
+export default function Categories({ route, navigation }) {
+  const { userId } = route.params;
+
   const [user, setUser] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Dummy categories for now
-  const categories = [
-  { id: "1", name: "Veg Restaurant", image: require("../../assets/restaurant.png") },
-  { id: "2", name: "Veg Restaurant", image: require("../../assets/restaurant.png") },
-  { id: "3", name: "Veg Restaurant", image: require("../../assets/restaurant.png") },
-  { id: "4", name: "Veg Restaurant", image: require("../../assets/restaurant.png") },
-];
-
-
-  // Load user for header
   useEffect(() => {
     const loadUser = async () => {
       const storedUser = await AsyncStorage.getItem("user");
@@ -37,55 +33,74 @@ export default function Categories({ navigation }) {
     loadUser();
   }, []);
 
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const data = await fetchCategories(userId);
+      setCategories(data);
+    } catch (error) {
+      console.log("Category Load Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderCategory = ({ item }) => (
     <TouchableOpacity style={styles.categoryCard}>
-      <Image source={item.image} style={styles.categoryImage} />
+      <Image
+        source={
+          item.image
+            ? { uri: item.image }
+            : require("../../assets/restaurant.png")
+        }
+        style={styles.categoryImage}
+      />
       <Text style={styles.categoryText}>{item.name}</Text>
     </TouchableOpacity>
   );
 
-  // Filter categories based on search
   const filteredCategories = categories.filter((cat) =>
-    cat.name.toLowerCase().includes(searchText.toLowerCase())
-  );
+  (cat?.name || "")
+    .toLowerCase()
+    .includes(searchText.toLowerCase())
+);
+
 
   return (
     <View style={styles.container}>
-      {/* Reusable Header */}
-      <AppHeader user={user} navigation={navigation} onMenuPress={() => {}} />
+      <AppHeader user={user} navigation={navigation} />
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
           placeholder="Search categories..."
+          placeholderTextColor="#888"
           value={searchText}
           onChangeText={setSearchText}
         />
       </View>
 
-      {/* Categories Grid */}
-      <FlatList
-        data={filteredCategories}
-        renderItem={renderCategory}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.grid}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color="#000" style={{ marginTop: 30 }} />
+      ) : (
+        <FlatList
+          data={filteredCategories}
+          renderItem={renderCategory}
+          numColumns={2}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.grid}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  searchContainer: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  searchContainer: { padding: 15 },
   searchInput: {
     height: 45,
     backgroundColor: "#f0f0f0",
@@ -93,20 +108,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 16,
   },
-  grid: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
-  },
+  grid: { paddingBottom: 20, paddingHorizontal: 10 },
   categoryCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
     margin: 10,
     width: ITEM_WIDTH,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
     elevation: 4,
     padding: 10,
   },
@@ -114,13 +122,10 @@ const styles = StyleSheet.create({
     width: ITEM_WIDTH - 20,
     height: ITEM_WIDTH - 20,
     borderRadius: 10,
-    resizeMode: "cover",
   },
   categoryText: {
     marginTop: 8,
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
-    textAlign: "center",
   },
 });
