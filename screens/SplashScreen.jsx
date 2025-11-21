@@ -168,8 +168,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   topImage: {
-    width: 280,
-    height: 200,
+    width: 250,
+    height: 180,
     marginBottom: -20,
   },
   logo: {

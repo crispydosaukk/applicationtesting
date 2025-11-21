@@ -16,18 +16,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { logoutUser } from "../utils/authHelpers";
 import AppHeader from "./AppHeader";
-import RestaurantImg from "../assets/restaurant.png"; 
+import RestaurantImg from "../assets/restaurant.png";
 import { fetchRestaurants } from "../services/restaurantService";
+import BottomBar from "./BottomBar";
 
 const { width } = Dimensions.get("window");
 
 function RestaurantCard({ name, address, photo, onPress }) {
   return (
     <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.8}>
-      <Image
-        source={photo ? { uri: photo } : RestaurantImg}
-        style={cardStyles.image}
-      />
+      <Image source={photo ? { uri: photo } : RestaurantImg} style={cardStyles.image} />
 
       <View style={cardStyles.info}>
         <Text style={cardStyles.name} numberOfLines={1}>{name}</Text>
@@ -109,8 +107,8 @@ export default function Resturent({ navigation }) {
     <View style={styles.container}>
       <AppHeader user={user} navigation={navigation} onMenuPress={() => setMenuVisible(true)} />
 
-      {/* Search Bar */}
-      <View style={styles.searchWrapper}>
+      {/* Sticky Search Bar */}
+      <View style={styles.stickySearch}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={20} color="#777" />
           <TextInput
@@ -123,50 +121,53 @@ export default function Resturent({ navigation }) {
         </View>
       </View>
 
-      {/* Slider */}
-      <View style={{ marginTop: 10 }}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          ref={scrollRef}
-          onScroll={e =>
-            setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))
-          }
-          scrollEventThrottle={16}
-        >
-          {sliderImages.map((img, i) => (
-            <View key={i} style={{ width }}>
-              <Image source={img} style={styles.sliderImage} />
-            </View>
-          ))}
-        </ScrollView>
+      {/* Scrollable Content */}
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        {/* Slider */}
+        <View style={{ marginTop: 15 }}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            ref={scrollRef}
+            onScroll={e =>
+              setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))
+            }
+            scrollEventThrottle={16}
+          >
+            {sliderImages.map((img, i) => (
+              <View key={i} style={{ width }}>
+                <Image source={img} style={styles.sliderImage} />
+              </View>
+            ))}
+          </ScrollView>
 
-        {/* Slider dots */}
-        <View style={styles.dotContainer}>
-          {sliderImages.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                { width: activeIndex === i ? 22 : 8, opacity: activeIndex === i ? 1 : 0.4 },
-              ]}
+          {/* Slider dots */}
+          <View style={styles.dotContainer}>
+            {sliderImages.map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.dot,
+                  { width: activeIndex === i ? 22 : 8, opacity: activeIndex === i ? 1 : 0.4 },
+                ]}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Restaurants List */}
+        <View style={{ marginTop: 10 }}>
+          {filteredRestaurants.map((r, index) => (
+            <RestaurantCard
+              key={index}
+              name={r.name}
+              address={r.address}
+              photo={r.photo}
+              onPress={() => navigation.navigate("Categories", { userId: r.userId })}
             />
           ))}
         </View>
-      </View>
-
-      {/* Restaurants List */}
-      <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 10 }}>
-        {filteredRestaurants.map((r, index) => (
-          <RestaurantCard
-            key={index}
-            name={r.name}
-            address={r.address}
-            photo={r.photo}
-            onPress={() => navigation.navigate("Categories", { userId: r.userId })}
-          />
-        ))}
       </ScrollView>
 
       {/* Menu Modal */}
@@ -199,6 +200,7 @@ export default function Resturent({ navigation }) {
           </View>
         </View>
       </Modal>
+      <BottomBar navigation={navigation} />
     </View>
   );
 }
@@ -206,7 +208,13 @@ export default function Resturent({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fafafa" },
 
-  searchWrapper: { paddingHorizontal: 15, marginTop: 12 },
+  stickySearch: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: "#fafafa",
+    zIndex: 10,
+  },
+
   searchBox: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -277,11 +285,7 @@ const cardStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
 
-  image: {
-    width: 90,
-    height: 90,
-    borderRadius: 10,
-  },
+  image: { width: 90, height: 90, borderRadius: 10 },
 
   info: { flex: 1, marginLeft: 12 },
 

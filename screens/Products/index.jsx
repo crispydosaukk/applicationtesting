@@ -1,174 +1,220 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  Image,
-  TouchableOpacity,
   FlatList,
+  Image,
+  ActivityIndicator,
   Dimensions,
+  TextInput,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fetchProducts } from "../../services/productService";
+import AppHeader from "../AppHeader";
+import Ionicons from "react-native-vector-icons/Ionicons";
+import BottomBar from "../BottomBar";
 
 const { width } = Dimensions.get("window");
+const CARD_WIDTH = (width - 40) / 2;
 
 export default function Products({ route, navigation }) {
-  const { categoryId } = route.params; // SAFE – navigation payload correct!
+  const { userId, categoryId } = route.params;
 
-  const products = [
-    { id: "1", name: "Masala Dosa", price: 80, image: require("../../assets/topDosa.png") },
-    { id: "2", name: "Plain Dosa", price: 60, image: require("../../assets/topDosa.png") },
-    { id: "3", name: "Onion Dosa", price: 90, image: require("../../assets/topDosa.png") },
-    { id: "4", name: "Set Dosa", price: 70, image: require("../../assets/topDosa.png") },
-    { id: "5", name: "Rava Dosa", price: 85, image: require("../../assets/topDosa.png") },
-  ];
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchText, setSearchText] = useState("");
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const [cart, setCart] = useState({});
+  useEffect(() => {
+    loadUser();
+    loadProducts();
+  }, []);
 
-  const increaseQty = (id) => {
-    setCart((prev) => ({
-      ...prev,
-      [id]: (prev[id] || 0) + 1,
-    }));
+  useEffect(() => {
+    filterProducts(searchText);
+  }, [searchText]);
+
+  const loadUser = async () => {
+    const storedUser = await AsyncStorage.getItem("user");
+    if (storedUser) setUser(JSON.parse(storedUser));
   };
 
-  const decreaseQty = (id) => {
-    setCart((prev) => ({
-      ...prev,
-      [id]: prev[id] > 1 ? prev[id] - 1 : 0,
-    }));
+  const loadProducts = async () => {
+    try {
+      const data = await fetchProducts(userId, categoryId);
+      setProducts(data);
+      setFilteredProducts(data);
+    } catch (error) {
+      console.log("Product Load Error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const renderProduct = ({ item }) => {
-    const qty = cart[item.id] || 0;
+  const filterProducts = (text) => {
+    setSearchText(text);
 
-    return (
-      <View style={styles.card}>
-        <Image source={item.image} style={styles.productImage} />
+    if (!text.trim()) {
+      setFilteredProducts(products);
+      return;
+    }
 
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.price}>₹ {item.price}</Text>
+    const query = text.toLowerCase();
 
-        {qty === 0 ? (
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => increaseQty(item.id)}
-          >
-            <Text style={styles.addText}>ADD</Text>
-          </TouchableOpacity>
+    const filtered = products.filter((item) =>
+      item.name.toLowerCase().includes(query)
+    );
+
+    setFilteredProducts(filtered);
+  };
+
+  const renderItem = ({ item }) => (
+    <View style={styles.card}>
+      <Image
+        source={
+          item.image ? { uri: item.image } : require("../../assets/restaurant.png")
+        }
+        style={styles.image}
+      />
+
+      <Text style={styles.name} numberOfLines={1}>
+        {item.name}
+      </Text>
+
+      <Text style={styles.desc} numberOfLines={2}>
+        {item.description}
+      </Text>
+
+      <View style={styles.priceRow}>
+        {item.discount_price ? (
+          <>
+            <Text style={styles.beforePrice}>₹{item.price}</Text>
+            <Text style={styles.discountPrice}>₹{item.discount_price}</Text>
+          </>
         ) : (
-          <View style={styles.counterContainer}>
-            <TouchableOpacity style={styles.counterBtn} onPress={() => decreaseQty(item.id)}>
-              <Text style={styles.counterText}>-</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.qtyText}>{qty}</Text>
-
-            <TouchableOpacity style={styles.counterBtn} onPress={() => increaseQty(item.id)}>
-              <Text style={styles.counterText}>+</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.normalPrice}>₹{item.price}</Text>
         )}
       </View>
-    );
-  };
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../../assets/topDosa.png")}
-        style={styles.topImage}
-      />
+      <AppHeader user={user} navigation={navigation} />
+      <View style={styles.searchWrapper}>
+        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
 
-      <Text style={styles.title}>Popular Items</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search products..."
+          placeholderTextColor="#888"
+          value={searchText}
+          onChangeText={setSearchText}
+        />
+      </View>
 
-      <FlatList
-        data={products}
-        renderItem={renderProduct}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 50 }}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color="#000" style={{ marginTop: 20 }} />
+      ) : (
+        <FlatList
+          data={filteredProducts}
+          renderItem={renderItem}
+          numColumns={2}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={{ paddingBottom: 50 }}
+        />
+      )}
+      <BottomBar navigation={navigation} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#fafafa" },
 
-  topImage: {
-    width: width,
-    height: 180,
-    resizeMode: "cover",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginTop: 15,
-    marginLeft: 15,
-    color: "#222",
-  },
-
-  card: {
-    backgroundColor: "#fff",
-    elevation: 3,
-    borderRadius: 14,
-    padding: 12,
-    marginHorizontal: 15,
-    marginTop: 12,
-  },
-
-  productImage: {
-    width: "100%",
-    height: 130,
-    borderRadius: 12,
-  },
-
-  name: {
+  searchWrapper: {
     marginTop: 10,
-    fontSize: 17,
-    fontWeight: "600",
+    marginHorizontal: 15,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    height: 50,
+  },
+
+  searchIcon: {
+    marginRight: 8,
+    opacity: 0.6,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
     color: "#333",
   },
 
-  price: {
+  card: {
+    width: CARD_WIDTH,
+    backgroundColor: "#fff",
+    margin: 10,
+    borderRadius: 14,
+    padding: 10,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+
+  image: {
+    width: "100%",
+    height: 130,
+    borderRadius: 12,
+    resizeMode: "cover",
+  },
+
+  name: {
+    marginTop: 8,
     fontSize: 16,
-    color: "#555",
+    fontWeight: "700",
+    color: "#222",
+  },
+
+  desc: {
+    fontSize: 13,
+    color: "#666",
     marginTop: 4,
   },
 
-  addBtn: {
-    marginTop: 12,
-    backgroundColor: "#ff6b00",
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-
-  addText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-
-  counterContainer: {
-    marginTop: 12,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ff6b00",
+  priceRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 10,
-    height: 40,
+    marginTop: 8,
   },
 
-  counterBtn: { paddingHorizontal: 10 },
+  beforePrice: {
+    fontSize: 14,
+    color: "#999",
+    textDecorationLine: "line-through",
+    marginRight: 6,
+  },
 
-  counterText: { fontSize: 20, fontWeight: "700", color: "#ff6b00" },
+  discountPrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "green",
+  },
 
-  qtyText: { fontSize: 17, fontWeight: "600", color: "#333" },
+  normalPrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000",
+  },
 });

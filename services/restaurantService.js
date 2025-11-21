@@ -16,7 +16,7 @@ export const fetchRestaurants = async () => {
           : null,
       }));
     }
-
+``
     return [];
   } catch (error) {
     console.error("Restaurant API Error:", error.response?.data || error.message);
