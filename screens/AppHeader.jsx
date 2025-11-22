@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
-export default function AppHeader({ user, onMenuPress, navigation }) {
+export default function AppHeader({ user, onMenuPress, navigation, onCartPress }) {
   return (
     <LinearGradient
       colors={["#ccf5d3", "#ffffff"]}
@@ -19,7 +19,12 @@ export default function AppHeader({ user, onMenuPress, navigation }) {
           if (!user) navigation.replace("Login");
         }}
       >
-        <Ionicons name="person-circle-outline" size={40} color="#333" style={{ marginRight: 10 }} />
+        <Ionicons
+          name="person-circle-outline"
+          size={40}
+          color="#333"
+          style={{ marginRight: 10 }}
+        />
         <View>
           <Text style={styles.helloText}>
             Hello {user ? user.full_name.split(" ")[0] : "Guest"} 👋
@@ -34,8 +39,8 @@ export default function AppHeader({ user, onMenuPress, navigation }) {
         <TouchableOpacity style={styles.iconButton}>
           <Ionicons name="notifications-outline" size={28} color="#333" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons name="wallet-outline" size={28} color="#333" />
+        <TouchableOpacity style={styles.iconButton} onPress={onCartPress}>
+          <Ionicons name="cart-outline" size={28} color="#333" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconButton} onPress={onMenuPress}>
           <Ionicons name="menu-outline" size={32} color="#333" />
@@ -50,7 +55,6 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingVertical: 15,
     paddingHorizontal: 5,
-    borderRadius: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -61,4 +65,3 @@ const styles = StyleSheet.create({
   rightIcons: { flexDirection: "row", alignItems: "center" },
   iconButton: { marginLeft: 12 },
 });
-

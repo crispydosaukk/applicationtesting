@@ -12,8 +12,6 @@ export const fetchRestaurants = async () => {
         name: r.name,
         address: r.address,
         photo: r.photo
-          ? `${IMAGE_BASE_URL}/uploads/${r.photo}`
-          : null,
       }));
     }
 ``

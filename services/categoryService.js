@@ -1,4 +1,4 @@
-import api from "../config/api";
+import api, { IMAGE_BASE_URL } from "../config/api";
 
 export const fetchCategories = async (userId) => {
   try {
@@ -7,17 +7,17 @@ export const fetchCategories = async (userId) => {
     if (res.data.status === 1) {
       return res.data.data.map(cat => ({
         id: cat.id,
-        name: cat.name || cat.category_name || "",
         userId: cat.user_id,
-        image: cat.category_image  // FIXED
-          ? `http://192.168.1.7:4000/uploads/${cat.category_image}`
+        name: cat.name,
+        image: cat.image
+          ? `${IMAGE_BASE_URL}/uploads/${cat.image}`   // SAME AS RESTAURANT
           : null,
       }));
     }
 
     return [];
   } catch (error) {
-    console.log("Category Service Error:", error.response?.data || error);
+    console.error("Category API Error:", error.response?.data || error);
     return [];
   }
 };
