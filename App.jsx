@@ -11,7 +11,7 @@ import SignupScreen from './screens/SignupScreen.jsx';
 import NetworkErrorScreen from "./screens/NetworkErrorScreen";
 import Categories from './screens/Categories/index.jsx';
 import Products from './screens/Products/index.jsx';
-
+import CartSummary from './screens/CartSummary.jsx';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -36,9 +36,8 @@ export default function App() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Resturent" component={Resturent} />
         <Stack.Screen name="Categories" component={Categories} />
-
-        {/* ⭐ ADD PRODUCTS SCREEN BELOW CATEGORIES */}
         <Stack.Screen name="Products" component={Products} />
+        <Stack.Screen name="CartSummary" component={CartSummary} />
 
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
