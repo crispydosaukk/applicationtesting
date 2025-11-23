@@ -10,8 +10,6 @@ export const fetchCategories = async (userId) => {
         userId: cat.user_id,
         name: cat.name,
         image: cat.image
-          ? `${IMAGE_BASE_URL}/uploads/${cat.image}`   // SAME AS RESTAURANT
-          : null,
       }));
     }
 
