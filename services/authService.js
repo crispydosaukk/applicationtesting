@@ -10,12 +10,16 @@ export const loginUser = async (email, password) => {
     // Save token for future requests
     await AsyncStorage.setItem("token", token);
 
+    // Save user info for dynamic customer_id
+    await AsyncStorage.setItem("user", JSON.stringify(user)); // ✅ crucial
+
     return { user, token };
   } catch (error) {
     console.log("Login error:", error.response?.data || error.message);
     throw new Error(error.response?.data?.message || "Login failed");
   }
 };
+
 
 export const registerUser = async (data) => {
   try {

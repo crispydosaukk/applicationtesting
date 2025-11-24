@@ -39,9 +39,10 @@ export default function AppHeader({ user, onMenuPress, navigation, onCartPress }
         <TouchableOpacity style={styles.iconButton}>
           <Ionicons name="notifications-outline" size={28} color="#333" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={onCartPress}>
+        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate("CartSummary")}>
           <Ionicons name="cart-outline" size={28} color="#333" />
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.iconButton} onPress={onMenuPress}>
           <Ionicons name="menu-outline" size={32} color="#333" />
         </TouchableOpacity>

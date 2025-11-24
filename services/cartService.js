@@ -1,34 +1,66 @@
+// services/cartService.js
 import api from "../config/api";
 
-// Add to cart
+// Add or update cart item (quantity change or notes update)
 export const addToCart = async (cartData) => {
   try {
+    /**
+     cartData must include:
+     - customer_id
+     - user_id
+     - product_id
+     - product_name
+     - product_price
+     - product_tax
+     - product_quantity  (delta: +1, -1, or 0)
+     - textfield (notes)
+    */
+
     const res = await api.post("/cart/add", cartData);
-    return res.data;
+
+    if (res && res.data) {
+      return res.data;
+    }
+
+    return { status: 0, message: "Unknown API error" };
   } catch (err) {
-    console.error("Add to Cart Error:", err.response?.data || err);
+    console.log("Add to Cart Error:", err.response?.data || err.message || err);
     return { status: 0, message: "API Error" };
   }
 };
 
-// Get cart items for a customer
+// Get full cart for a user
 export const getCart = async (customerId) => {
   try {
     const res = await api.get(`/cart?customer_id=${customerId}`);
-    return res.data;
+
+    if (res && res.data) {
+      return res.data;
+    }
+
+    return { status: 0, data: [] };
   } catch (err) {
-    console.error("Get Cart Error:", err.response?.data || err);
+    console.log("Get Cart Error:", err.response?.data || err.message || err);
     return { status: 0, data: [] };
   }
 };
 
-// Remove cart item
+// Remove item from cart
 export const removeFromCart = async (cartId) => {
   try {
-    const res = await api.post("/cart/remove", { cart_id: cartId });
-    return res.data;
+    /**
+     backend accepts:
+     { id }, or { cart_id }, or { cartId }
+    */
+    const res = await api.post("/cart/remove", { id: cartId });
+
+    if (res && res.data) {
+      return res.data;
+    }
+
+    return { status: 0, message: "Unknown API error" };
   } catch (err) {
-    console.error("Remove Cart Error:", err.response?.data || err);
+    console.log("Remove Cart Error:", err.response?.data || err.message || err);
     return { status: 0, message: "API Error" };
   }
 };
