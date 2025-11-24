@@ -12,24 +12,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppHeader from "./AppHeader";
 import BottomBar from "./BottomBar";
 import { logoutUser } from "../utils/authHelpers";
-import { getCart } from "../services/cartService";
+import { getCart, addToCart } from "../services/cartService";
 
-export default function CartSummary({ route, navigation }) {
-  const routeCollectionType = route.params?.collectionType ?? null;
-  const routeKerbsideDetails =
-    route.params?.kerbsideDetails ?? { carColor: "", carRegNumber: "", carOwner: "" };
-  const routeAllergyNotes = route.params?.allergyNotes ?? "";
-
+export default function CartSummary({ navigation }) {
   const [user, setUser] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
-
   const [cartItems, setCartItems] = useState({});
   const [products, setProducts] = useState([]);
-  const [collectionType, setCollectionType] = useState(routeCollectionType);
-  const [kerbsideDetails, setKerbsideDetails] = useState(routeKerbsideDetails);
-  const [allergyNotes, setAllergyNotes] = useState(routeAllergyNotes);
-
-  const LOCAL_CART_KEY = "local_cart";
 
   // Load stored user
   useEffect(() => {
@@ -49,51 +38,20 @@ export default function CartSummary({ route, navigation }) {
     try {
       const storedUser = await AsyncStorage.getItem("user");
       const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-      const customerId = route.params?.customerId ?? parsedUser?.id ?? parsedUser?.customer_id;
-
-      if (!customerId) {
-        loadLocalCacheFallback();
-        return;
-      }
+      const customerId = parsedUser?.id ?? parsedUser?.customer_id;
+      if (!customerId) return;
 
       const res = await getCart(customerId);
       if (res && res.status === 1 && Array.isArray(res.data)) {
-        // Server returns full product info
         setProducts(res.data);
-
-        // Create cartItems map
         const cartMap = {};
         res.data.forEach((item) => {
           cartMap[String(item.product_id)] = item.product_quantity || 0;
         });
         setCartItems(cartMap);
-
-        // Save to local cache
-        await AsyncStorage.setItem(
-          LOCAL_CART_KEY,
-          JSON.stringify({ cartItems: cartMap, products: res.data })
-        );
-      } else {
-        loadLocalCacheFallback();
       }
     } catch (err) {
       console.log("refreshCartFromServer error:", err);
-      loadLocalCacheFallback();
-    }
-  };
-
-  const loadLocalCacheFallback = async () => {
-    try {
-      const cached = await AsyncStorage.getItem(LOCAL_CART_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setCartItems(parsed.cartItems || {});
-        setProducts(parsed.products || []);
-      }
-    } catch (err) {
-      console.log("loadLocalCacheFallback error:", err);
-      setCartItems({});
-      setProducts([]);
     }
   };
 
@@ -106,11 +64,44 @@ export default function CartSummary({ route, navigation }) {
     }, 0)
     .toFixed(2);
 
+  const updateQuantity = async (product, delta) => {
+    const newQty = (cartItems[product.product_id] || 0) + delta;
+    if (newQty < 0) return;
+
+    try {
+      const storedUser = await AsyncStorage.getItem("user");
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      const customerId = parsedUser?.id ?? parsedUser?.customer_id;
+      if (!customerId) return;
+
+      await addToCart({
+        customer_id: customerId,
+        user_id: parsedUser.id,
+        product_id: product.product_id,
+        product_name: product.product_name,
+        product_price: product.product_price,
+        product_quantity: delta, // send delta to update
+        textfield: product.textfield || "",
+      });
+
+      const updatedCartItems = { ...cartItems, [product.product_id]: newQty };
+      setCartItems(updatedCartItems);
+
+      const updatedProducts = products.map((p) =>
+        p.product_id === product.product_id ? { ...p, product_quantity: newQty } : p
+      );
+      setProducts(updatedProducts);
+    } catch (err) {
+      console.log("updateQuantity error:", err);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <AppHeader
         user={user}
         navigation={navigation}
+        cartItems={cartItems}
         onMenuPress={() => setMenuVisible(true)}
       />
 
@@ -133,9 +124,25 @@ export default function CartSummary({ route, navigation }) {
               <View style={styles.cardContent}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.productName}>{item.product_name}</Text>
-                  <Text style={styles.productNote}>{item.textfield ?? ""}</Text>
+                  {item.textfield ? (
+                    <Text style={styles.productNote}>{item.textfield}</Text>
+                  ) : null}
                   <View style={styles.qtyPriceRow}>
-                    <Text style={styles.qtyText}>Qty: {qty}</Text>
+                    <View style={styles.qtyControls}>
+                      <TouchableOpacity
+                        style={[styles.qtyBtn, { backgroundColor: "#ff6f00" }]}
+                        onPress={() => updateQuantity(item, -1)}
+                      >
+                        <Text style={styles.qtyBtnText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.qtyText}>{qty}</Text>
+                      <TouchableOpacity
+                        style={[styles.qtyBtn, { backgroundColor: "#28a745" }]}
+                        onPress={() => updateQuantity(item, 1)}
+                      >
+                        <Text style={styles.qtyBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
                     <Text style={styles.priceText}>£{price.toFixed(2)}</Text>
                   </View>
                 </View>
@@ -145,55 +152,16 @@ export default function CartSummary({ route, navigation }) {
           );
         }}
         ListFooterComponent={
-          <View style={{ marginTop: 20, marginBottom: 100 }}>
-            <View style={styles.divider} />
-
-            {/* Collection Type */}
-            <Text style={styles.subHeading}>Collection Type</Text>
-            <View style={styles.collectionCard}>
-              <Text style={styles.collectionText}>
-                {collectionType === "kerbside" ? "Kerbside Pickup" : "In Store Pickup"}
-              </Text>
-              {collectionType === "kerbside" && (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.collectionText}>
-                    Car Color: {kerbsideDetails.carColor}
-                  </Text>
-                  <Text style={styles.collectionText}>
-                    Reg No: {kerbsideDetails.carRegNumber}
-                  </Text>
-                  <Text style={styles.collectionText}>
-                    Owner: {kerbsideDetails.carOwner}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Allergy Notes */}
-            {allergyNotes ? (
-              <View style={[styles.collectionCard, { marginTop: 12 }]}>
-                <Text style={styles.subHeading}>Allergy / Dietary Notes</Text>
-                <Text style={styles.collectionText}>{allergyNotes}</Text>
-              </View>
-            ) : null}
-
-            {/* Grand Total */}
+          <View style={{ marginTop: 20, marginBottom: 120 }}>
             <View style={styles.grandTotalContainer}>
               <Text style={styles.grandTotalText}>Grand Total</Text>
               <Text style={styles.grandTotalAmount}>£{grandTotal}</Text>
             </View>
 
-            {/* Checkout Button */}
             <TouchableOpacity
               style={styles.checkoutButton}
               onPress={() =>
-                navigation.navigate("Checkout", {
-                  cartItems,
-                  products,
-                  collectionType,
-                  kerbsideDetails,
-                  allergyNotes,
-                })
+                navigation.navigate("Checkout", { cartItems, products })
               }
             >
               <Text style={styles.checkoutText}>Proceed to Checkout</Text>
@@ -203,11 +171,9 @@ export default function CartSummary({ route, navigation }) {
         contentContainerStyle={{ padding: 16 }}
       />
 
-      {/* Menu Modal */}
       <Modal transparent visible={menuVisible} animationType="fade">
         <View style={{ flex: 1 }}>
           <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
-
           <View style={styles.menuBox}>
             {user ? (
               <TouchableOpacity
@@ -241,62 +207,58 @@ export default function CartSummary({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f8f8" },
-  heading: { fontSize: 24, fontWeight: "700", color: "#222", marginVertical: 12 },
-  subHeading: { fontSize: 16, fontWeight: "600", color: "#333" },
+  heading: { fontSize: 26, fontWeight: "800", color: "#222", marginVertical: 12 },
   divider: { height: 1, backgroundColor: "#e0e0e0", marginVertical: 12 },
 
   card: {
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginVertical: 8,
     shadowColor: "#000",
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   cardContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  productName: { fontSize: 16, fontWeight: "700", color: "#222" },
-  productNote: { fontSize: 14, color: "#666", marginTop: 4 },
-  qtyPriceRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
-  qtyText: { fontSize: 14, fontWeight: "600", color: "#555" },
-  priceText: { fontSize: 14, fontWeight: "600", color: "#28a745" },
-  totalText: { fontSize: 16, fontWeight: "700", color: "#000" },
-
-  collectionCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-    marginTop: 8,
+  productName: { fontSize: 18, fontWeight: "700", color: "#222" },
+  productNote: { fontSize: 14, color: "#666", marginTop: 6 },
+  qtyPriceRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
+  qtyControls: { flexDirection: "row", alignItems: "center" },
+  qtyBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 8,
   },
-  collectionText: { fontSize: 14, color: "#555", marginTop: 2 },
+  qtyBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  qtyText: { fontSize: 16, fontWeight: "700", color: "#222" },
+  priceText: { fontSize: 16, fontWeight: "600", color: "#28a745" },
+  totalText: { fontSize: 16, fontWeight: "700", color: "#000" },
 
   grandTotalContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 20,
-    padding: 16,
+    padding: 18,
     backgroundColor: "#fff",
-    borderRadius: 12,
-    elevation: 3,
+    borderRadius: 16,
+    elevation: 4,
   },
-  grandTotalText: { fontSize: 16, fontWeight: "700", color: "#222" },
-  grandTotalAmount: { fontSize: 18, fontWeight: "700", color: "#28a745" },
+  grandTotalText: { fontSize: 18, fontWeight: "700", color: "#222" },
+  grandTotalAmount: { fontSize: 20, fontWeight: "800", color: "#28a745" },
 
   checkoutButton: {
     backgroundColor: "#ff6f00",
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginTop: 20,
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginTop: 24,
     alignItems: "center",
   },
-  checkoutText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  checkoutText: { color: "#fff", fontSize: 18, fontWeight: "700" },
 
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)" },
 
@@ -304,7 +266,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 65,
     right: 15,
-    width: 160,
+    width: 180,
     backgroundColor: "#fff",
     borderRadius: 14,
     paddingVertical: 12,
@@ -314,7 +276,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
   },
-
   menuBtn: { paddingVertical: 12, paddingHorizontal: 18 },
   menuText: { fontSize: 16, color: "#333", fontWeight: "600" },
 });
