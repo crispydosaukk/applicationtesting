@@ -35,12 +35,6 @@ export default function Products({ route, navigation }) {
   const [popupVisible, setPopupVisible] = useState(false);
   const [noteInput, setNoteInput] = useState("");
 
-  const [collectionType, setCollectionType] = useState(null);
-  const [allergyNotes, setAllergyNotes] = useState("");
-  const [carColor, setCarColor] = useState("");
-  const [carRegNumber, setCarRegNumber] = useState("");
-  const [carOwner, setCarOwner] = useState("");
-
   // Load user
   useEffect(() => {
     const loadUser = async () => {
@@ -57,6 +51,14 @@ export default function Products({ route, navigation }) {
         const data = await fetchProducts(userId, categoryId);
         setProducts(data);
         setFilteredProducts(data);
+
+        // Initialize cartItems if already in cart (from local storage)
+        const storedCart = await AsyncStorage.getItem("cart");
+        if (storedCart) {
+          const parsedCart = JSON.parse(storedCart);
+          const cartForThisUser = parsedCart[userId] || {};
+          setCartItems(cartForThisUser);
+        }
       } catch (err) {
         console.log("Product Load Error:", err);
       } finally {
@@ -66,6 +68,7 @@ export default function Products({ route, navigation }) {
     loadProducts();
   }, []);
 
+  // Filter products by search text
   useEffect(() => {
     if (!searchText.trim()) setFilteredProducts(products);
     else {
@@ -103,19 +106,17 @@ export default function Products({ route, navigation }) {
       alert("Please add at least one product.");
       return;
     }
-    const firstProductId = selectedIds[0];
     setPopupIndex(0);
-    setNoteInput(notes[firstProductId] || "");
+    setNoteInput(notes[selectedIds[0]] || "");
     setPopupVisible(true);
   };
 
-  // Handle Next in popup: save each product to DB
+  // Handle Next in popup
   const handleNextPopup = async () => {
     const selectedIds = Object.keys(cartItems);
     const currentProductId = selectedIds[popupIndex];
-    const currentQty = cartItems[currentProductId] || 0;
 
-    // Save current note locally
+    // Save current note
     setNotes((prev) => ({
       ...prev,
       [currentProductId]: noteInput,
@@ -131,33 +132,38 @@ export default function Products({ route, navigation }) {
           product_name: currentProduct.name,
           product_price: currentProduct.price,
           product_tax: 0,
-          product_quantity: currentQty,
+          product_quantity: cartItems[currentProductId],
           textfield: noteInput || "",
         });
-        console.log("Saved to DB:", currentProduct.name);
       } catch (err) {
         console.log("Error saving to cart:", err);
       }
     }
 
-    const nextIndex = popupIndex + 1;
-    if (nextIndex >= selectedIds.length) {
-      // All products done, navigate
+    if (popupIndex < selectedIds.length - 1) {
+      const nextIndex = popupIndex + 1;
+      setPopupIndex(nextIndex);
+      const nextProductId = selectedIds[nextIndex];
+      setNoteInput(notes[nextProductId] || "");
+    } else {
+      // All done, go to CartSummary
       setPopupVisible(false);
       navigation.navigate("CartSummary", {
         cartItems,
-        notes: { ...notes, [currentProductId]: noteInput },
-        collectionType,
-        kerbsideDetails: { carColor, carRegNumber, carOwner },
-        allergyNotes,
-        products,
+        notes,
+        user,
       });
-      return;
     }
+  };
 
-    const nextProductId = selectedIds[nextIndex];
-    setPopupIndex(nextIndex);
-    setNoteInput(notes[nextProductId] || "");
+  // Handle Back in popup
+  const handleBackPopup = () => {
+    const selectedIds = Object.keys(cartItems);
+    if (popupIndex === 0) return;
+    const prevIndex = popupIndex - 1;
+    setPopupIndex(prevIndex);
+    const prevProductId = selectedIds[prevIndex];
+    setNoteInput(notes[prevProductId] || "");
   };
 
   // Render each product
@@ -250,9 +256,16 @@ export default function Products({ route, navigation }) {
                   value={noteInput}
                   onChangeText={setNoteInput}
                 />
-                <TouchableOpacity style={styles.popupNextButton} onPress={handleNextPopup}>
-                  <Text style={styles.popupNextText}>Next</Text>
-                </TouchableOpacity>
+                <View style={styles.popupNavRow}>
+                  {popupIndex > 0 && (
+                    <TouchableOpacity style={styles.popupNavButton} onPress={handleBackPopup}>
+                      <Text style={styles.popupNavText}>Back</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity style={styles.popupNavButton} onPress={handleNextPopup}>
+                    <Text style={styles.popupNavText}>{popupIndex === selectedProductIds.length - 1 ? "Finish" : "Next"}</Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
@@ -261,7 +274,6 @@ export default function Products({ route, navigation }) {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
@@ -360,15 +372,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  popupNextButton: {
+  popupNavRow: { flexDirection: "row", justifyContent: "space-between" },
+  popupNavButton: {
     backgroundColor: "#28a745",
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 10,
   },
-  popupNextText: {
-    textAlign: "center",
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
+  popupNavText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

@@ -1,9 +1,10 @@
-import api, { IMAGE_BASE_URL } from "../config/api";
+// restaurantService.js
+import api from "../config/api";
 
+// Fetch all restaurants
 export const fetchRestaurants = async () => {
   try {
     const res = await api.get("/restaurants");
-
     if (res.data.status === 1) {
       return res.data.data.map(r => ({
         id: r.id,
@@ -16,6 +17,33 @@ export const fetchRestaurants = async () => {
     return [];
   } catch (error) {
     console.error("Restaurant API Error:", error.response?.data || error.message);
+    return [];
+  }
+};
+
+// Fetch single restaurant by userId
+export const fetchRestaurantDetails = async (userId) => {
+  try {
+    const res = await api.get(`/restaurant/${userId}`);
+    if (res.data.status === 1 && res.data.data.length > 0) {
+      return res.data.data[0]; // return the restaurant object
+    }
+    return null;
+  } catch (error) {
+    console.error("Restaurant Details API Error:", error.response?.data || error.message);
+    return null;
+  }
+};
+
+export const fetchRestaurantTimings = async (restaurantId) => {
+  try {
+    const res = await api.get(`/restaurant-timings/${restaurantId}`);
+    if (res.data.status === 1) {
+      return res.data.data; // array of timings
+    }
+    return [];
+  } catch (error) {
+    console.error("Fetch Timings Error:", error.response?.data || error.message);
     return [];
   }
 };
