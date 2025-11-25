@@ -12,6 +12,8 @@ import NetworkErrorScreen from "./screens/NetworkErrorScreen";
 import Categories from './screens/Categories/index.jsx';
 import Products from './screens/Products/index.jsx';
 import CartSummary from './screens/CartSummary.jsx';
+import CheckoutScreen from './screens/CheckoutScreen.jsx'; 
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -38,7 +40,7 @@ export default function App() {
         <Stack.Screen name="Categories" component={Categories} />
         <Stack.Screen name="Products" component={Products} />
         <Stack.Screen name="CartSummary" component={CartSummary} />
-
+        <Stack.Screen name="CheckoutScreen" component={CheckoutScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
       </Stack.Navigator>

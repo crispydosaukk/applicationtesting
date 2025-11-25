@@ -30,13 +30,10 @@ export default function Categories({ route = {}, navigation }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Restaurant details popup
   const [showRestaurantPopup, setShowRestaurantPopup] = useState(false);
 
-  // Parallax animation for offers
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // Horizontal offers data
   const offers = [
     { id: "o1", icon: "card-outline", title: "Earn £0.25 on every order", subtitle: "Automatic credit" },
     { id: "o2", icon: "people-outline", title: "£0.25 for referring a friend", subtitle: "Share & earn" },
@@ -103,7 +100,6 @@ export default function Categories({ route = {}, navigation }) {
     <View style={styles.container}>
       <AppHeader user={user} navigation={navigation} />
 
-      {/* OFFERS — HORIZONTAL SCROLLER with parallax */}
       <Animated.ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 30 }}
@@ -172,7 +168,6 @@ export default function Categories({ route = {}, navigation }) {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* SEARCH BAR */}
         <View style={styles.searchWrapper}>
           <Ionicons name="search" size={20} color="#999" style={{ marginLeft: 8 }} />
           <TextInput
@@ -184,7 +179,6 @@ export default function Categories({ route = {}, navigation }) {
           />
         </View>
 
-        {/* CATEGORY GRID */}
         {loading ? (
           <ActivityIndicator size="large" color="#000" style={{ marginTop: 30 }} />
         ) : (
@@ -200,7 +194,6 @@ export default function Categories({ route = {}, navigation }) {
         )}
       </Animated.ScrollView>
 
-      {/* RESTAURANT DETAILS CENTER POPUP */}
       {showRestaurantPopup && (
         <View style={[styles.centerOverlay, { zIndex: 1000 }]}>
           <View style={styles.centerPopup}>
@@ -239,7 +232,6 @@ export default function Categories({ route = {}, navigation }) {
           </View>
         </View>
       )}
-
       <BottomBar navigation={navigation} />
     </View>
   );
@@ -248,7 +240,6 @@ export default function Categories({ route = {}, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff" },
 
-  /* HORIZONTAL OFFERS */
   horizontalOffersWrap: { marginTop: 12 },
   offersScrollContent: { paddingRight: 24, alignItems: "center" },
   offerCardHorizontal: {
@@ -280,7 +271,6 @@ const styles = StyleSheet.create({
   viewDetailsBtn: { alignSelf: "center", marginTop: 12, marginBottom: 6, backgroundColor: "#fff", paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: "center" },
   viewDetailsBtnText: { color: "#071029", fontWeight: "800" },
 
-  /* CENTERED RESTAURANT POPUP */
   centerOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(4,8,15,0.6)", justifyContent: "center", alignItems: "center" },
   centerPopup: { width: "88%", borderRadius: 18, padding: 18, backgroundColor: "white" },
   centerClose: { position: "absolute", right: 12, top: -40, zIndex: 2, backgroundColor: "rgba(8, 7, 7, 0.06)", padding: 6, borderRadius: 8 },
@@ -295,7 +285,6 @@ const styles = StyleSheet.create({
   centerBtnAlt: { backgroundColor: "#fff" },
   centerBtnText: { fontWeight: "900", color: "#071029" },
 
-  /* SEARCH & GRID */
   searchWrapper: { marginTop: 14, marginHorizontal: 15, backgroundColor: "#fff", borderRadius: 12, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, elevation: 3, height: 50, marginBottom: 12 },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 16, color: "#333" },
   grid: { paddingHorizontal: 10, paddingBottom: 60 },
@@ -303,6 +292,5 @@ const styles = StyleSheet.create({
   categoryImage: { width: ITEM_WIDTH - 20, height: ITEM_WIDTH - 20, borderRadius: 12 },
   categoryText: { marginTop: 10, fontSize: 16, fontWeight: "600", color: "#333" },
 
-  /* small util */
   shadowLift: { shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
 });
