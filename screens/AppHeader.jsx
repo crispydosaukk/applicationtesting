@@ -33,7 +33,13 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
         />
         <View>
           <Text style={styles.helloText}>
-            Hello {user?.full_name ? user.full_name.split(" ")[0] : user?.restaurant_name ? user.restaurant_name : "Guest"} 👋
+            Hello{" "}
+            {user?.full_name
+              ? user.full_name.split(" ")[0]
+              : user?.restaurant_name
+              ? user.restaurant_name
+              : "Guest"}{" "}
+            👋
           </Text>
           <Text style={styles.subText}>
             {user ? "What are you carving today?" : "Please sign in"}
@@ -83,7 +89,6 @@ const styles = StyleSheet.create({
   rightIcons: { flexDirection: "row", alignItems: "center" },
   iconButton: { marginLeft: 12, position: "relative" },
 
-  // Badge style
   badge: {
     position: "absolute",
     right: -6,

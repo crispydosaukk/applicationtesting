@@ -1,24 +1,26 @@
+// Resturent.js
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Modal,
   TextInput,
   ScrollView,
   Image,
   Dimensions,
-  Pressable,
-  Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { logoutUser } from "../utils/authHelpers";
+import { useIsFocused } from "@react-navigation/native";
 import AppHeader from "./AppHeader";
+import BottomBar from "./BottomBar";
+import MenuModal from "./MenuModal";
 import RestaurantImg from "../assets/restaurant.png";
 import { fetchRestaurants } from "../services/restaurantService";
-import BottomBar from "./BottomBar";
+import { getCart } from "../services/cartService";
+import AllergyAlert from "../assets/allergy-alert.jpg";
+import Rating5 from "../assets/rating-5.png";
 
 const { width } = Dimensions.get("window");
 
@@ -28,14 +30,18 @@ function RestaurantCard({ name, address, photo, onPress }) {
       <Image source={photo ? { uri: photo } : RestaurantImg} style={cardStyles.image} />
 
       <View style={cardStyles.info}>
-        <Text style={cardStyles.name} numberOfLines={1}>{name}</Text>
+        <Text style={cardStyles.name} numberOfLines={1}>
+          {name}
+        </Text>
 
         <View style={cardStyles.vegBadge}>
           <Ionicons name="leaf-outline" size={16} color="#16a34a" />
           <Text style={cardStyles.vegText}>Pure Veg</Text>
         </View>
 
-        <Text style={cardStyles.address} numberOfLines={2}>{address}</Text>
+        <Text style={cardStyles.address} numberOfLines={2}>
+          {address}
+        </Text>
 
         <View style={cardStyles.serviceRow}>
           <View style={cardStyles.serviceChip}>
@@ -59,8 +65,10 @@ export default function Resturent({ navigation }) {
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [restaurants, setRestaurants] = useState([]);
+  const [cartItems, setCartItems] = useState({});
 
   const scrollRef = useRef(null);
+  const isFocused = useIsFocused();
 
   const sliderImages = [
     require("../assets/loyalty.png"),
@@ -86,6 +94,35 @@ export default function Resturent({ navigation }) {
     loadRestaurants();
   }, []);
 
+  // Fetch cart when screen is focused
+  useEffect(() => {
+    const fetchCart = async () => {
+      if (!user) return;
+      const customerId = user.id ?? user.customer_id;
+      if (!customerId) return;
+
+      try {
+        const res = await getCart(customerId);
+        if (res && res.status === 1 && Array.isArray(res.data)) {
+          const map = {};
+          res.data.forEach((item) => {
+            const qty = item.product_quantity || 0;
+            if (qty > 0) {
+              map[item.product_id] = (map[item.product_id] || 0) + qty;
+            }
+          });
+          setCartItems(map);
+        }
+      } catch (err) {
+        console.log("Cart fetch error (Home):", err);
+      }
+    };
+
+    if (isFocused) {
+      fetchCart();
+    }
+  }, [isFocused, user]);
+
   // Auto slider
   useEffect(() => {
     const timer = setInterval(() => {
@@ -99,13 +136,18 @@ export default function Resturent({ navigation }) {
     return () => clearInterval(timer);
   }, [activeIndex]);
 
-  const filteredRestaurants = restaurants.filter(r =>
+  const filteredRestaurants = restaurants.filter((r) =>
     r.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <View style={styles.container}>
-      <AppHeader user={user} navigation={navigation} onMenuPress={() => setMenuVisible(true)} />
+      <AppHeader
+        user={user}
+        navigation={navigation}
+        onMenuPress={() => setMenuVisible(true)}
+        cartItems={cartItems}
+      />
 
       {/* Sticky Search Bar */}
       <View style={styles.stickySearch}>
@@ -130,7 +172,7 @@ export default function Resturent({ navigation }) {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             ref={scrollRef}
-            onScroll={e =>
+            onScroll={(e) =>
               setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))
             }
             scrollEventThrottle={16}
@@ -156,7 +198,10 @@ export default function Resturent({ navigation }) {
           </View>
         </View>
 
-        {/* Restaurants List */}
+        <View style={styles.infoBannerRow}>
+          <Image source={AllergyAlert} style={styles.infoBannerImg} />
+          <Image source={Rating5} style={styles.infoBannerImg} />
+        </View>
         <View style={{ marginTop: 10 }}>
           {filteredRestaurants.map((r, index) => (
             <RestaurantCard
@@ -164,42 +209,21 @@ export default function Resturent({ navigation }) {
               name={r.name}
               address={r.address}
               photo={r.photo}
-              onPress={() => navigation.navigate("Categories", { userId: r.userId })}
+              onPress={() =>
+                navigation.navigate("Categories", { userId: r.userId })
+              }
             />
           ))}
         </View>
       </ScrollView>
 
-      {/* Menu Modal */}
-      <Modal transparent visible={menuVisible} animationType="fade">
-        <View style={{ flex: 1 }}>
-          <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
+      <MenuModal
+        visible={menuVisible}
+        setVisible={setMenuVisible}
+        user={user}
+        navigation={navigation}
+      />
 
-          <View style={styles.menuBox}>
-            {user ? (
-              <TouchableOpacity
-                style={styles.menuBtn}
-                onPress={() => {
-                  setMenuVisible(false);
-                  logoutUser(navigation);
-                }}
-              >
-                <Text style={styles.menuText}>Logout</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.menuBtn}
-                onPress={() => {
-                  setMenuVisible(false);
-                  navigation.replace("Login");
-                }}
-              >
-                <Text style={styles.menuText}>Sign In</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
       <BottomBar navigation={navigation} />
     </View>
   );
@@ -214,7 +238,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     zIndex: 10,
   },
+  infoBannerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: 15,
+    marginTop: 15,
+  },
 
+  infoBannerImg: {
+    width: (width - 45) / 2, 
+    height: 110,
+    borderRadius: 8,
+    resizeMode: "cover",
+    backgroundColor: "#eee",
+  },
+  
   searchBox: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -249,25 +287,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#444",
     marginHorizontal: 4,
   },
-
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)" },
-
-  menuBox: {
-    position: "absolute",
-    top: 65,
-    right: 15,
-    width: 160,
-    backgroundColor: "#fff",
-    borderRadius: 5,
-    paddingVertical: 12,
-    elevation: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  menuBtn: { paddingVertical: 12, paddingHorizontal: 18 },
-  menuText: { fontSize: 16, color: "#333", fontWeight: "600" },
 });
 
 const cardStyles = StyleSheet.create({

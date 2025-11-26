@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+// Products.js
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -10,13 +11,17 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  Animated,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Ionicons from "react-native-vector-icons/Ionicons";
+
 import { fetchProducts } from "../../services/productService";
 import { addToCart } from "../../services/cartService";
+
 import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import MenuModal from "../MenuModal";
 
 const { width } = Dimensions.get("window");
 
@@ -35,6 +40,37 @@ export default function Products({ route, navigation }) {
   const [popupVisible, setPopupVisible] = useState(false);
   const [noteInput, setNoteInput] = useState("");
 
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  // ⭐ Reward Banner Animation
+  const [bannerVisible, setBannerVisible] = useState(true);
+  const bannerHeight = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(bannerHeight, {
+      toValue: 70,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  }, []);
+
+  const collapseBanner = () => {
+    Animated.timing(bannerHeight, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start(() => setBannerVisible(false));
+  };
+
+  const expandBanner = () => {
+    setBannerVisible(true);
+    Animated.timing(bannerHeight, {
+      toValue: 70,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  };
+
   // Load user
   useEffect(() => {
     const loadUser = async () => {
@@ -52,7 +88,6 @@ export default function Products({ route, navigation }) {
         setProducts(data);
         setFilteredProducts(data);
 
-        // Initialize cartItems if already in cart (from local storage)
         const storedCart = await AsyncStorage.getItem("cart");
         if (storedCart) {
           const parsedCart = JSON.parse(storedCart);
@@ -66,9 +101,9 @@ export default function Products({ route, navigation }) {
       }
     };
     loadProducts();
-  }, []);
+  }, [userId, categoryId]);
 
-  // Filter products by search text
+  // Search filter
   useEffect(() => {
     if (!searchText.trim()) setFilteredProducts(products);
     else {
@@ -79,15 +114,10 @@ export default function Products({ route, navigation }) {
     }
   }, [searchText, products]);
 
-  // Increment quantity
   const increment = (id) => {
-    setCartItems((prev) => {
-      const newQty = prev[id] ? prev[id] + 1 : 1;
-      return { ...prev, [id]: newQty };
-    });
+    setCartItems((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
   };
 
-  // Decrement quantity
   const decrement = (id) => {
     setCartItems((prev) => {
       if (!prev[id]) return prev;
@@ -99,7 +129,6 @@ export default function Products({ route, navigation }) {
     });
   };
 
-  // Start checkout popup
   const startCheckout = () => {
     const selectedIds = Object.keys(cartItems);
     if (selectedIds.length === 0) {
@@ -111,16 +140,11 @@ export default function Products({ route, navigation }) {
     setPopupVisible(true);
   };
 
-  // Handle Next in popup
   const handleNextPopup = async () => {
     const selectedIds = Object.keys(cartItems);
     const currentProductId = selectedIds[popupIndex];
 
-    // Save current note
-    setNotes((prev) => ({
-      ...prev,
-      [currentProductId]: noteInput,
-    }));
+    setNotes((prev) => ({ ...prev, [currentProductId]: noteInput }));
 
     const currentProduct = products.find((p) => p.id == currentProductId);
     if (currentProduct && user) {
@@ -146,17 +170,11 @@ export default function Products({ route, navigation }) {
       const nextProductId = selectedIds[nextIndex];
       setNoteInput(notes[nextProductId] || "");
     } else {
-      // All done, go to CartSummary
       setPopupVisible(false);
-      navigation.navigate("CartSummary", {
-        cartItems,
-        notes,
-        user,
-      });
+      navigation.navigate("CartSummary", { cartItems, notes, user });
     }
   };
 
-  // Handle Back in popup
   const handleBackPopup = () => {
     const selectedIds = Object.keys(cartItems);
     if (popupIndex === 0) return;
@@ -166,13 +184,14 @@ export default function Products({ route, navigation }) {
     setNoteInput(notes[prevProductId] || "");
   };
 
-  // Render each product
   const renderItem = ({ item }) => {
     const qty = cartItems[item.id] || 0;
     return (
       <View style={styles.card}>
         <Image
-          source={item.image ? { uri: item.image } : require("../../assets/restaurant.png")}
+          source={
+            item.image ? { uri: item.image } : require("../../assets/restaurant.png")
+          }
           style={styles.image}
         />
         <View style={styles.infoContainer}>
@@ -180,13 +199,16 @@ export default function Products({ route, navigation }) {
           <Text style={styles.desc} numberOfLines={2}>{item.description}</Text>
           <Text style={styles.price}>£{item.price}</Text>
         </View>
+
         <View style={styles.counterContainer}>
           {qty > 0 ? (
             <View style={styles.counterRow}>
               <TouchableOpacity style={styles.counterButton} onPress={() => decrement(item.id)}>
                 <Text style={styles.counterText}>-</Text>
               </TouchableOpacity>
+
               <Text style={styles.quantity}>{qty}</Text>
+
               <TouchableOpacity style={styles.counterButton} onPress={() => increment(item.id)}>
                 <Text style={styles.counterText}>+</Text>
               </TouchableOpacity>
@@ -209,8 +231,29 @@ export default function Products({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <AppHeader user={user} navigation={navigation} />
+      <AppHeader
+        user={user}
+        navigation={navigation}
+        cartItems={cartItems}
+        onMenuPress={() => setMenuVisible(true)}
+      />
 
+      {/* ⭐ REWARD BANNER ANIMATED */}
+      {bannerVisible ? (
+        <Animated.View style={[styles.rewardBanner, { height: bannerHeight }]}>
+          <Text style={styles.rewardText}>🎉 Earn £0.25 on Every Order!</Text>
+
+          <TouchableOpacity onPress={collapseBanner}>
+            <Ionicons name="close-circle" size={22} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+      ) : (
+        <TouchableOpacity style={styles.rewardChip} onPress={expandBanner}>
+          <Text style={{ color: "#fff", fontWeight: "600" }}>£0.25 Reward Active</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Search Bar */}
       <View style={styles.searchWrapper}>
         <Ionicons name="search" size={20} color="#999" style={{ marginRight: 10 }} />
         <TextInput
@@ -240,6 +283,7 @@ export default function Products({ route, navigation }) {
         </View>
       )}
 
+      <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
       <BottomBar navigation={navigation} />
 
       {/* Notes Popup */}
@@ -250,20 +294,25 @@ export default function Products({ route, navigation }) {
               <>
                 <Text style={styles.popupTitle}>{currentProduct.name}</Text>
                 <Text style={styles.popupPrice}>£{currentProduct.price}</Text>
+
                 <TextInput
                   style={styles.popupInput}
                   placeholder="Add notes (optional)"
                   value={noteInput}
                   onChangeText={setNoteInput}
                 />
+
                 <View style={styles.popupNavRow}>
                   {popupIndex > 0 && (
                     <TouchableOpacity style={styles.popupNavButton} onPress={handleBackPopup}>
                       <Text style={styles.popupNavText}>Back</Text>
                     </TouchableOpacity>
                   )}
+
                   <TouchableOpacity style={styles.popupNavButton} onPress={handleNextPopup}>
-                    <Text style={styles.popupNavText}>{popupIndex === selectedProductIds.length - 1 ? "Finish" : "Next"}</Text>
+                    <Text style={styles.popupNavText}>
+                      {popupIndex === selectedProductIds.length - 1 ? "Finish" : "Next"}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -278,11 +327,34 @@ export default function Products({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
 
+  rewardBanner: {
+    width: "100%",
+    backgroundColor: "#35a650ff",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    overflow: "hidden",
+    fontWeight:800,
+  },
+
+  rewardText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+
+  rewardChip: {
+    backgroundColor: "#2ad552ff",
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    alignSelf: "center",
+    borderRadius: 5,
+    marginTop: 8,
+    fontWeight: 800,
+  },
+
   searchWrapper: {
     marginTop: 12,
     marginHorizontal: 16,
     backgroundColor: "#fff",
-    borderRadius: 15,
+    borderRadius: 5,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
@@ -296,7 +368,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginHorizontal: 16,
     marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: 5,
     padding: 12,
     elevation: 3,
   },
@@ -337,11 +409,13 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 20,
   },
+
   checkoutButton: {
     backgroundColor: "#28a745",
     paddingVertical: 14,
     borderRadius: 14,
   },
+
   checkoutText: {
     textAlign: "center",
     color: "#fff",
@@ -355,12 +429,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   popupBox: {
     width: "80%",
     backgroundColor: "#fff",
     padding: 20,
     borderRadius: 12,
   },
+
   popupTitle: { fontSize: 20, fontWeight: "700" },
   popupPrice: { fontSize: 18, color: "#28a745", marginBottom: 12 },
 
@@ -373,11 +449,13 @@ const styles = StyleSheet.create({
   },
 
   popupNavRow: { flexDirection: "row", justifyContent: "space-between" },
+
   popupNavButton: {
     backgroundColor: "#28a745",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
   },
+
   popupNavText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

@@ -1,8 +1,25 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+// CheckoutScreen.js
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useIsFocused } from "@react-navigation/native";
+
 import AppHeader from "./AppHeader";
 import BottomBar from "./BottomBar";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import MenuModal from "./MenuModal";
+
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { getCart } from "../services/cartService";
 import { createOrder } from "../services/orderService";
 
@@ -17,8 +34,21 @@ const CheckoutScreen = ({ navigation }) => {
   const [kerbsideReg, setKerbsideReg] = useState("");
   const [allergyNote, setAllergyNote] = useState("");
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
-  // Load user from AsyncStorage
+  const isFocused = useIsFocused();
+
+  const cartItemsMap = useMemo(() => {
+    const map = {};
+    cart.forEach((item) => {
+      const qty = item.product_quantity || 0;
+      if (qty > 0) {
+        map[item.product_id] = (map[item.product_id] || 0) + qty;
+      }
+    });
+    return map;
+  }, [cart]);
+
   useEffect(() => {
     const loadUser = async () => {
       const stored = await AsyncStorage.getItem("user");
@@ -27,9 +57,8 @@ const CheckoutScreen = ({ navigation }) => {
     loadUser();
   }, []);
 
-  // Fetch cart once user is loaded
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isFocused) return;
     const fetchServerCart = async () => {
       const customerId = user.id ?? user.customer_id;
       if (!customerId) return;
@@ -38,177 +67,243 @@ const CheckoutScreen = ({ navigation }) => {
       if (res && res.status === 1 && Array.isArray(res.data)) setCart(res.data);
     };
     fetchServerCart();
-  }, [user]);
+  }, [user, isFocused]);
 
   const calculateTotal = () =>
-    cart.reduce((sum, item) => {
-      const price = Number(item.discount_price ?? item.product_price);
-      return sum + price * (item.product_quantity || 0);
-    }, 0)
-    .toFixed(2);
+    cart
+      .reduce((sum, item) => {
+        const price = Number(item.discount_price ?? item.product_price);
+        return sum + price * (item.product_quantity || 0);
+      }, 0)
+      .toFixed(2);
 
   const continueDeliverySelection = () => {
-    if (!deliveryMethod) { alert("Please select Kerbside or In-store."); return; }
-    if (deliveryMethod === "kerbside" && (!kerbsideName || !kerbsideColor || !kerbsideReg)) {
-      alert("All kerbside fields are required."); return;
+    if (!deliveryMethod) {
+      alert("Please select Kerbside or In-store.");
+      return;
+    }
+    if (
+      deliveryMethod === "kerbside" &&
+      (!kerbsideName || !kerbsideColor || !kerbsideReg)
+    ) {
+      alert("All kerbside fields are required.");
+      return;
     }
     setDeliveryPopup(false);
     setAllergyPopup(true);
   };
 
   const placeOrder = async () => {
-  if (!user) return;
+    if (!user) return;
 
-  const customerId = user.customer_id || user.id; // fallback
+    const customerId = user.customer_id || user.id;
 
-  const orderData = {
-    user_id: user.id,
-    customer_id: customerId,
-    payment_mode: 0,
-    razorpay_payment_requestid: null,
-    instore: deliveryMethod === "instore" ? 1 : 0,
-    allergy_note: allergyNote,
-    car_color: kerbsideColor,
-    reg_number: kerbsideReg,
-    owner_name: kerbsideName,
-    mobile_number: user.mobile_number || null,
-    items: cart.map(item => ({
-      product_id: item.product_id,
-      product_name: item.product_name,
-      price: item.product_price,
-      discount_amount: item.discount_price ? (item.product_price - item.discount_price) : 0,
-      vat: 0,
-      quantity: item.product_quantity
-    }))
+    const orderData = {
+      user_id: user.id,
+      customer_id: customerId,
+      payment_mode: 0,
+      razorpay_payment_requestid: null,
+      instore: deliveryMethod === "instore" ? 1 : 0,
+      allergy_note: allergyNote,
+      car_color: kerbsideColor,
+      reg_number: kerbsideReg,
+      owner_name: kerbsideName,
+      mobile_number: user.mobile_number || null,
+      items: cart.map((item) => ({
+        product_id: item.product_id,
+        product_name: item.product_name,
+        price: item.product_price,
+        discount_amount: item.discount_price
+          ? item.product_price - item.discount_price
+          : 0,
+        vat: 0,
+        quantity: item.product_quantity,
+      })),
+    };
+
+    const res = await createOrder(orderData);
+
+    if (res.status === 1) {
+      setOrderPlaced(true);
+      setTimeout(() => {
+        setOrderPlaced(false);
+        navigation.navigate("Home");
+      }, 2000);
+    } else {
+      alert(res.message || "Order failed");
+    }
   };
-
-  const res = await createOrder(orderData);
-
-  if (res.status === 1) {
-    setOrderPlaced(true);
-    setTimeout(() => {
-      setOrderPlaced(false);
-      navigation.navigate("Home");
-    }, 2000);
-  } else {
-    alert(res.message || "Order failed");
-  }
-};
-
 
   return (
     <View style={styles.container}>
-      <AppHeader user={user} navigation={navigation} cartItems={cart} />
-
-      {!deliveryPopup && !allergyPopup && (
-        <View style={styles.summaryBox}>
-          <Text style={styles.sumTitle}>Order Details:</Text>
-          <Text style={styles.sumText}>Delivery Method: {deliveryMethod}</Text>
-          {deliveryMethod === "kerbside" && <>
-            <Text style={styles.sumText}>Name: {kerbsideName}</Text>
-            <Text style={styles.sumText}>Car Color: {kerbsideColor}</Text>
-            <Text style={styles.sumText}>Reg No.: {kerbsideReg}</Text>
-          </>}
-          {allergyNote && <Text style={styles.sumText}>Allergy Note: {allergyNote}</Text>}
-        </View>
-      )}
+      <AppHeader
+        user={user}
+        navigation={navigation}
+        cartItems={cartItemsMap}
+        onMenuPress={() => setMenuVisible(true)}
+      />
 
       <FlatList
         data={cart}
         keyExtractor={(item) => item.product_id.toString()}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 190 }}
+        ListHeaderComponent={
+          <View style={styles.summaryBox}>
+            <Icon name="clipboard-list-outline" size={26} color="#28a745" />
+            <Text style={styles.summaryTitle}>Order Summary</Text>
+            <Text style={styles.summarySub}>
+              Review your items before placing the order.
+            </Text>
+          </View>
+        }
         renderItem={({ item }) => (
-          <View style={styles.itemBox}>
-            <Text style={styles.itemName}>{item.product_name}</Text>
-            <Text style={styles.itemPrice}>£ {Number(item.discount_price ?? item.product_price).toFixed(2)} × {item.product_quantity}</Text>
+          <View style={styles.itemCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.itemName}>{item.product_name}</Text>
+              <Text style={styles.itemQty}>
+                {item.product_quantity} × £
+                {Number(item.discount_price ?? item.product_price).toFixed(2)}
+              </Text>
+            </View>
+            <Text style={styles.itemPrice}>
+              £
+              {(
+                Number(item.discount_price ?? item.product_price) *
+                item.product_quantity
+              ).toFixed(2)}
+            </Text>
           </View>
         )}
       />
 
-      <View style={styles.totalBox}>
-        <Text style={styles.totalText}>Total: £ {calculateTotal()}</Text>
+      {/* TOTAL + CTA */}
+      <View style={styles.bottomContainer}>
+        <View style={styles.totalRow}>
+          <Icon name="cash-multiple" size={26} color="#28a745" />
+          <Text style={styles.totalLabel}>Grand Total</Text>
+          <Text style={styles.totalAmount}>£{calculateTotal()}</Text>
+        </View>
+
+        {!deliveryPopup && !allergyPopup && (
+          <TouchableOpacity style={styles.placeOrderButton} onPress={placeOrder}>
+            <Icon name="check-circle-outline" size={24} color="#fff" />
+            <Text style={styles.placeOrderText}>Place Order</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {!deliveryPopup && !allergyPopup && (
-        <TouchableOpacity style={styles.placeOrderButton} onPress={placeOrder}>
-          <Text style={styles.placeOrderText}>Place Order</Text>
-        </TouchableOpacity>
-      )}
+      <MenuModal
+        visible={menuVisible}
+        setVisible={setMenuVisible}
+        user={user}
+        navigation={navigation}
+      />
 
       <BottomBar navigation={navigation} />
 
-      {/* Delivery Modal */}
+      {/* Delivery Popup */}
       <Modal visible={deliveryPopup} transparent animationType="fade">
         <View style={styles.popupContainer}>
           <View style={styles.popupBox}>
+            <Icon name="truck-outline" size={40} color="#28a745" style={{ alignSelf: "center" }} />
             <Text style={styles.popupTitle}>Choose Delivery Method</Text>
+
             <TouchableOpacity
-              style={[styles.methodButton, deliveryMethod === "kerbside" && styles.selectedMethod]}
+              style={[
+                styles.methodBox,
+                deliveryMethod === "kerbside" && styles.methodSelected,
+              ]}
               onPress={() => setDeliveryMethod("kerbside")}
             >
+              <Icon name="car-outline" size={24} color="#333" />
               <Text style={styles.methodText}>Kerbside Pickup</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.methodButton, deliveryMethod === "instore" && styles.selectedMethod]}
+              style={[
+                styles.methodBox,
+                deliveryMethod === "instore" && styles.methodSelected,
+              ]}
               onPress={() => setDeliveryMethod("instore")}
             >
+              <Icon name="storefront-outline" size={24} color="#333" />
               <Text style={styles.methodText}>In-store Pickup</Text>
             </TouchableOpacity>
-            {deliveryMethod === "kerbside" && <View style={styles.kerbsideFields}>
-              <TextInput style={styles.input} placeholder="Full Name" value={kerbsideName} onChangeText={setKerbsideName} />
-              <TextInput style={styles.input} placeholder="Car Color" value={kerbsideColor} onChangeText={setKerbsideColor} />
-              <TextInput style={styles.input} placeholder="Car Reg Number" value={kerbsideReg} onChangeText={setKerbsideReg} />
-            </View>}
-            <View style={{ flexDirection: "row", marginTop: 10 }}>
-              <TouchableOpacity style={styles.changeButton} onPress={() => {
-                setDeliveryMethod(null); setKerbsideName(""); setKerbsideColor(""); setKerbsideReg("");
-              }}>
-                <Text style={styles.changeText}>Change</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.continueButton} onPress={continueDeliverySelection}>
-                <Text style={styles.continueText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
+
+            {deliveryMethod === "kerbside" && (
+              <View style={styles.inputArea}>
+                <TextInput
+                  placeholder="Your Name"
+                  style={styles.input}
+                  value={kerbsideName}
+                  onChangeText={setKerbsideName}
+                />
+                <TextInput
+                  placeholder="Car Colour"
+                  style={styles.input}
+                  value={kerbsideColor}
+                  onChangeText={setKerbsideColor}
+                />
+                <TextInput
+                  placeholder="Car Reg Number"
+                  style={styles.input}
+                  value={kerbsideReg}
+                  onChangeText={setKerbsideReg}
+                />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={continueDeliverySelection}
+            >
+              <Text style={styles.primaryText}>Continue</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Allergy Modal */}
+      {/* Allergy Popup */}
       <Modal visible={allergyPopup} transparent animationType="fade">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.popupContainer}
         >
-          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}>
-            <View style={styles.popupBox}>
-              <Text style={styles.popupTitle}>
-                Do you have any allergy or dietary requirements?
-              </Text>
+          <View style={styles.popupBox}>
+            <Icon
+              name="alert-circle-outline"
+              size={40}
+              color="#ff6f00"
+              style={{ alignSelf: "center" }}
+            />
+            <Text style={styles.popupTitle}>
+              Any allergies or dietary requirements?
+            </Text>
 
-              <TextInput
-                style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
-                placeholder="Add your note (optional)"
-                value={allergyNote}
-                multiline
-                onChangeText={setAllergyNote}
-              />
+            <TextInput
+              style={[styles.input, { minHeight: 80 }]}
+              placeholder="Add your note (optional)"
+              value={allergyNote}
+              multiline
+              onChangeText={setAllergyNote}
+            />
 
-              <TouchableOpacity
-                style={[styles.continueButton, { marginTop: 15 }]}
-                onPress={() => setAllergyPopup(false)}
-              >
-                <Text style={styles.continueText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => setAllergyPopup(false)}
+            >
+              <Text style={styles.primaryText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Order Success Modal */}
+      {/* Success Modal */}
       <Modal visible={orderPlaced} transparent animationType="fade">
-        <View style={styles.orderModalContainer}>
-          <View style={styles.orderBox}>
-            <Text style={styles.orderText}>Order Placed Successfully 🎉</Text>
+        <View style={styles.orderSuccessContainer}>
+          <View style={styles.successBox}>
+            <Icon name="check-decagram" size={50} color="#28a745" />
+            <Text style={styles.successText}>Order Placed Successfully!</Text>
           </View>
         </View>
       </Modal>
@@ -219,30 +314,147 @@ const CheckoutScreen = ({ navigation }) => {
 export default CheckoutScreen;
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:"#fff"},
-  summaryBox:{backgroundColor:"#eef7ff",padding:15,margin:15,borderRadius:10},
-  sumTitle:{fontSize:16,fontWeight:"700",marginBottom:5},
-  sumText:{fontSize:14,marginBottom:3},
-  itemBox:{backgroundColor:"#f5f5f5",padding:15,borderRadius:10,marginBottom:12,flexDirection:"row",justifyContent:"space-between"},
-  itemName:{fontSize:16,fontWeight:"600"},
-  itemPrice:{fontSize:16,fontWeight:"600"},
-  totalBox:{padding:20,borderTopWidth:1,borderColor:"#ddd"},
-  totalText:{fontSize:20,fontWeight:"700",textAlign:"right"},
-  placeOrderButton:{backgroundColor:"#1a73e8",margin:20,padding:15,borderRadius:10},
-  placeOrderText:{textAlign:"center",color:"#fff",fontWeight:"700",fontSize:18},
-  popupContainer:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:"rgba(0,0,0,0.5)"},
-  popupBox:{width:"85%",backgroundColor:"#fff",padding:20,borderRadius:12},
-  popupTitle:{fontSize:18,fontWeight:"700",marginBottom:15,textAlign:"center"},
-  methodButton:{padding:14,backgroundColor:"#f2f2f2",borderRadius:10,marginBottom:12},
-  methodText:{fontSize:16,textAlign:"center"},
-  selectedMethod:{backgroundColor:"#1a73e8"},
-  kerbsideFields:{marginTop:10},
-  input:{borderWidth:1,borderColor:"#ccc",padding:12,borderRadius:8,marginBottom:10},
-  changeButton:{flex:1,padding:12,backgroundColor:"#888",borderRadius:8,marginRight:10},
-  changeText:{color:"#fff",fontSize:15,textAlign:"center"},
-  continueButton:{flex:1,padding:12,backgroundColor:"#1a73e8",borderRadius:8},
-  continueText:{color:"#fff",fontSize:15,textAlign:"center"},
-  orderModalContainer:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:"rgba(0,0,0,0.4)"},
-  orderBox:{backgroundColor:"#fff",padding:25,borderRadius:10},
-  orderText:{fontSize:20,fontWeight:"700"}
+  container: { flex: 1, backgroundColor: "#fff" },
+
+  summaryBox: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "#e8f5e9",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  summaryTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 10,
+  },
+  summarySub: { color: "#444", marginTop: 4 },
+
+  itemCard: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    elevation: 2,
+  },
+  itemName: { fontSize: 16, fontWeight: "700" },
+  itemQty: { marginTop: 4, color: "#555" },
+  itemPrice: { fontSize: 16, fontWeight: "700", color: "#28a745" },
+
+  bottomContainer: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderTopWidth: 1,
+    borderColor: "#eee",
+    position: "absolute",
+    bottom: 70,
+    width: "100%",
+  },
+
+  totalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginLeft: 10,
+  },
+  totalAmount: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#28a745",
+  },
+
+  placeOrderButton: {
+    backgroundColor: "#28a745",
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeOrderText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+    marginLeft: 8,
+  },
+
+  popupContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  popupBox: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 14,
+    width: "90%",
+  },
+  popupTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginVertical: 12,
+  },
+  methodBox: {
+    padding: 14,
+    backgroundColor: "#f4f4f4",
+    borderRadius: 10,
+    marginVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  methodSelected: {
+    backgroundColor: "#c8e6c9",
+    borderColor: "#28a745",
+    borderWidth: 1,
+  },
+  methodText: { marginLeft: 12, fontSize: 16, fontWeight: "600" },
+
+  inputArea: { marginTop: 12 },
+
+  input: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginBottom: 12,
+  },
+
+  primaryButton: {
+    backgroundColor: "#28a745",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  primaryText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+
+  orderSuccessContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successBox: {
+    backgroundColor: "#fff",
+    padding: 30,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  successText: {
+    marginTop: 12,
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#28a745",
+  },
 });
