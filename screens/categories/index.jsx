@@ -1,20 +1,34 @@
 // Categories.js
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, Dimensions, ActivityIndicator, ScrollView, Modal } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+  ActivityIndicator,
+  ScrollView,
+  Modal,
+  Animated,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
-
 import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
 import LinearGradient from "react-native-linear-gradient";
 import { fetchCategories } from "../../services/categoryService";
-import { fetchRestaurantDetails, fetchRestaurantTimings } from "../../services/restaurantService";
+import {
+  fetchRestaurantDetails,
+  fetchRestaurantTimings,
+} from "../../services/restaurantService";
 import { getCart } from "../../services/cartService";
 
 const { width } = Dimensions.get("window");
-const ITEM_WIDTH = (width - 50) / 2;
 
 export default function Categories({ route = {}, navigation }) {
   const { userId } = (route && route.params) || {};
@@ -25,9 +39,6 @@ export default function Categories({ route = {}, navigation }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [activeIndex, setActiveIndex] = useState(0);
-  const scrollRef = useRef(null);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [timings, setTimings] = useState([]);
   const [timingsLoading, setTimingsLoading] = useState(false);
@@ -36,12 +47,47 @@ export default function Categories({ route = {}, navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [cartItems, setCartItems] = useState({});
   const isFocused = useIsFocused();
+  const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  // Handles "HH:MM:SS" or "HH:MM"
+  const parts = timeStr.split(":");
+  if (parts.length >= 2) {
+    return `${parts[0]}:${parts[1]}`;
+  }
+  return timeStr; // fallback
+};
 
-  const sliderImages = [
-    require("../../assets/loyalty.png"),
-    require("../../assets/referal.png"),
-    require("../../assets/welcome.png"),
+  const animatedTexts = [
+    "Earn £0.25 on every order",
+    "Loyalty points earn £0.25 on referring a friend",
+    "Earn £0.25 welcome gift on first sign up",
   ];
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [textIndex, setTextIndex] = useState(0);
+
+  useEffect(() => {
+    const animateText = () => {
+      fadeAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.delay(2000),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setTextIndex((prev) => (prev + 1) % animatedTexts.length);
+        animateText();
+      });
+    };
+    animateText();
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -52,28 +98,16 @@ export default function Categories({ route = {}, navigation }) {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      let next = activeIndex + 1;
-      if (next >= sliderImages.length) next = 0;
-      scrollRef.current?.scrollTo({ x: next * width, animated: true });
-      setActiveIndex(next);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [activeIndex]);
-
-  useEffect(() => {
-    let mounted = true;
+    if (!userId) return;
     const loadRestaurant = async () => {
-      if (!userId) return;
       try {
         const data = await fetchRestaurantDetails(userId);
-        if (mounted && data) setRestaurant(data);
+        setRestaurant(data);
       } catch (e) {
         console.log("Restaurant fetch error:", e);
       }
     };
     loadRestaurant();
-    return () => (mounted = false);
   }, [userId]);
 
   useEffect(() => {
@@ -82,8 +116,7 @@ export default function Categories({ route = {}, navigation }) {
       try {
         const data = await fetchCategories(userId);
         if (mounted) setCategories(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.log("Category Load Error:", err);
+      } catch {
         if (mounted) setCategories([]);
       } finally {
         if (mounted) setLoading(false);
@@ -95,43 +128,50 @@ export default function Categories({ route = {}, navigation }) {
 
   useEffect(() => {
     if (!restaurant?.id) return;
+
     const loadTodayTiming = async () => {
       try {
         const data = await fetchRestaurantTimings(restaurant.id);
-        if (data && data.length) {
-          const dayOrder = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-          const todayIndex = new Date().getDay();
-          const todayName = dayOrder[todayIndex];
+        if (data?.length) {
+          const dayOrder = [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ];
+          const todayName = dayOrder[new Date().getDay()];
           const todayData = data.find((d) => d.day === todayName);
           setTodayTiming(todayData || null);
         }
-      } catch (e) {
-        console.log("Error fetching timings:", e);
-      }
+      } catch (e) {}
     };
     loadTodayTiming();
   }, [restaurant]);
 
   useEffect(() => {
+    if (!user) return;
     const fetchCart = async () => {
-      if (!user) return;
       const customerId = user.id ?? user.customer_id;
       if (!customerId) return;
 
       try {
         const res = await getCart(customerId);
-        if (res && res.status === 1 && Array.isArray(res.data)) {
+        if (res?.status === 1 && Array.isArray(res.data)) {
           const map = {};
           res.data.forEach((item) => {
             const qty = item.product_quantity || 0;
-            if (qty > 0) map[item.product_id] = (map[item.product_id] || 0) + qty;
+            if (qty > 0)
+              map[item.product_id] =
+                (map[item.product_id] || 0) + qty;
           });
           setCartItems(map);
         }
-      } catch (err) {
-        console.log("Cart fetch error:", err);
-      }
+      } catch {}
     };
+
     if (isFocused) fetchCart();
   }, [isFocused, user]);
 
@@ -139,176 +179,216 @@ export default function Categories({ route = {}, navigation }) {
     if (!restaurant?.id) return;
     setTimingsLoading(true);
     setModalVisible(true);
+
     try {
       const data = await fetchRestaurantTimings(restaurant.id);
       setTimings(data || []);
-    } catch (e) {
-      console.log("Error fetching timings:", e);
     } finally {
       setTimingsLoading(false);
     }
   };
 
   const filteredCategories = categories.filter((cat) =>
-    (cat?.name || "").toLowerCase().includes(searchText.toLowerCase())
+    (cat?.name || "")
+      .toLowerCase()
+      .includes(searchText.toLowerCase())
   );
 
-    const renderCategory = ({ item }) => (
+  const renderCategory = ({ item }) => (
     <TouchableOpacity
       style={styles.categoryCard}
-      activeOpacity={0.9}
       onPress={() =>
         navigation.navigate("Products", {
           userId: userId,
           categoryId: item.id,
         })
       }
+      activeOpacity={0.85}
     >
       <Image
-        source={item?.image ? { uri: item.image } : require("../../assets/restaurant.png")}
+        source={
+          item?.image
+            ? { uri: item.image }
+            : require("../../assets/restaurant.png")
+        }
         style={styles.categoryImage}
       />
-      <Text style={styles.categoryText} numberOfLines={1}>{item?.name}</Text>
+      <Text style={styles.categoryText} numberOfLines={1}>
+        {item?.name}
+      </Text>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <AppHeader user={user} navigation={navigation} onMenuPress={() => setMenuVisible(true)} cartItems={cartItems} />
+      <AppHeader
+        user={user}
+        navigation={navigation}
+        onMenuPress={() => setMenuVisible(true)}
+        cartItems={cartItems}
+      />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-        
-        {/* 🔥 PREMIUM SLIDER */}
-        <View style={{ marginTop: 15 }}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            ref={scrollRef}
-            onScroll={(e) => setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
-            scrollEventThrottle={16}
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 30 }}
+      >
+        <View style={styles.animatedTextWrapper}>
+          <Ionicons name="gift-outline" size={22} color="#008060" style={{ marginRight: 8 }} />
+          <Animated.Text
+            style={[
+              styles.animatedText,
+              { opacity: fadeAnim },
+            ]}
           >
-            {sliderImages.map((img, i) => (
-              <View key={i} style={{ width }}>
-                <Image source={img} style={styles.sliderImage} />
-              </View>
-            ))}
-          </ScrollView>
-
-          <View style={styles.dotContainer}>
-            {sliderImages.map((_, i) => (
-              <View key={i} style={[styles.dot, { width: activeIndex === i ? 22 : 8, opacity: activeIndex === i ? 1 : 0.4 }]} />
-            ))}
-          </View>
+            {animatedTexts[textIndex]}
+          </Animated.Text>
         </View>
 
         {restaurant && (
-          <LinearGradient
-            colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.restaurantInfo}
-          >
-            <Image
-              source={
-                restaurant?.restaurant_photo
-                  ? { uri: restaurant.restaurant_photo }
-                  : require("../../assets/restaurant.png")
-              }
-              style={styles.restaurantImg}
-            />
+          <View style={styles.restaurantCard}>
+            <View style={styles.restaurantImageContainer}>
+              <Image
+                source={
+                  restaurant?.restaurant_photo
+                    ? { uri: restaurant.restaurant_photo }
+                    : require("../../assets/restaurant.png")
+                }
+                style={styles.restaurantFullImage}
+                resizeMode="cover"
+              />
 
-            {/* NAME */}
-            <View style={styles.infoRow}>
-              <Ionicons name="restaurant" size={20} color="#333" style={styles.infoIcon} />
-              <Text style={styles.restaurantName}>{restaurant?.restaurant_name || "Restaurant Name"}</Text>
-            </View>
+              <LinearGradient
+                colors={[
+                  "rgba(0,0,0,0.85)",
+                  "rgba(0,0,0,0.55)",
+                  "rgba(0,0,0,0.2)",
+                  "transparent",
+                ]}
+                style={styles.overlay}
+              />
 
-            {/* ADDRESS */}
-            <View style={styles.infoRow}>
-              <Ionicons name="location" size={20} color="#333" style={styles.infoIcon} />
-              <Text style={styles.restaurantAddress}>{restaurant?.restaurant_address || "Restaurant Address"}</Text>
-            </View>
+              <View style={styles.overlayTextWrapper}>
+                <Text style={styles.overlayTitle}>
+                  {restaurant?.restaurant_name}
+                </Text>
 
-            {/* PHONE */}
-            <View style={styles.infoRow}>
-              <Ionicons name="call" size={20} color="#333" style={styles.infoIcon} />
-              <Text style={styles.restaurantPhone}>{restaurant?.restaurant_phonenumber || "Phone Number"}</Text>
-            </View>
-
-            {/* TODAY TIMING */}
-            <View style={[styles.infoRow, { marginTop: 6 }]}>
-              <Ionicons name="time" size={20} color="#333" style={styles.infoIcon} />
-
-              {todayTiming ? (
-                todayTiming.is_active ? (
-                  <Text style={styles.todayTimingText}>
-                    {todayTiming.opening_time} - {todayTiming.closing_time}
+                <View style={styles.overlayRow}>
+                  <Ionicons name="location-outline" color="#fff" size={18} />
+                  <Text style={styles.overlaySubText} numberOfLines={2}>
+                    {restaurant?.restaurant_address}
                   </Text>
-                ) : (
-                  <Text style={styles.todayTimingTextClosed}>Closed Today</Text>
-                )
-              ) : (
-                <Text style={styles.todayTimingText}>Loading...</Text>
-              )}
+                </View>
 
-              <TouchableOpacity style={styles.viewTimingsBtn} onPress={openTimingsModal}>
-                <Text style={styles.viewTimingsText}>View</Text>
-              </TouchableOpacity>
+                <View style={styles.overlayRow}>
+                  <Ionicons name="call-outline" color="#fff" size={18} />
+                  <Text style={styles.overlaySubText}>
+                    {restaurant?.restaurant_phonenumber}
+                  </Text>
+                </View>
+
+                <View style={styles.overlayRow}>
+                  <Ionicons name="time-outline" color="#fff" size={18} />
+                  <View style={styles.collectionWrapper}>
+                    <View style={styles.collectionBadge}>
+                      <Ionicons
+                        name="bag-handle-outline"
+                        size={14}
+                        color="#fff"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.collectionText}>
+                        Collection available
+                      </Text>
+                    </View>
+                    {todayTiming ? (
+                      todayTiming.is_active ? (
+                        <Text style={styles.overlayTimeText}>
+                          {formatTime(todayTiming.opening_time)} - {formatTime(todayTiming.closing_time)}
+                        </Text>
+                      ) : (
+                        <Text style={styles.overlayClosed}>Closed Today</Text>
+                      )
+                    ) : (
+                      <Text style={styles.overlayTimeText}>Loading...</Text>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={openTimingsModal}
+                    style={styles.overlayViewBtn}
+                  >
+                    <Text style={styles.overlayViewText}>View More</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </LinearGradient>
+          </View>
         )}
 
-
-        {/* 🔥 SEARCH BAR */}
         <View style={styles.searchWrapper}>
-          <Ionicons name="search" size={20} color="#999" style={{ marginLeft: 8 }} />
+          <Ionicons name="search" size={20} color="#888" />
           <TextInput
-            style={styles.searchInput}
             placeholder="Search categories..."
-            placeholderTextColor="#888"
+            style={styles.searchInput}
+            placeholderTextColor="#aaa"
             value={searchText}
             onChangeText={setSearchText}
           />
         </View>
 
-        {/* 🔥 CATEGORIES GRID */}
         {loading ? (
-          <ActivityIndicator size="large" color="#000" style={{ marginTop: 30 }} />
+          <ActivityIndicator
+            size="large"
+            style={{ marginTop: 30 }}
+          />
         ) : (
           <FlatList
             data={filteredCategories}
             renderItem={renderCategory}
             numColumns={2}
-            keyExtractor={(item) => (item?.id ?? Math.random()).toString()}
-            contentContainerStyle={styles.grid}
             scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
+            keyExtractor={(item) =>
+              (item?.id ?? Math.random()).toString()
+            }
+            contentContainerStyle={styles.grid}
           />
         )}
       </ScrollView>
 
-      <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
+      <MenuModal
+        visible={menuVisible}
+        setVisible={setMenuVisible}
+        user={user}
+        navigation={navigation}
+      />
 
       <BottomBar navigation={navigation} />
 
-      {/* 🔥 TIMINGS MODAL */}
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+      >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Restaurant Timings</Text>
+            <Text style={styles.modalTitle}>
+              Restaurant Timings
+            </Text>
 
             {timingsLoading ? (
-              <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+              <ActivityIndicator style={{ marginTop: 20 }} size="large" />
             ) : (
               <FlatList
                 data={timings}
-                keyExtractor={(item) => item.day}
+                keyExtractor={(i) => i.day}
                 renderItem={({ item }) => (
                   <View style={styles.row}>
                     <Text style={styles.day}>{item.day}</Text>
                     {item.is_active ? (
-                      <Text style={styles.time}>{item.opening_time} - {item.closing_time}</Text>
+                      <Text style={styles.time}>
+                        {formatTime(item.opening_time)} - {formatTime(item.closing_time)}
+                      </Text>
                     ) : (
                       <Text style={styles.closed}>Closed</Text>
                     )}
@@ -317,7 +397,10 @@ export default function Categories({ route = {}, navigation }) {
               />
             )}
 
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={() => setModalVisible(false)}
+            >
               <Text style={styles.closeText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -328,45 +411,217 @@ export default function Categories({ route = {}, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff" },
+  container: { flex: 1, backgroundColor: "#fff" },
 
-  sliderImage: { width: width - 20, height: 180, alignSelf: "center", borderRadius: 5, marginTop: 10, resizeMode: "cover" },
-  dotContainer: { flexDirection: "row", justifyContent: "center", marginTop: 8 },
-  dot: { height: 8, borderRadius: 5, backgroundColor: "#333", marginHorizontal: 4 },
-  infoRow: { flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 4 },
-  infoIcon: { marginRight: 10, color: "#333" },
+  animatedTextWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e9fef3",
+    marginHorizontal: 20,
+    padding: 12,
+    borderRadius: 5,
+    marginTop: 15,
+    elevation: 3,
+  },
+  animatedText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#00704a",
+  },
 
-  restaurantInfo: { marginHorizontal: 20, marginTop: 20, alignItems: "center", padding: 20, borderRadius: 5, elevation: 6, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 8 },
-  restaurantImg: { width: 120, height: 120, borderRadius: 20, marginBottom: 12, backgroundColor: "#e1e1e1" },
-  restaurantName: { fontSize: 20, fontWeight: "700", color: "#111", marginBottom: 4 },
-  restaurantAddress: { fontSize: 14, color: "#666", textAlign: "center", marginBottom: 2 },
-  restaurantPhone: { fontSize: 14, fontWeight: "600", color: "#222", marginBottom: 10 },
+  restaurantCard: {
+    marginHorizontal: 18,
+    marginTop: 18,
+    borderRadius: 5,
+    overflow: "hidden",
+    elevation: 8,
+    backgroundColor: "#fff",
+  },
 
-  todayTimingWrapper: { flexDirection: "row", alignItems: "center", marginTop: 10 },
-  todayTimingText: { fontSize: 14, fontWeight: "600", color: "#1b7a41", marginRight: 10 },
-  todayTimingTextClosed: { fontSize: 14, fontWeight: "600", color: "#e63946", marginRight: 10 },
+  restaurantImageContainer: {
+    width: "100%",
+    height: 260,
+    borderRadius: 5,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
 
-  viewTimingsBtn: { backgroundColor: "#d1fae5", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10 },
-  viewTimingsText: { fontWeight: "700", color: "#065f46" },
+  restaurantFullImage: {
+    width: "100%",
+    height: "100%",
+  },
 
-  searchWrapper: { marginTop: 16, marginHorizontal: 15, backgroundColor: "#fff", borderRadius: 14, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, elevation: 3, height: 50, marginBottom: 14 },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 16, color: "#333" },
+  overlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "100%",
+  },
+
+  overlayTextWrapper: {
+    position: "absolute",
+    bottom: 16,
+    left: 14,
+    right: 14,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+  },
+
+  overlayTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+
+  overlayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+
+  overlaySubText: {
+    color: "#fff",
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: "500",
+    flexShrink: 1,
+  },
+
+  collectionWrapper: {
+    marginLeft: 8,
+    flexShrink: 1,
+  },
+
+  collectionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#28a745",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 5,
+    alignSelf: "flex-start",
+  },
+
+  collectionText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  overlayTimeText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "500",
+    marginTop: 4,
+  },
+
+  overlayClosed: {
+    color: "#ffdddd",
+    fontSize: 15,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+
+  overlayViewBtn: {
+    marginLeft: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    borderRadius: 5,
+  },
+
+  overlayViewText: {
+    color: "#09f65cff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  searchWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    marginHorizontal: 18,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+    elevation: 3,
+    height: 48,
+    marginTop: 15,
+  },
+  searchInput: {
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 15,
+    color: "#222",
+  },
 
   grid: { paddingHorizontal: 10, paddingBottom: 60 },
 
-  categoryCard: { backgroundColor: "#fff", borderRadius: 5, margin: 10, width: ITEM_WIDTH, alignItems: "center", elevation: 5, padding: 12, shadowColor: "#000", shadowOpacity: 0.1 },
-  categoryImage: { width: ITEM_WIDTH - 20, height: ITEM_WIDTH - 20, borderRadius: 14, resizeMode: "cover" },
-  categoryText: { marginTop: 10, fontSize: 15, fontWeight: "700", color: "#222" },
+  categoryCard: {
+    backgroundColor: "#fff",
+    width: (width - 60) / 2,
+    margin: 10,
+    borderRadius: 5,
+    padding: 10,
+    alignItems: "center",
+    elevation: 4,
+  },
+  categoryImage: {
+    width: (width - 60) / 2 - 30,
+    height: (width - 60) / 2 - 30,
+    borderRadius: 5,
+  },
+  categoryText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#222",
+  },
 
-  modalContainer: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modalContent: { width: "85%", backgroundColor: "#fff", borderRadius: 20, padding: 20, maxHeight: "80%", elevation: 5 },
-  modalTitle: { fontSize: 20, fontWeight: "700", marginBottom: 15, textAlign: "center" },
-
-  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "85%",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 5,
+    elevation: 10,
+    maxHeight: "80%",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  row: {
+    paddingVertical: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
   day: { fontSize: 16, fontWeight: "600", color: "#333" },
   time: { fontSize: 16, color: "#222" },
-  closed: { fontSize: 16, color: "#e63946", fontWeight: "700" },
+  closed: { fontSize: 16, color: "#d62828", fontWeight: "700" },
 
-  closeBtn: { marginTop: 20, backgroundColor: "#d1fae5", paddingVertical: 12, borderRadius: 12 },
-  closeText: { fontSize: 16, fontWeight: "700", color: "#065f46", textAlign: "center" },
+  closeBtn: {
+    backgroundColor: "#e8fff3",
+    paddingVertical: 12,
+    borderRadius: 5,
+    marginTop: 15,
+  },
+  closeText: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#00704a",
+  },
 });

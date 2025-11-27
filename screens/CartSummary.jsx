@@ -6,7 +6,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
@@ -88,7 +87,9 @@ export default function CartSummary({ navigation }) {
         delete newCart[product.product_id];
         setCartItems(newCart);
 
-        setProducts(products.filter((p) => p.product_id !== product.product_id));
+        setProducts(
+          products.filter((p) => p.product_id !== product.product_id)
+        );
       } else {
         await addToCart({
           customer_id: customerId,
@@ -152,7 +153,8 @@ export default function CartSummary({ navigation }) {
           <View style={styles.timeRow}>
             <Icon name="clock-outline" size={22} color="#28a745" />
             <Text style={styles.timeRowText}>
-              Order ready for pickup in approx 20 mins
+              Order ready for pickup in approx{" "}
+              <Text style={styles.timeHighlight}>20 mins</Text>
             </Text>
           </View>
 
@@ -227,6 +229,12 @@ export default function CartSummary({ navigation }) {
             style={styles.ctaButton}
             onPress={() => navigation.navigate("CheckoutScreen")}
           >
+            <Icon
+              name="clipboard-text-outline"
+              size={22}
+              color="#fff"
+              style={{ marginRight: 8 }}
+            />
             <Text style={styles.ctaText}>Proceed to Add Details</Text>
           </TouchableOpacity>
         </>
@@ -255,6 +263,10 @@ const styles = StyleSheet.create({
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#ffe0b2",
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 5,
+    elevation: 2,
   },
   offerText: {
     marginLeft: 10,
@@ -289,10 +301,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#e8f5e9",
     padding: 12,
-    margin: 16,
-    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 5,
+    borderLeftWidth: 4,
+    borderLeftColor: "#28a745",
   },
-  timeRowText: { marginLeft: 10, fontSize: 15, color: "#388e3c" },
+  timeRowText: {
+    marginLeft: 10,
+    fontSize: 15,
+    color: "#388e3c",
+    flex: 1,
+  },
+  timeHighlight: {
+    fontWeight: "800",
+    color: "#1b5e20",
+  },
 
   /* CART ITEM CARD */
   itemCard: {
@@ -328,41 +352,40 @@ const styles = StyleSheet.create({
   },
 
   /* TOTAL ROW */
-totalRow: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  backgroundColor: "#fff",
-  paddingVertical: 18,
-  paddingHorizontal: 20,
-  marginHorizontal: 16,
-  borderRadius: 5,
-  elevation: 4,
-  shadowColor: "#000",
-  shadowOpacity: 0.1,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 2 },
-  marginBottom: 70,
-},
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    marginHorizontal: 16,
+    borderRadius: 5,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    marginBottom: 70,
+  },
 
-totalLeft: {
-  flexDirection: "row",
-  alignItems: "center",
-},
+  totalLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
 
-totalLabel: {
-  fontSize: 18,
-  marginLeft: 10,
-  fontWeight: "700",
-  color: "#333",
-},
+  totalLabel: {
+    fontSize: 18,
+    marginLeft: 10,
+    fontWeight: "700",
+    color: "#333",
+  },
 
-totalAmount: {
-  fontSize: 22,
-  fontWeight: "800",
-  color: "#28a745",
-},
-
+  totalAmount: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#28a745",
+  },
 
   /* CTA BUTTON */
   ctaButton: {
@@ -373,6 +396,8 @@ totalAmount: {
     width: "100%",
     position: "absolute",
     bottom: 70,
+    flexDirection: "row",
+    justifyContent: "center",
   },
   ctaText: { color: "#fff", fontSize: 18, fontWeight: "800" },
 });

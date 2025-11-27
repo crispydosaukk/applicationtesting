@@ -27,7 +27,10 @@ const { width } = Dimensions.get("window");
 function RestaurantCard({ name, address, photo, onPress }) {
   return (
     <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.8}>
-      <Image source={photo ? { uri: photo } : RestaurantImg} style={cardStyles.image} />
+      <Image
+        source={photo ? { uri: photo } : RestaurantImg}
+        style={cardStyles.image}
+      />
 
       <View style={cardStyles.info}>
         <Text style={cardStyles.name} numberOfLines={1}>
@@ -35,7 +38,7 @@ function RestaurantCard({ name, address, photo, onPress }) {
         </Text>
 
         <View style={cardStyles.vegBadge}>
-          <Ionicons name="leaf-outline" size={16} color="#16a34a" />
+          <Ionicons name="leaf-outline" size={18} color="#16a34a" />
           <Text style={cardStyles.vegText}>Pure Veg</Text>
         </View>
 
@@ -45,12 +48,12 @@ function RestaurantCard({ name, address, photo, onPress }) {
 
         <View style={cardStyles.serviceRow}>
           <View style={cardStyles.serviceChip}>
-            <Ionicons name="storefront-outline" size={15} color="#555" />
+            <Ionicons name="storefront-outline" size={16} color="#555" />
             <Text style={cardStyles.serviceChipText}>In-store</Text>
           </View>
 
           <View style={cardStyles.serviceChip}>
-            <Ionicons name="car-outline" size={15} color="#555" />
+            <Ionicons name="car-outline" size={16} color="#555" />
             <Text style={cardStyles.serviceChipText}>Kerbside</Text>
           </View>
         </View>
@@ -76,7 +79,6 @@ export default function Resturent({ navigation }) {
     require("../assets/welcome.png"),
   ];
 
-  // Load stored user
   useEffect(() => {
     const loadUser = async () => {
       const stored = await AsyncStorage.getItem("user");
@@ -85,7 +87,6 @@ export default function Resturent({ navigation }) {
     loadUser();
   }, []);
 
-  // Fetch restaurants
   useEffect(() => {
     const loadRestaurants = async () => {
       const data = await fetchRestaurants();
@@ -94,7 +95,6 @@ export default function Resturent({ navigation }) {
     loadRestaurants();
   }, []);
 
-  // Fetch cart when screen is focused
   useEffect(() => {
     const fetchCart = async () => {
       if (!user) return;
@@ -114,7 +114,7 @@ export default function Resturent({ navigation }) {
           setCartItems(map);
         }
       } catch (err) {
-        console.log("Cart fetch error (Home):", err);
+        console.log("Cart fetch error:", err);
       }
     };
 
@@ -123,7 +123,6 @@ export default function Resturent({ navigation }) {
     }
   }, [isFocused, user]);
 
-  // Auto slider
   useEffect(() => {
     const timer = setInterval(() => {
       let next = activeIndex + 1;
@@ -149,7 +148,7 @@ export default function Resturent({ navigation }) {
         cartItems={cartItems}
       />
 
-      {/* Sticky Search Bar */}
+      {/* Sticky Search */}
       <View style={styles.stickySearch}>
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={20} color="#777" />
@@ -163,7 +162,6 @@ export default function Resturent({ navigation }) {
         </View>
       </View>
 
-      {/* Scrollable Content */}
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {/* Slider */}
         <View style={{ marginTop: 15 }}>
@@ -184,7 +182,7 @@ export default function Resturent({ navigation }) {
             ))}
           </ScrollView>
 
-          {/* Slider dots */}
+          {/* Dots */}
           <View style={styles.dotContainer}>
             {sliderImages.map((_, i) => (
               <View
@@ -198,10 +196,13 @@ export default function Resturent({ navigation }) {
           </View>
         </View>
 
+        {/* Banner Images with border frame */}
         <View style={styles.infoBannerRow}>
           <Image source={AllergyAlert} style={styles.infoBannerImg} />
           <Image source={Rating5} style={styles.infoBannerImg} />
         </View>
+
+        {/* Restaurant List */}
         <View style={{ marginTop: 10 }}>
           {filteredRestaurants.map((r, index) => (
             <RestaurantCard
@@ -217,12 +218,7 @@ export default function Resturent({ navigation }) {
         </View>
       </ScrollView>
 
-      <MenuModal
-        visible={menuVisible}
-        setVisible={setMenuVisible}
-        user={user}
-        navigation={navigation}
-      />
+      <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
 
       <BottomBar navigation={navigation} />
     </View>
@@ -238,6 +234,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     zIndex: 10,
   },
+
   infoBannerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -246,13 +243,15 @@ const styles = StyleSheet.create({
   },
 
   infoBannerImg: {
-    width: (width - 45) / 2, 
+    width: (width - 45) / 2,
     height: 110,
-    borderRadius: 8,
+    borderRadius: 10,
     resizeMode: "cover",
-    backgroundColor: "#eee",
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: "#d4d4d4",
   },
-  
+
   searchBox: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -260,10 +259,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
   },
   searchInput: { marginLeft: 10, fontSize: 16, flex: 1, color: "#333" },
 
@@ -272,7 +267,6 @@ const styles = StyleSheet.create({
     height: 180,
     alignSelf: "center",
     borderRadius: 5,
-    marginTop: 10,
     resizeMode: "cover",
   },
 
@@ -295,44 +289,39 @@ const cardStyles = StyleSheet.create({
     backgroundColor: "#fff",
     marginHorizontal: 15,
     marginVertical: 8,
-    padding: 12,
-    borderRadius: 5,
+    padding: 14,
+    borderRadius: 6,
     elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
   },
 
-  image: { width: 90, height: 90, borderRadius: 5 },
+  image: { width: 110, height: 110, borderRadius: 5 },
 
-  info: { flex: 1, marginLeft: 12 },
+  info: { flex: 1, marginLeft: 14 },
 
-  name: { fontSize: 18, fontWeight: "700", color: "#222" },
+  name: { fontSize: 17, fontWeight: "800", color: "#222" },
 
   vegBadge: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 6,
+    marginTop: 8,
     backgroundColor: "#e7f7ed",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 3,
-    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
-  vegText: { marginLeft: 5, color: "#16a34a", fontSize: 13, fontWeight: "600" },
+  vegText: { marginLeft: 5, color: "#16a34a", fontSize: 14, fontWeight: "700" },
 
-  address: { fontSize: 14, color: "#555", marginTop: 6, lineHeight: 18 },
+  address: { fontSize: 16, color: "#555", marginTop: 8, lineHeight: 20 },
 
-  serviceRow: { flexDirection: "row", marginTop: 10 },
+  serviceRow: { flexDirection: "row", marginTop: 12 },
   serviceChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f4f4f4",
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 3,
+    backgroundColor: "#f2f2f2",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
     marginRight: 10,
   },
-  serviceChipText: { marginLeft: 6, fontSize: 13, color: "#333" },
+  serviceChipText: { marginLeft: 6, fontSize: 14, color: "#333" },
 });

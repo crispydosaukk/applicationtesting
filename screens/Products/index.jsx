@@ -42,7 +42,7 @@ export default function Products({ route, navigation }) {
 
   const [menuVisible, setMenuVisible] = useState(false);
 
-  // ⭐ Reward Banner Animation
+  // ⭐ Reward Banner Animation (height)
   const [bannerVisible, setBannerVisible] = useState(true);
   const bannerHeight = useRef(new Animated.Value(0)).current;
 
@@ -70,6 +70,38 @@ export default function Products({ route, navigation }) {
       useNativeDriver: false,
     }).start();
   };
+
+  // ⭐ Reward Text Animation (fade + rotate messages)
+  const animatedTexts = [
+    "Earn £0.25 on every order",
+    "Loyalty points earn £0.25 on referring a friend",
+    "Earn £0.25 welcome gift on first sign up",
+  ];
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [textIndex, setTextIndex] = useState(0);
+
+  useEffect(() => {
+    const animateText = () => {
+      fadeAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.delay(2000),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setTextIndex((prev) => (prev + 1) % animatedTexts.length);
+        animateText();
+      });
+    };
+    animateText();
+  }, [fadeAnim]);
 
   // Load user
   useEffect(() => {
@@ -131,7 +163,7 @@ export default function Products({ route, navigation }) {
 
   const startCheckout = () => {
     const selectedIds = Object.keys(cartItems);
-    if (selectedIds.length === 0) {
+       if (selectedIds.length === 0) {
       alert("Please add at least one product.");
       return;
     }
@@ -190,32 +222,66 @@ export default function Products({ route, navigation }) {
       <View style={styles.card}>
         <Image
           source={
-            item.image ? { uri: item.image } : require("../../assets/restaurant.png")
+            item.image
+              ? { uri: item.image }
+              : require("../../assets/restaurant.png")
           }
           style={styles.image}
         />
+
         <View style={styles.infoContainer}>
-          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.desc} numberOfLines={2}>{item.description}</Text>
-          <Text style={styles.price}>£{item.price}</Text>
+          <View style={styles.nameRow}>
+            <Ionicons
+              name="fast-food-outline"
+              size={18}
+              color="#28a745"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.name} numberOfLines={1}>
+              {item.name}
+            </Text>
+          </View>
+
+          <Text style={styles.desc} numberOfLines={2}>
+            {item.description}
+          </Text>
+
+          <View style={styles.priceRow}>
+            <Ionicons
+              name="pricetag-outline"
+              size={16}
+              color="#28a745"
+              style={{ marginRight: 4 }}
+            />
+            <Text style={styles.price}>£{item.price}</Text>
+          </View>
         </View>
 
         <View style={styles.counterContainer}>
           {qty > 0 ? (
             <View style={styles.counterRow}>
-              <TouchableOpacity style={styles.counterButton} onPress={() => decrement(item.id)}>
-                <Text style={styles.counterText}>-</Text>
+              <TouchableOpacity
+                style={styles.counterButton}
+                onPress={() => decrement(item.id)}
+              >
+                <Ionicons name="remove-outline" size={18} color="#000" />
               </TouchableOpacity>
 
               <Text style={styles.quantity}>{qty}</Text>
 
-              <TouchableOpacity style={styles.counterButton} onPress={() => increment(item.id)}>
-                <Text style={styles.counterText}>+</Text>
+              <TouchableOpacity
+                style={styles.counterButton}
+                onPress={() => increment(item.id)}
+              >
+                <Ionicons name="add-outline" size={18} color="#000" />
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity style={styles.addButton} onPress={() => increment(item.id)}>
-              <Text style={styles.addButtonText}>+</Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => increment(item.id)}
+            >
+              <Ionicons name="add-outline" size={20} color="#fff" />
             </TouchableOpacity>
           )}
         </View>
@@ -240,8 +306,22 @@ export default function Products({ route, navigation }) {
 
       {/* ⭐ REWARD BANNER ANIMATED */}
       {bannerVisible ? (
-        <Animated.View style={[styles.rewardBanner, { height: bannerHeight }]}>
-          <Text style={styles.rewardText}>🎉 Earn £0.25 on Every Order!</Text>
+        <Animated.View
+          style={[styles.rewardBanner, { height: bannerHeight }]}
+        >
+          <View style={styles.rewardLeft}>
+            <Ionicons
+              name="gift-outline"
+              size={22}
+              color="#fff"
+              style={{ marginRight: 8 }}
+            />
+            <Animated.Text
+              style={[styles.rewardText, { opacity: fadeAnim }]}
+            >
+              {animatedTexts[textIndex]}
+            </Animated.Text>
+          </View>
 
           <TouchableOpacity onPress={collapseBanner}>
             <Ionicons name="close-circle" size={22} color="#fff" />
@@ -249,13 +329,28 @@ export default function Products({ route, navigation }) {
         </Animated.View>
       ) : (
         <TouchableOpacity style={styles.rewardChip} onPress={expandBanner}>
-          <Text style={{ color: "#fff", fontWeight: "600" }}>£0.25 Reward Active</Text>
+          <Ionicons
+            name="gift-outline"
+            size={18}
+            color="#fff"
+            style={{ marginRight: 6 }}
+          />
+          <Animated.Text
+            style={{ color: "#fff", fontWeight: "600", opacity: fadeAnim }}
+          >
+            {animatedTexts[textIndex]}
+          </Animated.Text>
         </TouchableOpacity>
       )}
 
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
-        <Ionicons name="search" size={20} color="#999" style={{ marginRight: 10 }} />
+        <Ionicons
+          name="search"
+          size={20}
+          color="#999"
+          style={{ marginRight: 10 }}
+        />
         <TextInput
           style={styles.searchInput}
           placeholder="Search products..."
@@ -277,13 +372,27 @@ export default function Products({ route, navigation }) {
 
       {selectedProductIds.length > 0 && (
         <View style={styles.checkoutWrapper}>
-          <TouchableOpacity style={styles.checkoutButton} onPress={startCheckout}>
+          <TouchableOpacity
+            style={styles.checkoutButton}
+            onPress={startCheckout}
+          >
+            <Ionicons
+              name="cart-outline"
+              size={20}
+              color="#fff"
+              style={{ marginRight: 8 }}
+            />
             <Text style={styles.checkoutText}>Proceed to Checkout</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
+      <MenuModal
+        visible={menuVisible}
+        setVisible={setMenuVisible}
+        user={user}
+        navigation={navigation}
+      />
       <BottomBar navigation={navigation} />
 
       {/* Notes Popup */}
@@ -295,23 +404,44 @@ export default function Products({ route, navigation }) {
                 <Text style={styles.popupTitle}>{currentProduct.name}</Text>
                 <Text style={styles.popupPrice}>£{currentProduct.price}</Text>
 
+                <View style={styles.notesLabelRow}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={18}
+                    color="#666"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.notesLabel}>
+                    Add special instructions (optional)
+                  </Text>
+                </View>
+
                 <TextInput
                   style={styles.popupInput}
-                  placeholder="Add notes (optional)"
+                  placeholder="E.g. Less spicy, no onions, extra sauce..."
                   value={noteInput}
                   onChangeText={setNoteInput}
+                  multiline
                 />
 
                 <View style={styles.popupNavRow}>
                   {popupIndex > 0 && (
-                    <TouchableOpacity style={styles.popupNavButton} onPress={handleBackPopup}>
+                    <TouchableOpacity
+                      style={styles.popupNavButton}
+                      onPress={handleBackPopup}
+                    >
                       <Text style={styles.popupNavText}>Back</Text>
                     </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity style={styles.popupNavButton} onPress={handleNextPopup}>
+                  <TouchableOpacity
+                    style={styles.popupNavButton}
+                    onPress={handleNextPopup}
+                  >
                     <Text style={styles.popupNavText}>
-                      {popupIndex === selectedProductIds.length - 1 ? "Finish" : "Next"}
+                      {popupIndex === selectedProductIds.length - 1
+                        ? "Finish"
+                        : "Next"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -335,7 +465,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 18,
     overflow: "hidden",
-    fontWeight:800,
+    borderRadius: 5,
+  },
+
+  rewardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    paddingRight: 10,
   },
 
   rewardText: { color: "#fff", fontSize: 16, fontWeight: "700" },
@@ -347,7 +484,8 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     borderRadius: 5,
     marginTop: 8,
-    fontWeight: 800,
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   searchWrapper: {
@@ -373,13 +511,30 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  image: { width: 100, height: 100, borderRadius: 12 },
+  image: {
+    width: 115,
+    height: 115,
+    borderRadius: 5,
+  },
 
   infoContainer: { flex: 1, marginLeft: 12 },
 
-  name: { fontSize: 16, fontWeight: "700" },
-  desc: { fontSize: 13, color: "#666", marginTop: 4 },
-  price: { marginTop: 6, fontSize: 16, fontWeight: "700", color: "#28a745" },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  name: { fontSize: 17, fontWeight: "700" },
+
+  desc: { fontSize: 14, color: "#666", marginTop: 4 },
+
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+  },
+
+  price: { fontSize: 17, fontWeight: "700", color: "#28a745" },
 
   counterContainer: { justifyContent: "center" },
   counterRow: { flexDirection: "row", alignItems: "center" },
@@ -388,7 +543,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 5,
   },
 
   counterText: { fontSize: 18, fontWeight: "700" },
@@ -399,8 +554,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#28a745",
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
   },
+
   addButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 
   checkoutWrapper: {
@@ -413,7 +571,10 @@ const styles = StyleSheet.create({
   checkoutButton: {
     backgroundColor: "#28a745",
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   checkoutText: {
@@ -434,18 +595,31 @@ const styles = StyleSheet.create({
     width: "80%",
     backgroundColor: "#fff",
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 5,
   },
 
   popupTitle: { fontSize: 20, fontWeight: "700" },
   popupPrice: { fontSize: 18, color: "#28a745", marginBottom: 12 },
 
+  notesLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+
+  notesLabel: {
+    fontSize: 14,
+    color: "#555",
+  },
+
   popupInput: {
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 8,
+    borderRadius: 5,
     padding: 10,
     marginBottom: 20,
+    minHeight: 60,
+    textAlignVertical: "top",
   },
 
   popupNavRow: { flexDirection: "row", justifyContent: "space-between" },
@@ -454,7 +628,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#28a745",
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 5,
   },
 
   popupNavText: { color: "#fff", fontSize: 16, fontWeight: "700" },
