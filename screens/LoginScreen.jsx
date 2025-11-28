@@ -5,27 +5,26 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import CountryPicker from "react-native-country-picker-modal";
-import { loginUser } from "../services/authService"; // your file
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { loginUser } from "../services/authService";
 
 export default function LoginScreen({ navigation }) {
-  const [countryCode, setCountryCode] = useState("IN");
-  const [callingCode, setCallingCode] = useState("91");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState(""); // Added email input
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Validation Error", "Please enter email and password");
+      Alert.alert("Error", "Please enter email & password");
       return;
     }
 
@@ -34,197 +33,227 @@ export default function LoginScreen({ navigation }) {
       const { user, token } = await loginUser(email, password);
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("user", JSON.stringify(user));
-      Alert.alert("Login Successful", `Welcome back, ${user.full_name}!`);
-      navigation.replace("Resturent"); // navigate to your main screen
-    } catch (error) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert("Login Successful", `Welcome back ${user.full_name}`);
+      navigation.replace("Resturent");
+    } catch (e) {
+      Alert.alert("Login Failed", e.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <LinearGradient
-      colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.container}
-    >
-      <Image source={require("../assets/logo.png")} style={styles.logo} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.container}>
 
-      <View style={styles.card}>
-        <Text style={styles.loginTitle}>Welcome Back...!</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
-
-        {/* Email Field */}
-        <View style={styles.inputBox}>
-          <Text style={styles.label}>Email</Text>
-          <View style={styles.passwordRow}>
-            <Ionicons name="mail-outline" size={20} color="#8A6C54" />
-            <TextInput
-              placeholder="Enter email"
-              style={[styles.input, { flex: 1, marginLeft: 8 }]}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-        </View>
-{/* 
-      
-        <View style={styles.inputBox}>
-          <Text style={styles.label}>Mobile Number (optional)</Text>
-          <View style={styles.phoneRow}>
-            <CountryPicker
-              countryCode={countryCode}
-              withFilter
-              withFlag
-              withCallingCode
-              withAlphaFilter
-              withEmoji
-              onSelect={(country) => {
-                setCountryCode(country.cca2);
-                setCallingCode(country.callingCode[0]);
-              }}
-            />
-            <Text style={styles.countryCodeText}>+{callingCode}</Text>
-            <TextInput
-              placeholder="Enter mobile number"
-              keyboardType="number-pad"
-              style={[styles.input, { flex: 1 }]}
-              value={phone}
-              onChangeText={setPhone}
-            />
-          </View>
-        </View> */}
-
-        {/* Password Field */}
-        <View style={styles.inputBox}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordRow}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8A6C54" />
-            <TextInput
-              placeholder="Enter password"
-              secureTextEntry
-              style={[styles.input, { flex: 1, marginLeft: 8 }]}
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-        </View>
-
-        {/* Login Button */}
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleLogin}
-          disabled={loading}
-        >
+          {/* TOP GREEN WAVE */}
           <LinearGradient
-            colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.btnGradient}
-          >
-            <Ionicons
-              name="log-in-outline"
-              size={22}
-              color="#2D1B0F"
-              style={{ marginRight: 8 }}
-            />
-            {loading ? (
-              <ActivityIndicator size="small" color="#2D1B0F" />
-            ) : (
-              <Text style={styles.primaryText}>Login</Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+            colors={["#1d8f52", "#27b36a", "#41d48a"]}
+            style={styles.topWave}
+          />
 
-        {/* Footer */}
-        <Text style={styles.footerText}>
-          Don't have an account?{" "}
-          <Text
-            style={styles.signupText}
-            onPress={() => navigation.navigate("Signup")}
-          >
-            Create an account
-          </Text>
-        </Text>
-      </View>
-    </LinearGradient>
+          {/* LOGO */}
+          <View style={styles.logoWrap}>
+            <Image
+              source={require("../assets/logo.png")}
+              style={styles.logo}
+            />
+          </View>
+
+          {/* MAIN CARD AREA */}
+          <View style={styles.card}>
+            <Text style={styles.title}>Hello 👋</Text>
+            <Text style={styles.subtitle}>Sign in to your account</Text>
+
+            {/* Email */}
+            <View style={styles.box}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputRow}>
+                <Ionicons name="mail-outline" size={20} color="#1f4d35" />
+                <TextInput
+                  placeholder="Enter your email"
+                  placeholderTextColor="#88a796"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                  style={styles.input}
+                />
+              </View>
+            </View>
+
+            {/* Password */}
+            <View style={styles.box}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputRow}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#1f4d35"
+                />
+                <TextInput
+                  placeholder="Enter password"
+                  placeholderTextColor="#88a796"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  style={styles.input}
+                />
+              </View>
+
+              <TouchableOpacity style={styles.forgotBtn}>
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* LOGIN BUTTON */}
+            <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
+              <LinearGradient
+                colors={["#1a8b50", "#21a863", "#34c87c"]}
+                style={styles.loginGradient}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.loginText}>Login</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Signup Link */}
+            <Text style={styles.bottomText}>
+              Don’t have an account?{" "}
+              <Text
+                style={styles.signup}
+                onPress={() => navigation.navigate("Signup")}
+              >
+                Register Now
+              </Text>
+            </Text>
+          </View>
+
+          {/* BOTTOM GREEN WAVE */}
+          <LinearGradient
+            colors={["#1d8f52", "#27b36a", "#41d48a"]}
+            style={styles.bottomWave}
+          />
+
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
+/* ====================== STYLES ====================== */
+
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center" },
+  container: { flex: 1, backgroundColor: "#ffffff" },
+
+  topWave: {
+    height: "32%",
+    width: "140%",
+    borderBottomLeftRadius: 220,
+    borderBottomRightRadius: 220,
+    position: "absolute",
+    top: -100,
+    alignSelf: "center",
+  },
+
+  bottomWave: {
+    height: "28%",
+    width: "140%",
+    borderTopLeftRadius: 220,
+    borderTopRightRadius: 220,
+    position: "absolute",
+    bottom: -100,
+    alignSelf: "center",
+  },
+
+  logoWrap: {
+    marginTop: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   logo: {
-    width: 250,
-    height: 120,
+    width: 180,
+    height: 90,
     resizeMode: "contain",
-    marginBottom: -20,
   },
 
   card: {
-    width: "85%",
-    backgroundColor: "#FFFFFFDD",
-    borderRadius: 20,
-    paddingVertical: 30,
-    paddingHorizontal: 24,
-    borderWidth: 3,
-    borderColor: "#FFB678",
-    elevation: 10,
+    flex: 1,
+    paddingHorizontal: 28,
+    marginTop: 20,
+  },
+
+  title: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#1f4d35",
+  },
+
+  subtitle: {
+    fontSize: 15,
+    color: "#4a7f65",
     marginBottom: 30,
   },
 
-  loginTitle: { fontSize: 26, fontWeight: "800", color: "#2D1B0F", textAlign: "center" },
-  subtitle: { fontSize: 14, textAlign: "center", color: "#8A6C54", marginBottom: 25 },
+  box: { marginBottom: 20 },
 
-  inputBox: { marginBottom: 18 },
-  label: { fontSize: 14, fontWeight: "600", color: "#2D1B0F", marginBottom: 6 },
-
-  phoneRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#C6A17A",
-    borderRadius: 12,
-    backgroundColor: "#FFF5EA",
-    paddingHorizontal: 8,
+  label: {
+    color: "#1f4d35",
+    marginBottom: 6,
+    fontWeight: "600",
   },
 
-  countryCodeText: { fontSize: 16, fontWeight: "700", marginHorizontal: 6, color: "#2D1B0F" },
-
-  passwordRow: {
+  inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#C6A17A",
+    backgroundColor: "#e8f5ee",
     borderRadius: 12,
-    backgroundColor: "#FFF5EA",
     paddingHorizontal: 12,
   },
 
-  input: { paddingVertical: 12, fontSize: 16, color: "#2D1B0F" },
-
-  primaryBtn: {
-    borderRadius: 14,
-    overflow: "hidden",
-    marginTop: 10,
-    borderColor: "#2D1B0F",
-    borderWidth: 2,
-  },
-
-  btnGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  input: {
+    flex: 1,
     paddingVertical: 14,
-    borderRadius: 14,
+    fontSize: 15,
+    color: "#000",
+    marginLeft: 8,
   },
 
-  primaryText: { fontSize: 18, fontWeight: "700", color: "#000000" },
+  forgotBtn: { alignSelf: "flex-end", marginTop: 4 },
+  forgotText: { color: "#1a8b50", fontWeight: "600" },
 
-  footerText: { marginTop: 18, textAlign: "center", fontSize: 15, color: "#2D1B0F" },
-  signupText: { fontWeight: "700", textDecorationLine: "underline" },
+  loginBtn: { marginTop: 10 },
+
+  loginGradient: {
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  loginText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+
+  bottomText: {
+    textAlign: "center",
+    marginTop: 25,
+    color: "#2c6e49",
+    fontSize: 15,
+  },
+
+  signup: {
+    color: "#1a8b50",
+    fontWeight: "800",
+    textDecorationLine: "underline",
+  },
 });

@@ -1,19 +1,6 @@
-// Categories.js
 import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  FlatList,
-  Image,
-  TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
-  ScrollView,
-  Modal,
-  Animated,
-} from "react-native";
+import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, Dimensions, ActivityIndicator, ScrollView, Modal, Animated } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
@@ -22,606 +9,208 @@ import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
 import LinearGradient from "react-native-linear-gradient";
 import { fetchCategories } from "../../services/categoryService";
-import {
-  fetchRestaurantDetails,
-  fetchRestaurantTimings,
-} from "../../services/restaurantService";
+import { fetchRestaurantDetails, fetchRestaurantTimings } from "../../services/restaurantService";
 import { getCart } from "../../services/cartService";
 
 const { width } = Dimensions.get("window");
 
-export default function Categories({ route = {}, navigation }) {
-  const { userId } = (route && route.params) || {};
+export default function Categories({ route, navigation }) {
+  const { userId } = route?.params || {};
+  const isFocused = useIsFocused();
 
   const [user, setUser] = useState(null);
   const [restaurant, setRestaurant] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [timings, setTimings] = useState([]);
   const [timingsLoading, setTimingsLoading] = useState(false);
   const [todayTiming, setTodayTiming] = useState(null);
-
   const [menuVisible, setMenuVisible] = useState(false);
   const [cartItems, setCartItems] = useState({});
-  const isFocused = useIsFocused();
-  const formatTime = (timeStr) => {
-  if (!timeStr) return "";
-  // Handles "HH:MM:SS" or "HH:MM"
-  const parts = timeStr.split(":");
-  if (parts.length >= 2) {
-    return `${parts[0]}:${parts[1]}`;
-  }
-  return timeStr; // fallback
-};
-
-  const animatedTexts = [
-    "Earn £0.25 on every order",
-    "Loyalty points earn £0.25 on referring a friend",
-    "Earn £0.25 welcome gift on first sign up",
-  ];
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [textIndex, setTextIndex] = useState(0);
 
+  const animatedTexts = ["EARN £0.25 ON EVERY ORDER", "REFER & EARN £0.25", "£0.25 WELCOME BONUS"];
+
+  const formatTime = (t) => (!t ? "" : t.slice(0, 5));
+
   useEffect(() => {
-    const animateText = () => {
+    const animate = () => {
       fadeAnim.setValue(0);
       Animated.sequence([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.delay(2000),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true,
-        }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.delay(1500),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 500, useNativeDriver: true })
       ]).start(() => {
-        setTextIndex((prev) => (prev + 1) % animatedTexts.length);
-        animateText();
+        setTextIndex((p) => (p + 1) % animatedTexts.length);
+        animate();
       });
     };
-    animateText();
+    animate();
   }, []);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      const stored = await AsyncStorage.getItem("user");
-      if (stored) setUser(JSON.parse(stored));
-    };
-    loadUser();
-  }, []);
-
-  useEffect(() => {
-    if (!userId) return;
-    const loadRestaurant = async () => {
-      try {
-        const data = await fetchRestaurantDetails(userId);
-        setRestaurant(data);
-      } catch (e) {
-        console.log("Restaurant fetch error:", e);
-      }
-    };
-    loadRestaurant();
-  }, [userId]);
+  useEffect(() => { (async () => { const s = await AsyncStorage.getItem("user"); if (s) setUser(JSON.parse(s)); })(); }, []);
+  useEffect(() => { if (!userId) return; (async () => { const d = await fetchRestaurantDetails(userId); setRestaurant(d); })(); }, [userId]);
 
   useEffect(() => {
     let mounted = true;
-    const loadCategories = async () => {
-      try {
-        const data = await fetchCategories(userId);
-        if (mounted) setCategories(Array.isArray(data) ? data : []);
-      } catch {
-        if (mounted) setCategories([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    loadCategories();
+    (async () => {
+      setLoading(true);
+      const d = await fetchCategories(userId);
+      if (mounted) setCategories(Array.isArray(d) ? d : []);
+      setLoading(false);
+    })();
     return () => (mounted = false);
   }, [userId]);
 
   useEffect(() => {
     if (!restaurant?.id) return;
-
-    const loadTodayTiming = async () => {
-      try {
-        const data = await fetchRestaurantTimings(restaurant.id);
-        if (data?.length) {
-          const dayOrder = [
-            "Sunday",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-          ];
-          const todayName = dayOrder[new Date().getDay()];
-          const todayData = data.find((d) => d.day === todayName);
-          setTodayTiming(todayData || null);
-        }
-      } catch (e) {}
-    };
-    loadTodayTiming();
+    (async () => {
+      const d = await fetchRestaurantTimings(restaurant.id);
+      if (!d?.length) return;
+      const today = new Date().toLocaleString("en-US", { weekday: "long" });
+      const t = d.find((i) => i.day === today);
+      setTodayTiming(t || null);
+    })();
   }, [restaurant]);
 
   useEffect(() => {
     if (!user) return;
-    const fetchCart = async () => {
-      const customerId = user.id ?? user.customer_id;
-      if (!customerId) return;
-
-      try {
-        const res = await getCart(customerId);
-        if (res?.status === 1 && Array.isArray(res.data)) {
-          const map = {};
-          res.data.forEach((item) => {
-            const qty = item.product_quantity || 0;
-            if (qty > 0)
-              map[item.product_id] =
-                (map[item.product_id] || 0) + qty;
-          });
-          setCartItems(map);
-        }
-      } catch {}
+    const load = async () => {
+      const id = user.id ?? user.customer_id;
+      if (!id) return;
+      const res = await getCart(id);
+      if (res?.status === 1) {
+        const map = {};
+        res.data.forEach((i) => {
+          if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
+        });
+        setCartItems(map);
+      }
     };
-
-    if (isFocused) fetchCart();
+    if (isFocused) load();
   }, [isFocused, user]);
 
   const openTimingsModal = async () => {
-    if (!restaurant?.id) return;
-    setTimingsLoading(true);
     setModalVisible(true);
-
-    try {
-      const data = await fetchRestaurantTimings(restaurant.id);
-      setTimings(data || []);
-    } finally {
-      setTimingsLoading(false);
-    }
+    setTimingsLoading(true);
+    const data = await fetchRestaurantTimings(restaurant.id);
+    setTimings(data || []);
+    setTimingsLoading(false);
   };
 
-  const filteredCategories = categories.filter((cat) =>
-    (cat?.name || "")
-      .toLowerCase()
-      .includes(searchText.toLowerCase())
+  const filteredCategories = categories.filter((c) =>
+    (c?.name || "").toLowerCase().includes(searchText.toLowerCase())
   );
 
   const renderCategory = ({ item }) => (
-    <TouchableOpacity
-      style={styles.categoryCard}
-      onPress={() =>
-        navigation.navigate("Products", {
-          userId: userId,
-          categoryId: item.id,
-        })
-      }
-      activeOpacity={0.85}
-    >
-      <Image
-        source={
-          item?.image
-            ? { uri: item.image }
-            : require("../../assets/restaurant.png")
-        }
-        style={styles.categoryImage}
-      />
-      <Text style={styles.categoryText} numberOfLines={1}>
-        {item?.name}
-      </Text>
+    <TouchableOpacity style={styles.categoryCard} activeOpacity={0.85} onPress={() => navigation.navigate("Products", { userId, categoryId: item.id })}>
+      <Image source={item?.image ? { uri: item.image } : require("../../assets/restaurant.png")} style={styles.categoryImage} />
+      <Text style={styles.categoryText} numberOfLines={1}>{item?.name}</Text>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <AppHeader
-        user={user}
-        navigation={navigation}
-        onMenuPress={() => setMenuVisible(true)}
-        cartItems={cartItems}
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <AppHeader user={user} navigation={navigation} onMenuPress={() => setMenuVisible(true)} cartItems={cartItems} />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 30 }}
-      >
-        <View style={styles.animatedTextWrapper}>
-          <Ionicons name="gift-outline" size={22} color="#008060" style={{ marginRight: 8 }} />
-          <Animated.Text
-            style={[
-              styles.animatedText,
-              { opacity: fadeAnim },
-            ]}
-          >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }}>
+        <View style={styles.offerWrapper}>
+          <Ionicons name="gift-outline" size={18} color="#00704a" />
+          <Animated.Text style={[styles.offerText, { opacity: fadeAnim }]} numberOfLines={1}>
             {animatedTexts[textIndex]}
           </Animated.Text>
         </View>
 
         {restaurant && (
           <View style={styles.restaurantCard}>
-            <View style={styles.restaurantImageContainer}>
-              <Image
-                source={
-                  restaurant?.restaurant_photo
-                    ? { uri: restaurant.restaurant_photo }
-                    : require("../../assets/restaurant.png")
-                }
-                style={styles.restaurantFullImage}
-                resizeMode="cover"
-              />
-
-              <LinearGradient
-                colors={[
-                  "rgba(0,0,0,0.85)",
-                  "rgba(0,0,0,0.55)",
-                  "rgba(0,0,0,0.2)",
-                  "transparent",
-                ]}
-                style={styles.overlay}
-              />
-
-              <View style={styles.overlayTextWrapper}>
-                <Text style={styles.overlayTitle}>
-                  {restaurant?.restaurant_name}
+            <Image source={restaurant?.restaurant_photo ? { uri: restaurant.restaurant_photo } : require("../../assets/restaurant.png")} style={styles.restaurantImage} />
+            <LinearGradient colors={["rgba(0,0,0,0.85)", "transparent"]} style={styles.overlay} />
+            <View style={styles.overlayContent}>
+              <Text style={styles.restaurantTitle}>{restaurant.restaurant_name}</Text>
+              <View style={styles.overlayRow}>
+                <Ionicons name="location-outline" size={14} color="#fff" />
+                <Text style={styles.overlayText} numberOfLines={1}>{restaurant.restaurant_address}</Text>
+              </View>
+              <View style={styles.overlayRow}>
+                <Ionicons name="call-outline" size={14} color="#fff" />
+                <Text style={styles.overlayText}>{restaurant.restaurant_phonenumber}</Text>
+              </View>
+              <View style={styles.overlayRow}>
+                <Ionicons name="time-outline" size={14} color="#fff" />
+                <Text style={styles.overlayText}>
+                  {todayTiming ? (todayTiming.is_active ? `${formatTime(todayTiming.opening_time)} - ${formatTime(todayTiming.closing_time)}` : "Closed Today") : "Loading..."}
                 </Text>
-
-                <View style={styles.overlayRow}>
-                  <Ionicons name="location-outline" color="#fff" size={18} />
-                  <Text style={styles.overlaySubText} numberOfLines={2}>
-                    {restaurant?.restaurant_address}
-                  </Text>
-                </View>
-
-                <View style={styles.overlayRow}>
-                  <Ionicons name="call-outline" color="#fff" size={18} />
-                  <Text style={styles.overlaySubText}>
-                    {restaurant?.restaurant_phonenumber}
-                  </Text>
-                </View>
-
-                <View style={styles.overlayRow}>
-                  <Ionicons name="time-outline" color="#fff" size={18} />
-                  <View style={styles.collectionWrapper}>
-                    <View style={styles.collectionBadge}>
-                      <Ionicons
-                        name="bag-handle-outline"
-                        size={14}
-                        color="#fff"
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text style={styles.collectionText}>
-                        Collection available
-                      </Text>
-                    </View>
-                    {todayTiming ? (
-                      todayTiming.is_active ? (
-                        <Text style={styles.overlayTimeText}>
-                          {formatTime(todayTiming.opening_time)} - {formatTime(todayTiming.closing_time)}
-                        </Text>
-                      ) : (
-                        <Text style={styles.overlayClosed}>Closed Today</Text>
-                      )
-                    ) : (
-                      <Text style={styles.overlayTimeText}>Loading...</Text>
-                    )}
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={openTimingsModal}
-                    style={styles.overlayViewBtn}
-                  >
-                    <Text style={styles.overlayViewText}>View More</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity onPress={openTimingsModal}><Text style={styles.viewMore}>View More</Text></TouchableOpacity>
               </View>
             </View>
           </View>
         )}
 
-        <View style={styles.searchWrapper}>
-          <Ionicons name="search" size={20} color="#888" />
-          <TextInput
-            placeholder="Search categories..."
-            style={styles.searchInput}
-            placeholderTextColor="#aaa"
-            value={searchText}
-            onChangeText={setSearchText}
-          />
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={18} color="#777" />
+          <TextInput style={styles.searchInput} placeholder="Search categories..." placeholderTextColor="#aaa" value={searchText} onChangeText={setSearchText} />
         </View>
 
         {loading ? (
-          <ActivityIndicator
-            size="large"
-            style={{ marginTop: 30 }}
-          />
+          <ActivityIndicator size="large" style={{ marginTop: 20 }} />
         ) : (
-          <FlatList
-            data={filteredCategories}
-            renderItem={renderCategory}
-            numColumns={2}
-            scrollEnabled={false}
-            keyExtractor={(item) =>
-              (item?.id ?? Math.random()).toString()
-            }
-            contentContainerStyle={styles.grid}
-          />
+          <FlatList data={filteredCategories} numColumns={2} renderItem={renderCategory} scrollEnabled={false} keyExtractor={(i) => i.id.toString()} contentContainerStyle={styles.grid} />
         )}
       </ScrollView>
 
-      <MenuModal
-        visible={menuVisible}
-        setVisible={setMenuVisible}
-        user={user}
-        navigation={navigation}
-      />
-
+      <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
       <BottomBar navigation={navigation} />
 
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="fade"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Restaurant Timings
-            </Text>
-
+      <Modal visible={modalVisible} transparent animationType="fade">
+        <View style={styles.modalWrapper}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Restaurant Timings</Text>
             {timingsLoading ? (
-              <ActivityIndicator style={{ marginTop: 20 }} size="large" />
+              <ActivityIndicator size="large" />
             ) : (
-              <FlatList
-                data={timings}
-                keyExtractor={(i) => i.day}
-                renderItem={({ item }) => (
-                  <View style={styles.row}>
-                    <Text style={styles.day}>{item.day}</Text>
-                    {item.is_active ? (
-                      <Text style={styles.time}>
-                        {formatTime(item.opening_time)} - {formatTime(item.closing_time)}
-                      </Text>
-                    ) : (
-                      <Text style={styles.closed}>Closed</Text>
-                    )}
-                  </View>
-                )}
-              />
+              <FlatList data={timings} keyExtractor={(i) => i.day} renderItem={({ item }) => (
+                <View style={styles.modalRow}>
+                  <Text style={styles.dayText}>{item.day}</Text>
+                  <Text style={styles.timeText}>{item.is_active ? `${formatTime(item.opening_time)} - ${formatTime(item.closing_time)}` : "Closed"}</Text>
+                </View>
+              )} />
             )}
-
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.closeText}>Close</Text>
-            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}><Text style={styles.closeText}>Close</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-
-  animatedTextWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#e9fef3",
-    marginHorizontal: 20,
-    padding: 12,
-    borderRadius: 5,
-    marginTop: 15,
-    elevation: 3,
-  },
-  animatedText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#00704a",
-  },
-
-  restaurantCard: {
-    marginHorizontal: 18,
-    marginTop: 18,
-    borderRadius: 5,
-    overflow: "hidden",
-    elevation: 8,
-    backgroundColor: "#fff",
-  },
-
-  restaurantImageContainer: {
-    width: "100%",
-    height: 260,
-    borderRadius: 5,
-    overflow: "hidden",
-    backgroundColor: "#000",
-  },
-
-  restaurantFullImage: {
-    width: "100%",
-    height: "100%",
-  },
-
-  overlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: "100%",
-  },
-
-  overlayTextWrapper: {
-    position: "absolute",
-    bottom: 16,
-    left: 14,
-    right: 14,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 5,
-  },
-
-  overlayTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-
-  overlayRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-  },
-
-  overlaySubText: {
-    color: "#fff",
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "500",
-    flexShrink: 1,
-  },
-
-  collectionWrapper: {
-    marginLeft: 8,
-    flexShrink: 1,
-  },
-
-  collectionBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#28a745",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 5,
-    alignSelf: "flex-start",
-  },
-
-  collectionText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  overlayTimeText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "500",
-    marginTop: 4,
-  },
-
-  overlayClosed: {
-    color: "#ffdddd",
-    fontSize: 15,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-
-  overlayViewBtn: {
-    marginLeft: 10,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    borderRadius: 5,
-  },
-
-  overlayViewText: {
-    color: "#09f65cff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  searchWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    marginHorizontal: 18,
-    paddingHorizontal: 12,
-    borderRadius: 5,
-    elevation: 3,
-    height: 48,
-    marginTop: 15,
-  },
-  searchInput: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 15,
-    color: "#222",
-  },
-
-  grid: { paddingHorizontal: 10, paddingBottom: 60 },
-
-  categoryCard: {
-    backgroundColor: "#fff",
-    width: (width - 60) / 2,
-    margin: 10,
-    borderRadius: 5,
-    padding: 10,
-    alignItems: "center",
-    elevation: 4,
-  },
-  categoryImage: {
-    width: (width - 60) / 2 - 30,
-    height: (width - 60) / 2 - 30,
-    borderRadius: 5,
-  },
-  categoryText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#222",
-  },
-
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    width: "85%",
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 5,
-    elevation: 10,
-    maxHeight: "80%",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  row: {
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  day: { fontSize: 16, fontWeight: "600", color: "#333" },
-  time: { fontSize: 16, color: "#222" },
-  closed: { fontSize: 16, color: "#d62828", fontWeight: "700" },
-
-  closeBtn: {
-    backgroundColor: "#e8fff3",
-    paddingVertical: 12,
-    borderRadius: 5,
-    marginTop: 15,
-  },
-  closeText: {
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#00704a",
-  },
+  safeArea: { flex: 1, backgroundColor: "#fff" },
+  offerWrapper: { flexDirection: "row", alignItems: "center", backgroundColor: "#22cc1fff", marginHorizontal: 18, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, marginTop: 12, elevation: 2 },
+  offerText: { fontSize: 16, fontWeight: "600", marginLeft: 8, color: "#f3f5f3ff", width: width * 0.6 },
+  restaurantCard: { marginHorizontal: 18, marginTop: 14, borderRadius: 8, overflow: "hidden", elevation: 4 },
+  restaurantImage: { width: "100%", height: 210 },
+  overlay: { position: "absolute", top: 0, bottom: 0, width: "100%" },
+  overlayContent: { position: "absolute", bottom: 12, left: 12, right: 12 },
+  restaurantTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  overlayRow: { flexDirection: "row", alignItems: "center", marginTop: 5 },
+  overlayText: { color: "#fff", marginLeft: 6, fontSize: 13, flexShrink: 1 },
+  viewMore: { color: "#16f58d", fontSize: 12, marginLeft: 10, fontWeight: "700" },
+  searchBox: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", marginHorizontal: 18, paddingHorizontal: 12, height: 45, borderRadius: 6, elevation: 2, marginTop: 16 },
+  searchInput: { marginLeft: 10, fontSize: 14, flex: 1, color: "#222" },
+  grid: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 30 },
+  categoryCard: { width: (width - 48) / 2, backgroundColor: "#fff", borderRadius: 6, padding: 10, margin: 8, alignItems: "center", elevation: 3 },
+  categoryImage: { width: "100%", height: (width - 48) / 2 - 40, borderRadius: 6 },
+  categoryText: { marginTop: 8, fontSize: 14, fontWeight: "700", color: "#222" },
+  modalWrapper: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center" },
+  modalBox: { width: "85%", backgroundColor: "#fff", borderRadius: 6, padding: 18, elevation: 8, maxHeight: "80%" },
+  modalTitle: { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 12 },
+  modalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderColor: "#eee" },
+  dayText: { fontSize: 14, fontWeight: "600" },
+  timeText: { fontSize: 14, fontWeight: "600", color: "#333" },
+  closeBtn: { marginTop: 12, paddingVertical: 10, backgroundColor: "#e6fff2", borderRadius: 6 },
+  closeText: { textAlign: "center", fontSize: 15, fontWeight: "700", color: "#007d54" }
 });

@@ -1,24 +1,10 @@
-// Products.js
 import React, { useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Image,
-  ActivityIndicator,
-  Dimensions,
-  TextInput,
-  TouchableOpacity,
-  Modal,
-  Animated,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, Image, ActivityIndicator, Dimensions, TextInput, TouchableOpacity, Modal, Animated } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
-
 import { fetchProducts } from "../../services/productService";
 import { addToCart } from "../../services/cartService";
-
 import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
@@ -31,6 +17,7 @@ export default function Products({ route, navigation }) {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchText, setSearchText] = useState("");
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,168 +26,107 @@ export default function Products({ route, navigation }) {
   const [popupIndex, setPopupIndex] = useState(0);
   const [popupVisible, setPopupVisible] = useState(false);
   const [noteInput, setNoteInput] = useState("");
-
   const [menuVisible, setMenuVisible] = useState(false);
 
-  // ⭐ Reward Banner Animation (height)
+  const bannerHeight = useRef(new Animated.Value(60)).current;
   const [bannerVisible, setBannerVisible] = useState(true);
-  const bannerHeight = useRef(new Animated.Value(0)).current;
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [textIndex, setTextIndex] = useState(0);
+  const animatedTexts = ["Earn £0.25 on every order", "Refer & earn £0.25", "£0.25 welcome bonus"];
 
   useEffect(() => {
-    Animated.timing(bannerHeight, {
-      toValue: 70,
-      duration: 350,
-      useNativeDriver: false,
-    }).start();
+    const t = () => {
+      fadeAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.delay(1500),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 400, useNativeDriver: true })
+      ]).start(() => {
+        setTextIndex((p) => (p + 1) % animatedTexts.length);
+        t();
+      });
+    };
+    t();
   }, []);
 
   const collapseBanner = () => {
-    Animated.timing(bannerHeight, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start(() => setBannerVisible(false));
+    Animated.timing(bannerHeight, { toValue: 0, duration: 300, useNativeDriver: false }).start(() => setBannerVisible(false));
   };
-
   const expandBanner = () => {
     setBannerVisible(true);
-    Animated.timing(bannerHeight, {
-      toValue: 70,
-      duration: 350,
-      useNativeDriver: false,
-    }).start();
+    Animated.timing(bannerHeight, { toValue: 60, duration: 300, useNativeDriver: false }).start();
   };
 
-  // ⭐ Reward Text Animation (fade + rotate messages)
-  const animatedTexts = [
-    "Earn £0.25 on every order",
-    "Loyalty points earn £0.25 on referring a friend",
-    "Earn £0.25 welcome gift on first sign up",
-  ];
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [textIndex, setTextIndex] = useState(0);
-
   useEffect(() => {
-    const animateText = () => {
-      fadeAnim.setValue(0);
-      Animated.sequence([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.delay(2000),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setTextIndex((prev) => (prev + 1) % animatedTexts.length);
-        animateText();
-      });
-    };
-    animateText();
-  }, [fadeAnim]);
-
-  // Load user
-  useEffect(() => {
-    const loadUser = async () => {
-      const storedUser = await AsyncStorage.getItem("user");
-      if (storedUser) setUser(JSON.parse(storedUser));
-    };
-    loadUser();
+    (async () => {
+      const u = await AsyncStorage.getItem("user");
+      if (u) setUser(JSON.parse(u));
+    })();
   }, []);
 
-  // Load products
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const data = await fetchProducts(userId, categoryId);
-        setProducts(data);
-        setFilteredProducts(data);
-
-        const storedCart = await AsyncStorage.getItem("cart");
-        if (storedCart) {
-          const parsedCart = JSON.parse(storedCart);
-          const cartForThisUser = parsedCart[userId] || {};
-          setCartItems(cartForThisUser);
-        }
-      } catch (err) {
-        console.log("Product Load Error:", err);
-      } finally {
-        setLoading(false);
+    (async () => {
+      const data = await fetchProducts(userId, categoryId);
+      setProducts(data);
+      setFilteredProducts(data);
+      setLoading(false);
+      const stored = await AsyncStorage.getItem("cart");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setCartItems(parsed[userId] || {});
       }
-    };
-    loadProducts();
+    })();
   }, [userId, categoryId]);
 
-  // Search filter
   useEffect(() => {
     if (!searchText.trim()) setFilteredProducts(products);
-    else {
-      const filtered = products.filter((item) =>
-        item.name.toLowerCase().includes(searchText.toLowerCase())
-      );
-      setFilteredProducts(filtered);
-    }
+    else setFilteredProducts(products.filter((i) => i.name.toLowerCase().includes(searchText.toLowerCase())));
   }, [searchText, products]);
 
-  const increment = (id) => {
-    setCartItems((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
-  };
+  const increment = (id) => setCartItems((p) => ({ ...p, [id]: (p[id] || 0) + 1 }));
 
-  const decrement = (id) => {
-    setCartItems((prev) => {
-      if (!prev[id]) return prev;
-      const newQty = prev[id] - 1;
-      const updated = { ...prev };
-      if (newQty <= 0) delete updated[id];
-      else updated[id] = newQty;
-      return updated;
+  const decrement = (id) =>
+    setCartItems((p) => {
+      if (!p[id]) return p;
+      const q = p[id] - 1;
+      const u = { ...p };
+      if (q <= 0) delete u[id];
+      else u[id] = q;
+      return u;
     });
-  };
 
   const startCheckout = () => {
-    const selectedIds = Object.keys(cartItems);
-       if (selectedIds.length === 0) {
-      alert("Please add at least one product.");
-      return;
-    }
+    const ids = Object.keys(cartItems);
+    if (ids.length === 0) return alert("Please add products");
     setPopupIndex(0);
-    setNoteInput(notes[selectedIds[0]] || "");
+    setNoteInput(notes[ids[0]] || "");
     setPopupVisible(true);
   };
 
   const handleNextPopup = async () => {
-    const selectedIds = Object.keys(cartItems);
-    const currentProductId = selectedIds[popupIndex];
+    const ids = Object.keys(cartItems);
+    const pid = ids[popupIndex];
+    setNotes((p) => ({ ...p, [pid]: noteInput }));
 
-    setNotes((prev) => ({ ...prev, [currentProductId]: noteInput }));
-
-    const currentProduct = products.find((p) => p.id == currentProductId);
-    if (currentProduct && user) {
-      try {
-        await addToCart({
-          customer_id: user.id,
-          user_id: currentProduct.user_id,
-          product_id: currentProduct.id,
-          product_name: currentProduct.name,
-          product_price: currentProduct.price,
-          product_tax: 0,
-          product_quantity: cartItems[currentProductId],
-          textfield: noteInput || "",
-        });
-      } catch (err) {
-        console.log("Error saving to cart:", err);
-      }
+    const prod = products.find((p) => p.id == pid);
+    if (prod && user) {
+      await addToCart({
+        customer_id: user.id,
+        user_id: prod.user_id,
+        product_id: prod.id,
+        product_name: prod.name,
+        product_price: prod.price,
+        product_tax: 0,
+        product_quantity: cartItems[pid],
+        textfield: noteInput || ""
+      });
     }
 
-    if (popupIndex < selectedIds.length - 1) {
-      const nextIndex = popupIndex + 1;
-      setPopupIndex(nextIndex);
-      const nextProductId = selectedIds[nextIndex];
-      setNoteInput(notes[nextProductId] || "");
+    if (popupIndex < ids.length - 1) {
+      const next = popupIndex + 1;
+      setPopupIndex(next);
+      setNoteInput(notes[ids[next]] || "");
     } else {
       setPopupVisible(false);
       navigation.navigate("CartSummary", { cartItems, notes, user });
@@ -208,194 +134,92 @@ export default function Products({ route, navigation }) {
   };
 
   const handleBackPopup = () => {
-    const selectedIds = Object.keys(cartItems);
     if (popupIndex === 0) return;
-    const prevIndex = popupIndex - 1;
-    setPopupIndex(prevIndex);
-    const prevProductId = selectedIds[prevIndex];
-    setNoteInput(notes[prevProductId] || "");
+    const ids = Object.keys(cartItems);
+    const prev = popupIndex - 1;
+    setPopupIndex(prev);
+    setNoteInput(notes[ids[prev]] || "");
   };
 
   const renderItem = ({ item }) => {
     const qty = cartItems[item.id] || 0;
+
     return (
       <View style={styles.card}>
-        <Image
-          source={
-            item.image
-              ? { uri: item.image }
-              : require("../../assets/restaurant.png")
-          }
-          style={styles.image}
-        />
-
-        <View style={styles.infoContainer}>
-          <View style={styles.nameRow}>
-            <Ionicons
-              name="fast-food-outline"
-              size={18}
-              color="#28a745"
-              style={{ marginRight: 6 }}
-            />
-            <Text style={styles.name} numberOfLines={1}>
-              {item.name}
-            </Text>
-          </View>
-
-          <Text style={styles.desc} numberOfLines={2}>
-            {item.description}
-          </Text>
+        <Image source={item.image ? { uri: item.image } : require("../../assets/restaurant.png")} style={styles.cardImg} />
+        <View style={styles.cardBody}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
 
           <View style={styles.priceRow}>
-            <Ionicons
-              name="pricetag-outline"
-              size={16}
-              color="#28a745"
-              style={{ marginRight: 4 }}
-            />
             <Text style={styles.price}>£{item.price}</Text>
+
+            {qty > 0 ? (
+              <View style={styles.qtyRow}>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => decrement(item.id)}>
+                  <Ionicons name="remove-outline" size={18} color="#000" />
+                </TouchableOpacity>
+                <Text style={styles.qtyText}>{qty}</Text>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => increment(item.id)}>
+                  <Ionicons name="add-outline" size={18} color="#000" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.addBtn} onPress={() => increment(item.id)}>
+                <Ionicons name="add-outline" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
-        </View>
-
-        <View style={styles.counterContainer}>
-          {qty > 0 ? (
-            <View style={styles.counterRow}>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => decrement(item.id)}
-              >
-                <Ionicons name="remove-outline" size={18} color="#000" />
-              </TouchableOpacity>
-
-              <Text style={styles.quantity}>{qty}</Text>
-
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => increment(item.id)}
-              >
-                <Ionicons name="add-outline" size={18} color="#000" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => increment(item.id)}
-            >
-              <Ionicons name="add-outline" size={20} color="#fff" />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     );
   };
 
-  const selectedProductIds = Object.keys(cartItems);
-  const currentProduct =
-    popupVisible && selectedProductIds.length > 0
-      ? products.find((p) => p.id == selectedProductIds[popupIndex])
-      : null;
+  const selectedIds = Object.keys(cartItems);
+  const currentProduct = popupVisible && selectedIds.length > 0 ? products.find((p) => p.id == selectedIds[popupIndex]) : null;
 
   return (
-    <View style={styles.container}>
-      <AppHeader
-        user={user}
-        navigation={navigation}
-        cartItems={cartItems}
-        onMenuPress={() => setMenuVisible(true)}
-      />
+    <SafeAreaView style={styles.safe}>
+      <AppHeader user={user} navigation={navigation} cartItems={cartItems} onMenuPress={() => setMenuVisible(true)} />
 
-      {/* ⭐ REWARD BANNER ANIMATED */}
       {bannerVisible ? (
-        <Animated.View
-          style={[styles.rewardBanner, { height: bannerHeight }]}
-        >
-          <View style={styles.rewardLeft}>
-            <Ionicons
-              name="gift-outline"
-              size={22}
-              color="#fff"
-              style={{ marginRight: 8 }}
-            />
-            <Animated.Text
-              style={[styles.rewardText, { opacity: fadeAnim }]}
-            >
-              {animatedTexts[textIndex]}
-            </Animated.Text>
+        <Animated.View style={[styles.banner, { height: bannerHeight }]}>
+          <View style={styles.bannerLeft}>
+            <Ionicons name="gift-outline" size={18} color="#fff" />
+            <Animated.Text style={[styles.bannerText, { opacity: fadeAnim }]}>{animatedTexts[textIndex]}</Animated.Text>
           </View>
-
-          <TouchableOpacity onPress={collapseBanner}>
-            <Ionicons name="close-circle" size={22} color="#fff" />
-          </TouchableOpacity>
+          <TouchableOpacity onPress={collapseBanner}><Ionicons name="close-circle" size={22} color="#fff" /></TouchableOpacity>
         </Animated.View>
       ) : (
-        <TouchableOpacity style={styles.rewardChip} onPress={expandBanner}>
-          <Ionicons
-            name="gift-outline"
-            size={18}
-            color="#fff"
-            style={{ marginRight: 6 }}
-          />
-          <Animated.Text
-            style={{ color: "#fff", fontWeight: "600", opacity: fadeAnim }}
-          >
-            {animatedTexts[textIndex]}
-          </Animated.Text>
+        <TouchableOpacity style={styles.bannerChip} onPress={expandBanner}>
+          <Ionicons name="gift-outline" size={18} color="#fff" />
+          <Animated.Text style={[styles.bannerChipText, { opacity: fadeAnim }]}>{animatedTexts[textIndex]}</Animated.Text>
         </TouchableOpacity>
       )}
 
-      {/* Search Bar */}
-      <View style={styles.searchWrapper}>
-        <Ionicons
-          name="search"
-          size={20}
-          color="#999"
-          style={{ marginRight: 10 }}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          value={searchText}
-          onChangeText={setSearchText}
-        />
+      <View style={styles.searchBox}>
+        <Ionicons name="search-outline" size={18} color="#777" />
+        <TextInput style={styles.searchInput} placeholder="Search products..." value={searchText} onChangeText={setSearchText} placeholderTextColor="#aaa" />
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" />
       ) : (
-        <FlatList
-          data={filteredProducts}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 160 }}
-        />
+        <FlatList data={filteredProducts} renderItem={renderItem} keyExtractor={(i) => i.id.toString()} contentContainerStyle={{ paddingBottom: 160 }} />
       )}
 
-      {selectedProductIds.length > 0 && (
-        <View style={styles.checkoutWrapper}>
-          <TouchableOpacity
-            style={styles.checkoutButton}
-            onPress={startCheckout}
-          >
-            <Ionicons
-              name="cart-outline"
-              size={20}
-              color="#fff"
-              style={{ marginRight: 8 }}
-            />
+      {selectedIds.length > 0 && (
+        <View style={styles.checkoutWrap}>
+          <TouchableOpacity style={styles.checkoutBtn} onPress={startCheckout}>
+            <Ionicons name="cart-outline" size={20} color="#fff" />
             <Text style={styles.checkoutText}>Proceed to Checkout</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <MenuModal
-        visible={menuVisible}
-        setVisible={setMenuVisible}
-        user={user}
-        navigation={navigation}
-      />
+      <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
       <BottomBar navigation={navigation} />
 
-      {/* Notes Popup */}
       <Modal visible={popupVisible} transparent animationType="fade">
         <View style={styles.popupOverlay}>
           <View style={styles.popupBox}>
@@ -403,46 +227,15 @@ export default function Products({ route, navigation }) {
               <>
                 <Text style={styles.popupTitle}>{currentProduct.name}</Text>
                 <Text style={styles.popupPrice}>£{currentProduct.price}</Text>
-
-                <View style={styles.notesLabelRow}>
-                  <Ionicons
-                    name="document-text-outline"
-                    size={18}
-                    color="#666"
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={styles.notesLabel}>
-                    Add special instructions (optional)
-                  </Text>
-                </View>
-
-                <TextInput
-                  style={styles.popupInput}
-                  placeholder="E.g. Less spicy, no onions, extra sauce..."
-                  value={noteInput}
-                  onChangeText={setNoteInput}
-                  multiline
-                />
-
-                <View style={styles.popupNavRow}>
+                <TextInput style={styles.popupInput} placeholder="Special instructions (optional)" value={noteInput} onChangeText={setNoteInput} multiline />
+                <View style={styles.popupRow}>
                   {popupIndex > 0 && (
-                    <TouchableOpacity
-                      style={styles.popupNavButton}
-                      onPress={handleBackPopup}
-                    >
-                      <Text style={styles.popupNavText}>Back</Text>
+                    <TouchableOpacity style={styles.popupBtn} onPress={handleBackPopup}>
+                      <Text style={styles.popupBtnText}>Back</Text>
                     </TouchableOpacity>
                   )}
-
-                  <TouchableOpacity
-                    style={styles.popupNavButton}
-                    onPress={handleNextPopup}
-                  >
-                    <Text style={styles.popupNavText}>
-                      {popupIndex === selectedProductIds.length - 1
-                        ? "Finish"
-                        : "Next"}
-                    </Text>
+                  <TouchableOpacity style={styles.popupBtn} onPress={handleNextPopup}>
+                    <Text style={styles.popupBtnText}>{popupIndex === selectedIds.length - 1 ? "Finish" : "Next"}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -450,186 +243,45 @@ export default function Products({ route, navigation }) {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  safe: { flex: 1, backgroundColor: "#fff" },
+  banner: { width: "100%", backgroundColor: "#28a745", flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, overflow: "hidden" },
+  bannerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  bannerText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  bannerChip: { alignSelf: "center", flexDirection: "row", alignItems: "center", backgroundColor: "#28a745", paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, marginTop: 10, gap: 6 },
+  bannerChipText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  searchBox: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, height: 46, backgroundColor: "#fff", borderRadius: 6, elevation: 3, marginHorizontal: 16, marginTop: 14 },
+  searchInput: { marginLeft: 10, flex: 1, fontSize: 14, color: "#222" },
 
-  rewardBanner: {
-    width: "100%",
-    backgroundColor: "#35a650ff",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    overflow: "hidden",
-    borderRadius: 5,
-  },
+  card: { flexDirection: "row", backgroundColor: "#fff", marginHorizontal: 16, marginVertical: 8, borderRadius: 6, padding: 12, elevation: 3 },
+  cardImg: { width: 110, height: 110, borderRadius: 6 },
+  cardBody: { flex: 1, marginLeft: 12 },
+  cardTitle: { fontSize: 15, fontWeight: "700", color: "#222" },
+  cardDesc: { fontSize: 13, color: "#666", marginTop: 4 },
 
-  rewardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    paddingRight: 10,
-  },
+  priceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
+  price: { fontSize: 16, fontWeight: "700", color: "#28a745" },
 
-  rewardText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  qtyRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  qtyBtn: { backgroundColor: "#eaeaea", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  qtyText: { fontSize: 15, fontWeight: "700" },
 
-  rewardChip: {
-    backgroundColor: "#2ad552ff",
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    alignSelf: "center",
-    borderRadius: 5,
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  addBtn: { backgroundColor: "#28a745", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
 
-  searchWrapper: {
-    marginTop: 12,
-    marginHorizontal: 16,
-    backgroundColor: "#fff",
-    borderRadius: 5,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    height: 50,
-  },
+  checkoutWrap: { position: "absolute", bottom: 90, width: "100%", paddingHorizontal: 16 },
+  checkoutBtn: { backgroundColor: "#28a745", paddingVertical: 14, borderRadius: 6, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  checkoutText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 
-  searchInput: { flex: 1, fontSize: 16 },
-
-  card: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 5,
-    padding: 12,
-    elevation: 3,
-  },
-
-  image: {
-    width: 115,
-    height: 115,
-    borderRadius: 5,
-  },
-
-  infoContainer: { flex: 1, marginLeft: 12 },
-
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  name: { fontSize: 17, fontWeight: "700" },
-
-  desc: { fontSize: 14, color: "#666", marginTop: 4 },
-
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-  },
-
-  price: { fontSize: 17, fontWeight: "700", color: "#28a745" },
-
-  counterContainer: { justifyContent: "center" },
-  counterRow: { flexDirection: "row", alignItems: "center" },
-
-  counterButton: {
-    backgroundColor: "#e0e0e0",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 5,
-  },
-
-  counterText: { fontSize: 18, fontWeight: "700" },
-
-  quantity: { marginHorizontal: 10, fontSize: 16, fontWeight: "700" },
-
-  addButton: {
-    backgroundColor: "#28a745",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  addButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-
-  checkoutWrapper: {
-    position: "absolute",
-    bottom: 95,
-    width: "100%",
-    paddingHorizontal: 20,
-  },
-
-  checkoutButton: {
-    backgroundColor: "#28a745",
-    paddingVertical: 14,
-    borderRadius: 5,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  checkoutText: {
-    textAlign: "center",
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  popupOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  popupBox: {
-    width: "80%",
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 5,
-  },
-
-  popupTitle: { fontSize: 20, fontWeight: "700" },
-  popupPrice: { fontSize: 18, color: "#28a745", marginBottom: 12 },
-
-  notesLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-
-  notesLabel: {
-    fontSize: 14,
-    color: "#555",
-  },
-
-  popupInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 20,
-    minHeight: 60,
-    textAlignVertical: "top",
-  },
-
-  popupNavRow: { flexDirection: "row", justifyContent: "space-between" },
-
-  popupNavButton: {
-    backgroundColor: "#28a745",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-  },
-
-  popupNavText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  popupOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
+  popupBox: { width: "80%", backgroundColor: "#fff", padding: 20, borderRadius: 6 },
+  popupTitle: { fontSize: 18, fontWeight: "700" },
+  popupPrice: { fontSize: 16, fontWeight: "700", color: "#28a745", marginBottom: 10 },
+  popupInput: { borderWidth: 1, borderColor: "#ccc", minHeight: 60, borderRadius: 6, padding: 10, textAlignVertical: "top", marginBottom: 20 },
+  popupRow: { flexDirection: "row", justifyContent: "space-between" },
+  popupBtn: { backgroundColor: "#28a745", paddingVertical: 10, paddingHorizontal: 20, borderRadius: 6 },
+  popupBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" }
 });

@@ -10,23 +10,26 @@ import {
   Image,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
+
 import AppHeader from "./AppHeader";
 import BottomBar from "./BottomBar";
 import MenuModal from "./MenuModal";
 import RestaurantImg from "../assets/restaurant.png";
-import { fetchRestaurants } from "../services/restaurantService";
-import { getCart } from "../services/cartService";
 import AllergyAlert from "../assets/allergy-alert.jpg";
 import Rating5 from "../assets/rating-5.png";
+
+import { fetchRestaurants } from "../services/restaurantService";
+import { getCart } from "../services/cartService";
 
 const { width } = Dimensions.get("window");
 
 function RestaurantCard({ name, address, photo, onPress }) {
   return (
-    <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.85}>
       <Image
         source={photo ? { uri: photo } : RestaurantImg}
         style={cardStyles.image}
@@ -38,7 +41,7 @@ function RestaurantCard({ name, address, photo, onPress }) {
         </Text>
 
         <View style={cardStyles.vegBadge}>
-          <Ionicons name="leaf-outline" size={18} color="#16a34a" />
+          <Ionicons name="leaf-outline" size={14} color="#16a34a" />
           <Text style={cardStyles.vegText}>Pure Veg</Text>
         </View>
 
@@ -48,12 +51,12 @@ function RestaurantCard({ name, address, photo, onPress }) {
 
         <View style={cardStyles.serviceRow}>
           <View style={cardStyles.serviceChip}>
-            <Ionicons name="storefront-outline" size={16} color="#555" />
+            <Ionicons name="storefront-outline" size={14} color="#555" />
             <Text style={cardStyles.serviceChipText}>In-store</Text>
           </View>
 
           <View style={cardStyles.serviceChip}>
-            <Ionicons name="car-outline" size={16} color="#555" />
+            <Ionicons name="car-outline" size={14} color="#555" />
             <Text style={cardStyles.serviceChipText}>Kerbside</Text>
           </View>
         </View>
@@ -79,6 +82,7 @@ export default function Resturent({ navigation }) {
     require("../assets/welcome.png"),
   ];
 
+  // Load User
   useEffect(() => {
     const loadUser = async () => {
       const stored = await AsyncStorage.getItem("user");
@@ -87,6 +91,7 @@ export default function Resturent({ navigation }) {
     loadUser();
   }, []);
 
+  // Fetch Restaurants
   useEffect(() => {
     const loadRestaurants = async () => {
       const data = await fetchRestaurants();
@@ -95,6 +100,7 @@ export default function Resturent({ navigation }) {
     loadRestaurants();
   }, []);
 
+  // Fetch Cart
   useEffect(() => {
     const fetchCart = async () => {
       if (!user) return;
@@ -103,10 +109,10 @@ export default function Resturent({ navigation }) {
 
       try {
         const res = await getCart(customerId);
-        if (res && res.status === 1 && Array.isArray(res.data)) {
+        if (res?.status === 1 && Array.isArray(res.data)) {
           const map = {};
           res.data.forEach((item) => {
-            const qty = item.product_quantity || 0;
+            const qty = item.product_quantity ?? 0;
             if (qty > 0) {
               map[item.product_id] = (map[item.product_id] || 0) + qty;
             }
@@ -114,15 +120,14 @@ export default function Resturent({ navigation }) {
           setCartItems(map);
         }
       } catch (err) {
-        console.log("Cart fetch error:", err);
+        console.log("Cart error:", err);
       }
     };
 
-    if (isFocused) {
-      fetchCart();
-    }
+    if (isFocused) fetchCart();
   }, [isFocused, user]);
 
+  // Slider Auto Move
   useEffect(() => {
     const timer = setInterval(() => {
       let next = activeIndex + 1;
@@ -140,18 +145,18 @@ export default function Resturent({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <AppHeader
         user={user}
         navigation={navigation}
-        onMenuPress={() => setMenuVisible(true)}
         cartItems={cartItems}
+        onMenuPress={() => setMenuVisible(true)}
       />
 
-      {/* Sticky Search */}
-      <View style={styles.stickySearch}>
+      {/* Search Bar */}
+      <View style={styles.searchWrapper}>
         <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={20} color="#777" />
+          <Ionicons name="search-outline" size={18} color="#777" />
           <TextInput
             placeholder="Search restaurants..."
             placeholderTextColor="#aaa"
@@ -162,9 +167,13 @@ export default function Resturent({ navigation }) {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
         {/* Slider */}
-        <View style={{ marginTop: 15 }}>
+        <View style={{ marginTop: 12 }}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -189,14 +198,14 @@ export default function Resturent({ navigation }) {
                 key={i}
                 style={[
                   styles.dot,
-                  { width: activeIndex === i ? 22 : 8, opacity: activeIndex === i ? 1 : 0.4 },
+                  { width: activeIndex === i ? 20 : 7, opacity: activeIndex === i ? 1 : 0.35 },
                 ]}
               />
             ))}
           </View>
         </View>
 
-        {/* Banner Images with border frame */}
+        {/* Info Banners */}
         <View style={styles.infoBannerRow}>
           <Image source={AllergyAlert} style={styles.infoBannerImg} />
           <Image source={Rating5} style={styles.infoBannerImg} />
@@ -204,9 +213,9 @@ export default function Resturent({ navigation }) {
 
         {/* Restaurant List */}
         <View style={{ marginTop: 10 }}>
-          {filteredRestaurants.map((r, index) => (
+          {filteredRestaurants.map((r, i) => (
             <RestaurantCard
-              key={index}
+              key={i}
               name={r.name}
               address={r.address}
               photo={r.photo}
@@ -221,18 +230,54 @@ export default function Resturent({ navigation }) {
       <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
 
       <BottomBar navigation={navigation} />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fafafa" },
+  safeArea: { flex: 1, backgroundColor: "#f8f8f8" },
 
-  stickySearch: {
+  searchWrapper: {
     paddingHorizontal: 15,
+    paddingVertical: 8,
+    backgroundColor: "#f8f8f8",
+  },
+
+  searchBox: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "#fafafa",
-    zIndex: 10,
+    elevation: 2,
+  },
+
+  searchInput: {
+    marginLeft: 8,
+    fontSize: 14,
+    flex: 1,
+    color: "#333",
+  },
+
+  sliderImage: {
+    width: width * 0.92,
+    height: 160,
+    alignSelf: "center",
+    borderRadius: 8,
+    resizeMode: "cover",
+  },
+
+  dotContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+
+  dot: {
+    height: 7,
+    borderRadius: 5,
+    backgroundColor: "#444",
+    marginHorizontal: 4,
   },
 
   infoBannerRow: {
@@ -243,43 +288,12 @@ const styles = StyleSheet.create({
   },
 
   infoBannerImg: {
-    width: (width - 45) / 2,
-    height: 110,
-    borderRadius: 10,
+    width: (width - 40) / 2,
+    height: 100,
+    borderRadius: 8,
     resizeMode: "cover",
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: "#d4d4d4",
-  },
-
-  searchBox: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    elevation: 3,
-  },
-  searchInput: { marginLeft: 10, fontSize: 16, flex: 1, color: "#333" },
-
-  sliderImage: {
-    width: width - 20,
-    height: 180,
-    alignSelf: "center",
-    borderRadius: 5,
-    resizeMode: "cover",
-  },
-
-  dotContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 5,
-    backgroundColor: "#444",
-    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
   },
 });
 
@@ -288,40 +302,52 @@ const cardStyles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#fff",
     marginHorizontal: 15,
-    marginVertical: 8,
-    padding: 14,
-    borderRadius: 6,
-    elevation: 3,
+    marginVertical: 7,
+    padding: 12,
+    borderRadius: 8,
+    elevation: 2,
   },
 
-  image: { width: 110, height: 110, borderRadius: 5 },
+  image: {
+    width: width * 0.22,
+    height: width * 0.22,
+    borderRadius: 6,
+  },
 
-  info: { flex: 1, marginLeft: 14 },
+  info: { flex: 1, marginLeft: 12 },
 
-  name: { fontSize: 17, fontWeight: "800", color: "#222" },
+  name: { fontSize: 15, fontWeight: "700", color: "#222" },
 
   vegBadge: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
-    backgroundColor: "#e7f7ed",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    marginTop: 5,
+    backgroundColor: "#e8f8ee",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
   },
-  vegText: { marginLeft: 5, color: "#16a34a", fontSize: 14, fontWeight: "700" },
 
-  address: { fontSize: 16, color: "#555", marginTop: 8, lineHeight: 20 },
+  vegText: { marginLeft: 5, color: "#16a34a", fontSize: 12, fontWeight: "700" },
 
-  serviceRow: { flexDirection: "row", marginTop: 12 },
+  address: {
+    fontSize: 13,
+    color: "#555",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+
+  serviceRow: { flexDirection: "row", marginTop: 8 },
+
   serviceChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f2f2f2",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: "#f3f3f3",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: 4,
     marginRight: 10,
   },
-  serviceChipText: { marginLeft: 6, fontSize: 14, color: "#333" },
+
+  serviceChipText: { marginLeft: 5, fontSize: 12, color: "#333" },
 });
