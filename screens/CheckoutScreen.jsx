@@ -135,7 +135,7 @@ export default function CheckoutScreen({ navigation }) {
   const renderDeliverySummary = () => (
     <View style={styles.deliverySummaryBox}>
       <Text style={styles.summaryText}>
-        <Text style={styles.bold}>Delivery Method: </Text>
+        <Text style={styles.bold}>Takeaway Method: </Text>
         {deliveryMethod === "kerbside" ? "Kerbside Pickup" : "In-store Pickup"}
       </Text>
 
