@@ -11,7 +11,7 @@ export const fetchRestaurants = async () => {
         userId: r.userid,
         name: r.name,
         address: r.address,
-        photo: r.photo
+        photo: r.photo,
       }));
     }
     return [];
@@ -26,7 +26,8 @@ export const fetchRestaurantDetails = async (userId) => {
   try {
     const res = await api.get(`/restaurant/${userId}`);
     if (res.data.status === 1 && res.data.data.length > 0) {
-      return res.data.data[0]; // return the restaurant object
+      // restaurant_photo here is already a full URL
+      return res.data.data[0];
     }
     return null;
   } catch (error) {

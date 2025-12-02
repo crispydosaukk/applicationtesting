@@ -9,8 +9,8 @@ import {
   ScrollView,
   Image,
   Dimensions,
+  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
@@ -26,22 +26,27 @@ import { fetchRestaurants } from "../services/restaurantService";
 import { getCart } from "../services/cartService";
 
 const { width } = Dimensions.get("window");
+const scale = width / 400;
+const FONT_FAMILY = Platform.select({ ios: "System", android: "System" });
 
 function RestaurantCard({ name, address, photo, onPress }) {
   return (
-    <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={cardStyles.card}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
       <Image
         source={photo ? { uri: photo } : RestaurantImg}
         style={cardStyles.image}
       />
-
       <View style={cardStyles.info}>
         <Text style={cardStyles.name} numberOfLines={1}>
           {name}
         </Text>
 
         <View style={cardStyles.vegBadge}>
-          <Ionicons name="leaf-outline" size={14} color="#16a34a" />
+          <Ionicons name="leaf-outline" size={14 * scale} color="#16a34a" />
           <Text style={cardStyles.vegText}>Pure Veg</Text>
         </View>
 
@@ -51,12 +56,15 @@ function RestaurantCard({ name, address, photo, onPress }) {
 
         <View style={cardStyles.serviceRow}>
           <View style={cardStyles.serviceChip}>
-            <Ionicons name="storefront-outline" size={14} color="#555" />
+            <Ionicons
+              name="storefront-outline"
+              size={14 * scale}
+              color="#555"
+            />
             <Text style={cardStyles.serviceChipText}>In-store</Text>
           </View>
-
           <View style={cardStyles.serviceChip}>
-            <Ionicons name="car-outline" size={14} color="#555" />
+            <Ionicons name="car-outline" size={14 * scale} color="#555" />
             <Text style={cardStyles.serviceChipText}>Kerbside</Text>
           </View>
         </View>
@@ -114,7 +122,8 @@ export default function Resturent({ navigation }) {
           res.data.forEach((item) => {
             const qty = item.product_quantity ?? 0;
             if (qty > 0) {
-              map[item.product_id] = (map[item.product_id] || 0) + qty;
+              map[item.product_id] =
+                (map[item.product_id] || 0) + qty;
             }
           });
           setCartItems(map);
@@ -132,7 +141,6 @@ export default function Resturent({ navigation }) {
     const timer = setInterval(() => {
       let next = activeIndex + 1;
       if (next >= sliderImages.length) next = 0;
-
       scrollRef.current?.scrollTo({ x: next * width, animated: true });
       setActiveIndex(next);
     }, 3000);
@@ -145,7 +153,8 @@ export default function Resturent({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.root}>
+      {/* header (handles top inset itself, like CartSummary) */}
       <AppHeader
         user={user}
         navigation={navigation}
@@ -156,10 +165,15 @@ export default function Resturent({ navigation }) {
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
         <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={18} color="#777" />
+          <Ionicons
+            name="search"
+            size={18 * scale}
+            color="#666"
+            style={{ marginRight: 8 * scale }}
+          />
           <TextInput
             placeholder="Search restaurants..."
-            placeholderTextColor="#aaa"
+            placeholderTextColor="#999"
             value={search}
             onChangeText={setSearch}
             style={styles.searchInput}
@@ -167,20 +181,23 @@ export default function Resturent({ navigation }) {
         </View>
       </View>
 
+      {/* Main Scroll Content */}
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 80 }} // tighter bottom gap
       >
         {/* Slider */}
-        <View style={{ marginTop: 12 }}>
+        <View style={{ marginTop: 8 }}>
           <ScrollView
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             ref={scrollRef}
             onScroll={(e) =>
-              setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))
+              setActiveIndex(
+                Math.round(e.nativeEvent.contentOffset.x / width)
+              )
             }
             scrollEventThrottle={16}
           >
@@ -191,14 +208,17 @@ export default function Resturent({ navigation }) {
             ))}
           </ScrollView>
 
-          {/* Dots */}
+          {/* dots */}
           <View style={styles.dotContainer}>
             {sliderImages.map((_, i) => (
               <View
                 key={i}
                 style={[
                   styles.dot,
-                  { width: activeIndex === i ? 20 : 7, opacity: activeIndex === i ? 1 : 0.35 },
+                  {
+                    width: activeIndex === i ? 20 : 7,
+                    opacity: activeIndex === i ? 1 : 0.35,
+                  },
                 ]}
               />
             ))}
@@ -212,7 +232,7 @@ export default function Resturent({ navigation }) {
         </View>
 
         {/* Restaurant List */}
-        <View style={{ marginTop: 10 }}>
+        <View style={{ marginTop: 8 }}>
           {filteredRestaurants.map((r, i) => (
             <RestaurantCard
               key={i}
@@ -227,52 +247,57 @@ export default function Resturent({ navigation }) {
         </View>
       </ScrollView>
 
-      <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
-
+      <MenuModal
+        visible={menuVisible}
+        setVisible={setMenuVisible}
+        user={user}
+        navigation={navigation}
+      />
       <BottomBar navigation={navigation} />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f8f8f8" },
+  root: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
 
   searchWrapper: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: "#f8f8f8",
+    paddingHorizontal: 10,
+    paddingVertical: 4, // less vertical padding
+    backgroundColor: "#f5f5f5",
   },
-
   searchBox: {
     flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    elevation: 2,
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e3e3e3",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-
   searchInput: {
-    marginLeft: 8,
-    fontSize: 14,
     flex: 1,
-    color: "#333",
+    fontSize: 14 * scale,
+    color: "#222",
+    fontFamily: FONT_FAMILY,
   },
 
   sliderImage: {
     width: width * 0.92,
-    height: 160,
+    height: 150 * scale,
     alignSelf: "center",
     borderRadius: 8,
     resizeMode: "cover",
   },
-
   dotContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: 6,
   },
-
   dot: {
     height: 7,
     borderRadius: 5,
@@ -284,12 +309,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginHorizontal: 15,
-    marginTop: 15,
+    marginTop: 12,
   },
-
   infoBannerImg: {
     width: (width - 40) / 2,
-    height: 100,
+    height: 100 * scale,
     borderRadius: 8,
     resizeMode: "cover",
     borderWidth: 1,
@@ -300,24 +324,28 @@ const styles = StyleSheet.create({
 const cardStyles = StyleSheet.create({
   card: {
     flexDirection: "row",
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     marginHorizontal: 15,
-    marginVertical: 7,
+    marginVertical: 6,
     padding: 12,
     borderRadius: 8,
     elevation: 2,
   },
-
   image: {
     width: width * 0.22,
     height: width * 0.22,
     borderRadius: 6,
   },
-
-  info: { flex: 1, marginLeft: 12 },
-
-  name: { fontSize: 15, fontWeight: "700", color: "#222" },
-
+  info: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  name: {
+    fontSize: 15 * scale,
+    fontWeight: "700",
+    color: "#222",
+    fontFamily: FONT_FAMILY,
+  },
   vegBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -327,18 +355,24 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 4,
   },
-
-  vegText: { marginLeft: 5, color: "#16a34a", fontSize: 12, fontWeight: "700" },
-
+  vegText: {
+    marginLeft: 5,
+    color: "#16a34a",
+    fontSize: 12 * scale,
+    fontWeight: "700",
+    fontFamily: FONT_FAMILY,
+  },
   address: {
-    fontSize: 13,
+    fontSize: 13 * scale,
     color: "#555",
     marginTop: 6,
     lineHeight: 18,
+    fontFamily: FONT_FAMILY,
   },
-
-  serviceRow: { flexDirection: "row", marginTop: 8 },
-
+  serviceRow: {
+    flexDirection: "row",
+    marginTop: 8,
+  },
   serviceChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -348,6 +382,10 @@ const cardStyles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 10,
   },
-
-  serviceChipText: { marginLeft: 5, fontSize: 12, color: "#333" },
+  serviceChipText: {
+    marginLeft: 5,
+    fontSize: 12 * scale,
+    color: "#333",
+    fontFamily: FONT_FAMILY,
+  },
 });

@@ -50,7 +50,8 @@ export default function Orders({ navigation }) {
           res.data.forEach((item) => {
             const qty = item.product_quantity || 0;
             if (qty > 0) {
-              map[item.product_id] = (map[item.product_id] || 0) + qty;
+              map[item.product_id] =
+                (map[item.product_id] || 0) + qty;
             }
           });
           setCartItems(map);
@@ -62,9 +63,7 @@ export default function Orders({ navigation }) {
       }
     };
 
-    if (isFocused && user) {
-      fetchCart();
-    }
+    if (isFocused && user) fetchCart();
   }, [isFocused, user]);
 
   // Fetch order history
@@ -90,25 +89,23 @@ export default function Orders({ navigation }) {
       }
     };
 
-    if (isFocused && user) {
-      fetchOrders();
-    }
+    if (isFocused && user) fetchOrders();
   }, [isFocused, user]);
 
   const renderStatusChip = (status) => {
     const s = (status || "").toString().toLowerCase();
     let label = "Pending";
-    let bg = "#fff3cd";
-    let color = "#856404";
+    let bg = "#fff7e0";
+    let color = "#8a6d1f";
 
     if (s === "completed" || s === "delivered" || s === "1") {
       label = "Completed";
-      bg = "#d4edda";
-      color = "#155724";
+      bg = "#e5f7eb";
+      color = "#20663b";
     } else if (s === "cancelled" || s === "canceled") {
       label = "Cancelled";
-      bg = "#f8d7da";
-      color = "#721c24";
+      bg = "#fbe4e6";
+      color = "#8a1f2a";
     }
 
     return (
@@ -126,9 +123,7 @@ export default function Orders({ navigation }) {
     let dateStr = "";
     if (createdAt) {
       const d = new Date(createdAt);
-      if (!isNaN(d.getTime())) {
-        dateStr = d.toLocaleString();
-      }
+      if (!isNaN(d.getTime())) dateStr = d.toLocaleString();
     }
 
     const total =
@@ -137,38 +132,54 @@ export default function Orders({ navigation }) {
       item.amount ??
       item.net_amount ??
       0;
-
     const itemsCount =
       item.items_count || item.items?.length || item.item_count || 0;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.orderNo}>{orderNo}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons
+              name="receipt-outline"
+              size={16}
+              color="#28a745"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.orderNo}>{orderNo}</Text>
+          </View>
           {renderStatusChip(item.status)}
         </View>
 
         {dateStr ? (
-          <Text style={styles.dateText}>
-            <Ionicons name="time-outline" size={14} /> {dateStr}
-          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
+            <Ionicons name="time-outline" size={14} color="#777" />
+            <Text style={styles.dateText}>{dateStr}</Text>
+          </View>
         ) : null}
 
         <View style={styles.row}>
-          <Text style={styles.labelText}>Items:</Text>
+          <Text style={styles.labelText}>Items</Text>
           <Text style={styles.valueText}>{itemsCount}</Text>
         </View>
 
         <View style={styles.row}>
-          <Text style={styles.labelText}>Total:</Text>
-          <Text style={styles.totalText}>£ {Number(total).toFixed(2)}</Text>
+          <Text style={styles.labelText}>Total</Text>
+          <Text style={styles.totalText}>
+            £ {Number(total).toFixed(2)}
+          </Text>
         </View>
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       <AppHeader
         user={user}
         navigation={navigation}
@@ -179,11 +190,11 @@ export default function Orders({ navigation }) {
       {loading ? (
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" />
-          <Text style={{ marginTop: 10 }}>Loading your orders...</Text>
+          <Text style={styles.loadingText}>Loading your orders...</Text>
         </View>
       ) : orders.length === 0 ? (
         <View style={styles.centerBox}>
-          <Ionicons name="receipt-outline" size={60} color="#ccc" />
+          <Ionicons name="receipt-outline" size={60} color="#d0d0d0" />
           <Text style={styles.emptyTitle}>No orders yet</Text>
           <Text style={styles.emptySubtitle}>
             Place an order and it will show up here.
@@ -196,7 +207,17 @@ export default function Orders({ navigation }) {
             String(item.order_id || item.id || index)
           }
           renderItem={renderOrder}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 80 }} // tighter bottom
+          ListHeaderComponent={
+            <View style={styles.headerRow}>
+              <Ionicons
+                name="bag-check-outline"
+                size={20}
+                color="#28a745"
+              />
+              <Text style={styles.headerTitle}>Your Orders</Text>
+            </View>
+          }
         />
       )}
 
@@ -206,14 +227,28 @@ export default function Orders({ navigation }) {
         user={user}
         navigation={navigation}
       />
-
       <BottomBar navigation={navigation} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f8f8" },
+  root: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+  },
+
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  headerTitle: {
+    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#222",
+  },
 
   centerBox: {
     flex: 1,
@@ -221,7 +256,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 30,
   },
-  emptyTitle: { marginTop: 12, fontSize: 20, fontWeight: "700", color: "#444" },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#666",
+  },
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#444",
+  },
   emptySubtitle: {
     marginTop: 4,
     fontSize: 14,
@@ -230,11 +275,13 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: "#ffffff",
+    borderRadius: 5,
+    padding: 14,
+    marginBottom: 10,
     elevation: 2,
+    borderWidth: 0.4,
+    borderColor: "#eeeeee",
   },
   cardHeader: {
     flexDirection: "row",
@@ -242,22 +289,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  orderNo: { fontSize: 16, fontWeight: "700", color: "#222" },
-  statusChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+  orderNo: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#222",
   },
-  statusText: { fontSize: 12, fontWeight: "700" },
-
-  dateText: { fontSize: 12, color: "#777", marginBottom: 6 },
+  statusChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  dateText: {
+    fontSize: 12,
+    color: "#777",
+    marginLeft: 4,
+  },
 
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 4,
   },
-  labelText: { fontSize: 14, color: "#555" },
-  valueText: { fontSize: 14, fontWeight: "600", color: "#333" },
-  totalText: { fontSize: 16, fontWeight: "700", color: "#28a745" },
+  labelText: {
+    fontSize: 14,
+    color: "#555",
+  },
+  valueText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  totalText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#28a745",
+  },
 });

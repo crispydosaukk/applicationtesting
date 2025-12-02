@@ -1,14 +1,8 @@
 // CartSummary.js
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  SafeAreaView,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
@@ -24,6 +18,7 @@ export default function CartSummary({ navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
 
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -43,15 +38,16 @@ export default function CartSummary({ navigation }) {
     if (!customerId) return;
 
     const res = await getCart(customerId);
-
     if (res?.status === 1 && Array.isArray(res.data)) {
       setProducts(res.data);
-
       const map = {};
       res.data.forEach((i) => {
         map[i.product_id] = i.product_quantity || 0;
       });
       setCartItems(map);
+    } else {
+      setProducts([]);
+      setCartItems({});
     }
   };
 
@@ -71,7 +67,6 @@ export default function CartSummary({ navigation }) {
     const storedUser = await AsyncStorage.getItem("user");
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
     const customerId = parsedUser?.id ?? parsedUser?.customer_id;
-
     if (!customerId) return;
 
     if (updated <= 0) {
@@ -108,190 +103,192 @@ export default function CartSummary({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <AppHeader
-          user={user}
-          navigation={navigation}
-          cartItems={cartItems}
-          onMenuPress={() => setMenuVisible(true)}
-        />
+    <View style={styles.root}>
+      <AppHeader
+        user={user}
+        navigation={navigation}
+        cartItems={cartItems}
+        onMenuPress={() => setMenuVisible(true)}
+      />
 
-        <View style={styles.offerBanner}>
-          <Icon name="star-circle-outline" size={24} color="#ff9800" />
-          <Text style={styles.offerText}>Save more with your order today!</Text>
+      {/* Offer banner */}
+      <View style={styles.offerBanner}>
+        <Icon name="gift-outline" size={22} color="#ffffff" />
+        <Text style={styles.offerText}>
+          You’re earning rewards on this order 🎉
+        </Text>
+      </View>
+
+      {products.length < 1 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyEmoji}>🛒</Text>
+          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptySubtitle}>
+            Add some tasty food and we’ll get it ready for you.
+          </Text>
+          <TouchableOpacity
+            style={styles.startOrderBtn}
+            onPress={() => navigation.navigate("Resturent")}
+          >
+            <Text style={styles.startOrderText}>Browse restaurants</Text>
+          </TouchableOpacity>
         </View>
-
-        {products.length < 1 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>🛒</Text>
-            <Text style={styles.emptyTitle}>Your cart is empty</Text>
-            <Text style={styles.emptySubtitle}>
-              Add delicious food to your cart.
+      ) : (
+        <>
+          {/* ETA row */}
+          <View style={styles.timeRow}>
+            <Icon name="clock-outline" size={20} color="#1b5e20" />
+            <Text style={styles.timeRowText}>
+              Estimated preparation time{" "}
+              <Text style={styles.timeHighlight}>20 mins</Text>
             </Text>
+          </View>
+
+          {/* Cart list */}
+          <FlatList
+            data={products}
+            keyExtractor={(i) => String(i.product_id)}
+            contentContainerStyle={{ padding: 16, paddingBottom: 200 }}
+            renderItem={({ item }) => {
+              const qty = item.product_quantity || 0;
+              const price = Number(
+                item.discount_price ?? item.product_price ?? 0
+              );
+              const total = calcTotal(price, qty);
+
+              return (
+                <View style={styles.itemCard}>
+                  <View style={styles.itemLeft}>
+                    <Text style={styles.itemName} numberOfLines={2}>
+                      {item.product_name}
+                    </Text>
+                    {item.textfield ? (
+                      <Text style={styles.itemNote} numberOfLines={2}>
+                        {item.textfield}
+                      </Text>
+                    ) : null}
+
+                    <View style={styles.qtyRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.qtyBtn,
+                          { backgroundColor: qty === 1 ? "#e53935" : "#ff9800" },
+                        ]}
+                        onPress={() => updateQty(item, -1)}
+                      >
+                        {qty === 1 ? (
+                          <Icon
+                            name="trash-can-outline"
+                            size={18}
+                            color="#ffffff"
+                          />
+                        ) : (
+                          <Text style={styles.qtyBtnLabel}>-</Text>
+                        )}
+                      </TouchableOpacity>
+
+                      <Text style={styles.qtyCount}>{qty}</Text>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.qtyBtn,
+                          { backgroundColor: "#28a745" },
+                        ]}
+                        onPress={() => updateQty(item, 1)}
+                      >
+                        <Text style={styles.qtyBtnLabel}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <Text style={styles.itemTotal}>£{total}</Text>
+                </View>
+              );
+            }}
+          />
+
+          {/* Grand total bar */}
+          <View
+            style={[
+              styles.floatingBar,
+              { bottom: 66 + insets.bottom + 8 }, // 66 = BottomBar height
+            ]}
+          >
+            <View style={styles.floatingLeft}>
+              <Text style={styles.floatLabel}>Grand total</Text>
+              <Text style={styles.floatAmount}>£{grandTotal}</Text>
+            </View>
+
             <TouchableOpacity
-              style={styles.startOrderBtn}
-              onPress={() => navigation.navigate("Resturent")}
+              style={styles.floatBtn}
+              onPress={() => navigation.navigate("CheckoutScreen")}
             >
-              <Text style={styles.startOrderText}>Start Ordering</Text>
+              <Text style={styles.floatBtnText}>Proceed</Text>
+              <Icon name="chevron-right" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
-        ) : (
-          <>
-            <View style={styles.timeRow}>
-              <Icon name="clock-outline" size={22} color="#28a745" />
-              <Text style={styles.timeRowText}>
-                Order ready in{" "}
-                <Text style={styles.timeHighlight}>20 mins</Text>
-              </Text>
-            </View>
+        </>
+      )}
 
-            <FlatList
-              data={products}
-              keyExtractor={(i) => String(i.product_id)}
-              contentContainerStyle={{ padding: 16, paddingBottom: 200 }}
-              renderItem={({ item }) => {
-                const qty = item.product_quantity || 0;
-                const price = Number(
-                  item.discount_price ?? item.product_price ?? 0
-                );
-                const total = calcTotal(price, qty);
-
-                return (
-                  <View style={styles.itemCard}>
-                    <View style={styles.itemLeft}>
-                      <Text style={styles.itemName}>{item.product_name}</Text>
-                      {item.textfield ? (
-                        <Text style={styles.itemNote}>{item.textfield}</Text>
-                      ) : null}
-
-                      <View style={styles.qtyRow}>
-                        <TouchableOpacity
-                          style={[
-                            styles.qtyBtn,
-                            {
-                              backgroundColor:
-                                qty === 1 ? "#e53935" : "#ff9800",
-                            },
-                          ]}
-                          onPress={() => updateQty(item, -1)}
-                        >
-                          {qty === 1 ? (
-                            <Icon
-                              name="trash-can-outline"
-                              size={20}
-                              color="#fff"
-                            />
-                          ) : (
-                            <Text style={styles.qtyBtnLabel}>-</Text>
-                          )}
-                        </TouchableOpacity>
-
-                        <Text style={styles.qtyCount}>{qty}</Text>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.qtyBtn,
-                            { backgroundColor: "#28a745" },
-                          ]}
-                          onPress={() => updateQty(item, 1)}
-                        >
-                          <Text style={styles.qtyBtnLabel}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <Text style={styles.itemTotal}>£{total}</Text>
-                  </View>
-                );
-              }}
-            />
-
-            <View style={styles.floatingBar}>
-              <View style={styles.floatingLeft}>
-                <Text style={styles.floatLabel}>Grand Total</Text>
-                <Text style={styles.floatAmount}>£{grandTotal}</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.floatBtn}
-                onPress={() => navigation.navigate("CheckoutScreen")}
-              >
-                <Text style={styles.floatBtnText}>Proceed</Text>
-                <Icon name="chevron-right" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
-        <MenuModal
-          visible={menuVisible}
-          setVisible={setMenuVisible}
-          user={user}
-          navigation={navigation}
-        />
-        <BottomBar navigation={navigation} />
-      </View>
-    </SafeAreaView>
+      <MenuModal
+        visible={menuVisible}
+        setVisible={setMenuVisible}
+        user={user}
+        navigation={navigation}
+      />
+      <BottomBar navigation={navigation} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: "#fafafa",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#fafafa",
+    backgroundColor: "#f5f5f5",
   },
 
   offerBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff8e1",
-    padding: 14,
+    backgroundColor: "#2faa3f",
+    padding: 12,
     marginHorizontal: 16,
     marginTop: 10,
-    borderRadius: 6,
-    elevation: 2,
+    borderRadius: 5,
+    elevation: 3,
   },
   offerText: {
     marginLeft: 10,
     fontSize: 14,
     fontWeight: "700",
-    color: "#ff6f00",
+    color: "#ffffff",
+    flex: 1,
   },
 
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
-  emptyEmoji: {
-    fontSize: 80,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#333",
-  },
+  emptyEmoji: { fontSize: 72, marginBottom: 8 },
+  emptyTitle: { fontSize: 22, fontWeight: "800", color: "#222222" },
   emptySubtitle: {
-    fontSize: 15,
-    color: "#777",
+    fontSize: 14,
+    color: "#666666",
     marginTop: 4,
+    textAlign: "center",
   },
   startOrderBtn: {
     backgroundColor: "#28a745",
     paddingVertical: 12,
     paddingHorizontal: 26,
-    borderRadius: 6,
-    marginTop: 20,
+    borderRadius: 5,
+    marginTop: 18,
   },
   startOrderText: {
-    color: "#fff",
-    fontSize: 16,
+    color: "#ffffff",
+    fontSize: 15,
     fontWeight: "700",
   },
 
@@ -299,17 +296,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#e8f5e9",
-    padding: 12,
+    padding: 10,
     marginHorizontal: 16,
     marginTop: 12,
-    borderRadius: 6,
-    borderLeftWidth: 4,
+    borderRadius: 5,
+    borderLeftWidth: 3,
     borderLeftColor: "#28a745",
   },
   timeRowText: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: "#388e3c",
+    marginLeft: 8,
+    fontSize: 13,
+    color: "#336633",
     flex: 1,
   },
   timeHighlight: {
@@ -318,12 +315,13 @@ const styles = StyleSheet.create({
   },
 
   itemCard: {
-    backgroundColor: "#fff",
-    borderRadius: 6,
-    padding: 16,
-    marginVertical: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 5,
+    padding: 14,
+    marginVertical: 6,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     elevation: 3,
   },
   itemLeft: {
@@ -331,60 +329,60 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   itemName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#222",
+    color: "#222222",
   },
   itemNote: {
     fontSize: 13,
-    color: "#777",
+    color: "#777777",
     marginTop: 4,
   },
 
   qtyRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 12,
+    marginTop: 10,
   },
   qtyBtn: {
     width: 32,
     height: 32,
-    borderRadius: 6,
+    borderRadius: 5,
     justifyContent: "center",
     alignItems: "center",
   },
   qtyBtnLabel: {
-    fontSize: 20,
-    color: "#fff",
+    fontSize: 18,
+    color: "#ffffff",
     fontWeight: "800",
+    marginTop: -1,
   },
   qtyCount: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    marginHorizontal: 8,
+    marginHorizontal: 10,
   },
 
   itemTotal: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
     alignSelf: "center",
-    color: "#000",
+    color: "#000000",
   },
 
   floatingBar: {
     position: "absolute",
-    bottom: 80,
     left: 16,
     right: 16,
-    backgroundColor: "#fff",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    backgroundColor: "#ffffff",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 5,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    elevation: 10,
-    shadowColor: "#000",
+    elevation: 12,
+    shadowColor: "#000000",
     shadowOpacity: 0.15,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
@@ -393,12 +391,12 @@ const styles = StyleSheet.create({
     flexDirection: "column",
   },
   floatLabel: {
-    fontSize: 13,
-    color: "#666",
+    fontSize: 12,
+    color: "#666666",
     fontWeight: "600",
   },
   floatAmount: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
     color: "#28a745",
     marginTop: 2,
@@ -408,13 +406,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#28a745",
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     borderRadius: 5,
   },
   floatBtnText: {
-    color: "#fff",
-    fontSize: 16,
+    color: "#ffffff",
+    fontSize: 15,
     fontWeight: "700",
-    marginRight: 6,
+    marginRight: 4,
   },
 });
