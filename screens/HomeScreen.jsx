@@ -46,10 +46,11 @@ export default function HomeScreen({ navigation }) {
   });
 
   const messages = [
-    "Earn £0.25 on every order",
-    "Loyalty points earn £0.25",
-    "Earn £0.25 welcome gift",
-  ];
+  "Earn £0.25 on every order",
+  "Loyalty points earn £0.25",
+  "Earn £0.25 welcome gift",
+];
+
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -111,6 +112,17 @@ export default function HomeScreen({ navigation }) {
     : width * 0.62;
   const verticalPadding = isVerySmallScreen ? 4 : isSmallScreen ? 8 : 12;
 
+  const highlightOffer = (text) => {
+  const parts = text.split("£0.25");
+  return (
+    <Text style={styles.offerText}>
+      {parts[0].toUpperCase()}
+      <Text style={styles.offerAmount}>£0.25</Text>
+      {parts[1]?.toUpperCase()}
+    </Text>
+  );
+};
+
   return (
     <>
       <StatusBar backgroundColor="#ffdfdf" barStyle="dark-content" />
@@ -136,21 +148,22 @@ export default function HomeScreen({ navigation }) {
                   },
                 ]}
               />
-
-              <Animated.View
-                style={[
-                  styles.offerPill,
-                  {
-                    opacity: opacityAnim,
-                    transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-                  },
-                ]}
-              >
-                <Ionicons name="gift-outline" size={18} color="#fff" />
-                <Text style={styles.offerText}>
-                  {messages[msgIndex].toUpperCase()}
-                </Text>
-              </Animated.View>
+              <View style={{ width: "100%", alignItems: "center", marginVertical: 6, }}>
+                <Animated.View
+                  style={[
+                    styles.offerPill,
+                    {
+                      opacity: opacityAnim,
+                      transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+                    },
+                  ]}
+                >
+                    <Ionicons name="gift-outline" size={18} color="#fff" />
+                    <Text style={styles.offerText}>
+                      {highlightOffer(messages[msgIndex])}
+                    </Text>
+                </Animated.View>
+              </View>
 
               <View style={styles.mainTitleWrap}>
                 <Text style={styles.mainTitleBlack}>UK’S FINEST PURE</Text>
@@ -235,6 +248,13 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  offerAmount: {
+  fontWeight: "900",
+  color: "#fff700",   // bright highlight (change if needed)
+  textShadowColor: "rgba(0,0,0,0.3)",
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 2,
+},
 
   // ⬇️ mainContent no more space-between (this was causing big gap)
   mainContent: {
@@ -296,10 +316,10 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY,
   },
   offerPill: {
-    marginTop: 8,
+    marginTop: -18,
     paddingHorizontal: 16,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#28a745",

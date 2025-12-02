@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,7 +19,9 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+
 import { registerUser } from "../services/authService";
+import { fetchRestaurants } from "../services/restaurantService";
 
 const FONT_FAMILY = Platform.select({
   ios: "System",
@@ -42,12 +44,44 @@ export default function SignupScreen({ navigation }) {
   const [referralCode, setReferralCode] = useState("");
   const [gender, setGender] = useState("");
 
+  // 🔹 New: restaurant list state
+  const [restaurants, setRestaurants] = useState([]);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+
   // Only for picker initial position (18 yrs back)
   const getDefaultDobForPicker = () => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 18);
     return d;
   };
+
+  // 🔹 New: fetch restaurants on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const data = await fetchRestaurants();
+        if (isMounted) {
+          setRestaurants(data || []);
+        }
+      } catch (err) {
+        console.error("Failed to load restaurants:", err);
+        if (isMounted) {
+          Alert.alert(
+            "Error",
+            "Unable to load restaurants. Please try again later."
+          );
+        }
+      } finally {
+        if (isMounted) setRestaurantsLoading(false);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const validateForm = () => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
@@ -74,6 +108,7 @@ export default function SignupScreen({ navigation }) {
         mobile_number: phone,
         country_code: `+${callingCode}`,
         password,
+        // 🔹 sending restaurant NAME (same behaviour as earlier A/B/C)
         preferred_restaurant: preferredRestaurant,
         date_of_birth: dob ? dob.toISOString().split("T")[0] : null,
         referral_code: referralCode || null,
@@ -179,17 +214,36 @@ export default function SignupScreen({ navigation }) {
             />
           </View>
 
-          {/* PREFERRED RESTAURANT */}
+          {/* 🔹 PREFERRED RESTAURANT (DYNAMIC) */}
           <View style={styles.pickerBox}>
             <Picker
               selectedValue={preferredRestaurant}
               onValueChange={setPreferredRestaurant}
-              style={{ width: "100%" }}
+              style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
+              itemStyle={{ color: "#1b5e20" }}              // 🔥 Text visible everywhere
             >
+
               <Picker.Item label="Preferred Restaurant" value="" />
-              <Picker.Item label="Restaurant A" value="Restaurant A" />
-              <Picker.Item label="Restaurant B" value="Restaurant B" />
-              <Picker.Item label="Restaurant C" value="Restaurant C" />
+
+              {restaurantsLoading && (
+                <Picker.Item label="Loading restaurants..." value="" />
+              )}
+
+              {!restaurantsLoading && restaurants.length === 0 && (
+                <Picker.Item
+                  label="No restaurants available"
+                  value=""
+                />
+              )}
+
+              {!restaurantsLoading &&
+                restaurants.map((r) => (
+                  <Picker.Item
+                    key={r.id}
+                    label={r.name}
+                    value={r.name} // keep behaviour same as old static names
+                  />
+                ))}
             </Picker>
           </View>
 
@@ -227,7 +281,8 @@ export default function SignupScreen({ navigation }) {
             <Picker
               selectedValue={gender}
               onValueChange={setGender}
-              style={{ width: "100%" }}
+              style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
+              itemStyle={{ color: "#1b5e20" }}              // 🔥 Placeholder visible
             >
               <Picker.Item label="Gender (Optional)" value="" />
               <Picker.Item label="Male" value="male" />

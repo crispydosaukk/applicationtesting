@@ -264,13 +264,15 @@ export default function CheckoutScreen({ navigation }) {
               <Text style={styles.backBtnText}>Back</Text>
             </TouchableOpacity>
 
-            <Icon
-              name="truck-outline"
-              size={40}
-              color="#28a745"
-              style={styles.popupIcon}
-            />
-            <Text style={styles.popupTitle}>Choose Delivery Method</Text>
+            <View style={styles.titleRow}>
+              <Icon
+                name="shopping-outline"    // NORMAL BAG ICON
+                size={26}
+                color="#28a745"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.popupTitle}>Select Takeaway Method</Text>
+            </View>
 
             <TouchableOpacity
               style={[
@@ -298,7 +300,7 @@ export default function CheckoutScreen({ navigation }) {
               <View style={styles.inputArea}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Your Name"
+                  placeholder="Car Name"
                   value={kerbsideName}
                   onChangeText={setKerbsideName}
                   placeholderTextColor="#777777"
@@ -405,6 +407,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
+
+  titleRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 12,
+},
 
   summaryBox: {
     padding: 16,

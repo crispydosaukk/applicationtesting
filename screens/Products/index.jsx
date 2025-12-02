@@ -23,7 +23,7 @@ import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
 
 const { width } = Dimensions.get("window");
-const scale = width / 400; // simple responsive scale
+const scale = width / 400;
 
 export default function Products({ route, navigation }) {
   const { userId, categoryId } = route.params;
@@ -43,7 +43,7 @@ export default function Products({ route, navigation }) {
   const [noteInput, setNoteInput] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const bannerHeight = useRef(new Animated.Value(64 * scale)).current;
+  const bannerHeight = useRef(new Animated.Value(40 * scale)).current;
   const [bannerVisible, setBannerVisible] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -53,6 +53,20 @@ export default function Products({ route, navigation }) {
     "REFER & EARN £0.25",
     "£0.25 WELCOME BONUS",
   ];
+
+  const highlightAmount = (text) => {
+  const regex = /(£\s?0\.25|£0\.25)/i;
+  const parts = text.split(regex);
+
+  return (
+    <Text style={styles.bannerText}>
+      {parts[0]}
+      {parts[1] && <Text style={styles.amountHighlight}>{parts[1]}</Text>}
+      {parts[2]}
+    </Text>
+  );
+};
+
 
   // animated banner text
   useEffect(() => {
@@ -89,7 +103,7 @@ export default function Products({ route, navigation }) {
   const expandBanner = () => {
     setBannerVisible(true);
     Animated.timing(bannerHeight, {
-      toValue: 64 * scale,
+      toValue: 40 * scale,
       duration: 250,
       useNativeDriver: false,
     }).start();
@@ -103,7 +117,7 @@ export default function Products({ route, navigation }) {
     })();
   }, []);
 
-  // load products + local cart
+  // load products + cart
   useEffect(() => {
     (async () => {
       const data = await fetchProducts(userId, categoryId);
@@ -120,15 +134,16 @@ export default function Products({ route, navigation }) {
     })();
   }, [userId, categoryId]);
 
-  // search filter
+  // search
   useEffect(() => {
     if (!searchText.trim()) setFilteredProducts(products);
-    else
+    else {
       setFilteredProducts(
         products.filter((i) =>
           i.name.toLowerCase().includes(searchText.toLowerCase())
         )
       );
+    }
   }, [searchText, products]);
 
   const increment = (id) =>
@@ -155,7 +170,6 @@ export default function Products({ route, navigation }) {
   const handleNextPopup = async () => {
     const ids = Object.keys(cartItems);
     const pid = ids[popupIndex];
-
     setNotes((p) => ({ ...p, [pid]: noteInput }));
 
     const prod = products.find((p) => p.id == pid);
@@ -212,6 +226,7 @@ export default function Products({ route, navigation }) {
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.name}
           </Text>
+
           {!!item.description && (
             <Text style={styles.cardDesc} numberOfLines={2}>
               {item.description}
@@ -227,13 +242,11 @@ export default function Products({ route, navigation }) {
                   style={styles.qtyBtn}
                   onPress={() => decrement(item.id)}
                 >
-                  <Ionicons
-                    name="remove-outline"
-                    size={18 * scale}
-                    color="#000"
-                  />
+                  <Ionicons name="remove-outline" size={18 * scale} color="#000" />
                 </TouchableOpacity>
+
                 <Text style={styles.qtyText}>{qty}</Text>
+
                 <TouchableOpacity
                   style={styles.qtyBtn}
                   onPress={() => increment(item.id)}
@@ -246,11 +259,7 @@ export default function Products({ route, navigation }) {
                 style={styles.addBtn}
                 onPress={() => increment(item.id)}
               >
-                <Ionicons
-                  name="add-outline"
-                  size={20 * scale}
-                  color="#fff"
-                />
+                <Ionicons name="add-outline" size={20 * scale} color="#fff" />
                 <Text style={styles.addText}>ADD</Text>
               </TouchableOpacity>
             )}
@@ -273,40 +282,23 @@ export default function Products({ route, navigation }) {
       {bannerVisible ? (
         <Animated.View style={[styles.banner, { height: bannerHeight }]}>
           <View style={styles.bannerLeft}>
-            <Ionicons
-              name="gift-outline"
-              size={18 * scale}
-              color="#ffffff"
-            />
-            <Animated.Text
-              style={[styles.bannerText, { opacity: fadeAnim }]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {animatedTexts[textIndex]}
-            </Animated.Text>
+            <Ionicons name="gift-outline" size={18 * scale} color="#ffffff" />
+            <Animated.View style={{ opacity: fadeAnim }}>
+              {highlightAmount(animatedTexts[textIndex])}
+            </Animated.View>
           </View>
+
           <TouchableOpacity onPress={collapseBanner}>
-            <Ionicons
-              name="close-circle"
-              size={22 * scale}
-              color="#ffffff"
-            />
+            <Ionicons name="close-circle" size={22 * scale} color="#ffffff" />
           </TouchableOpacity>
         </Animated.View>
       ) : (
         <TouchableOpacity style={styles.bannerChip} onPress={expandBanner}>
-          <Ionicons
-            name="gift-outline"
-            size={18 * scale}
-            color="#ffffff"
-          />
+          <Ionicons name="gift-outline" size={18 * scale} color="#ffffff" />
           <Animated.Text
             style={[styles.bannerChipText, { opacity: fadeAnim }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
           >
-            Offers & Rewards
+            Click here for offers
           </Animated.Text>
         </TouchableOpacity>
       )}
@@ -340,16 +332,12 @@ export default function Products({ route, navigation }) {
         <View
           style={[
             styles.checkoutWrap,
-            { bottom: 66 + insets.bottom + 8 }, // 66 = bottom bar height
+            { bottom: 66 + insets.bottom + 8 },
           ]}
         >
           <TouchableOpacity style={styles.checkoutBtn} onPress={startCheckout}>
-            <Ionicons
-              name="cart-outline"
-              size={20 * scale}
-              color="#ffffff"
-            />
-            <Text style={styles.checkoutText}>Review & add to cart</Text>
+            <Ionicons name="cart-outline" size={20 * scale} color="#ffffff" />
+            <Text style={styles.checkoutText}>Review Order</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -360,69 +348,71 @@ export default function Products({ route, navigation }) {
         user={user}
         navigation={navigation}
       />
-      <BottomBar navigation={navigation} />
 
       {/* Notes popup */}
       <Modal visible={popupVisible} transparent animationType="fade">
         <View style={styles.popupOverlay}>
           <View style={styles.popupBox}>
+            {/* TOP ROW RESTORED EXACTLY LIKE BEFORE */}
             <View style={styles.popupTopRow}>
               <TouchableOpacity
                 onPress={() => setPopupVisible(false)}
                 style={styles.popupBackIconWrap}
               >
-                <Ionicons
-                  name="arrow-back"
-                  size={20 * scale}
-                  color="#222222"
-                />
+                <Ionicons name="arrow-back" size={20 * scale} color="#222222" />
               </TouchableOpacity>
-              <Text style={styles.popupTopTitle}>Special instructions</Text>
+
+              <Text style={styles.popupTopTitle}>Special Instructions</Text>
             </View>
 
+            {/* NAME LEFT, PRICE RIGHT (YOUR REQUEST) */}
             {currentProduct && (
-              <>
+              <View style={styles.popupTitleRow}>
                 <Text style={styles.popupTitle}>{currentProduct.name}</Text>
                 <Text style={styles.popupPrice}>£{currentProduct.price}</Text>
-                <Text style={styles.popupHint}>
-                  Let us know about spice level, no onion / garlic, allergies or
-                  any other request. We’ll do our best.
-                </Text>
-                <TextInput
-                  style={styles.popupInput}
-                  placeholder="Type your cooking / packing instructions (optional)"
-                  value={noteInput}
-                  onChangeText={setNoteInput}
-                  multiline
-                  placeholderTextColor="#999999"
-                />
-                <View style={styles.popupRow}>
-                  {popupIndex > 0 && (
-                    <TouchableOpacity
-                      style={styles.popupSecondaryBtn}
-                      onPress={handleBackPopup}
-                    >
-                      <Text style={styles.popupSecondaryText}>
-                        Previous item
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.popupPrimaryBtn}
-                    onPress={handleNextPopup}
-                  >
-                    <Text style={styles.popupPrimaryText}>
-                      {popupIndex === selectedIds.length - 1
-                        ? "Save & go to cart"
-                        : "Save & next item"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
+              </View>
             )}
+
+            <Text style={styles.popupHint}>
+              Enter any instructions like spice level, allergies or packing.
+            </Text>
+
+            <TextInput
+              style={styles.popupInput}
+              placeholder="Type your instructions..."
+              value={noteInput}
+              onChangeText={setNoteInput}
+              multiline
+              placeholderTextColor="#999999"
+            />
+
+            {/* BUTTONS — PROFESSIONAL NAMES */}
+            <View style={styles.popupRow}>
+              {popupIndex > 0 && (
+                <TouchableOpacity
+                  style={styles.popupSecondaryBtn}
+                  onPress={handleBackPopup}
+                >
+                  <Text style={styles.popupSecondaryText}>Previous</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.popupPrimaryBtn}
+                onPress={handleNextPopup}
+              >
+                <Text style={styles.popupPrimaryText}>
+                  {popupIndex === selectedIds.length - 1
+                    ? "Proceed to Cart"
+                    : "Next Item"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
+
+      <BottomBar navigation={navigation} />
     </View>
   );
 }
@@ -430,14 +420,21 @@ export default function Products({ route, navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f5f5f5" },
 
+  amountHighlight: {
+  color: "#ffea63",         // GOLD
+  fontWeight: "900",
+  textShadowColor: "rgba(0,0,0,0.3)",
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 3,
+},
+
   banner: {
     width: "100%",
     backgroundColor: "#2faa3f",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    overflow: "hidden",
+    paddingHorizontal: 14,
   },
   bannerLeft: { flexDirection: "row", alignItems: "center" },
   bannerText: {
@@ -491,7 +488,14 @@ const styles = StyleSheet.create({
     padding: 12,
     elevation: 3,
   },
-  cardImg: { width: 110, height: 110, borderRadius: 5 },
+  cardImg: {
+    width: 110,
+    height: 110,
+    borderRadius: 5,
+    resizeMode: "contain",
+    backgroundColor: "#fff",
+  },
+
   cardBody: { flex: 1, marginLeft: 12 },
   cardTitle: {
     fontSize: 15.5 * scale,
@@ -503,13 +507,18 @@ const styles = StyleSheet.create({
     color: "#666666",
     marginTop: 4,
   },
+
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 10,
   },
-  price: { fontSize: 16 * scale, fontWeight: "700", color: "#28a745" },
+  price: {
+    fontSize: 16 * scale,
+    fontWeight: "700",
+    color: "#28a745",
+  },
 
   qtyRow: { flexDirection: "row", alignItems: "center" },
   qtyBtn: {
@@ -559,6 +568,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
+  /* POPUP */
   popupOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -572,31 +582,42 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     elevation: 10,
   },
+
   popupTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+
   popupBackIconWrap: { padding: 4, marginRight: 6 },
+
   popupTopTitle: {
     fontSize: 14 * scale,
     fontWeight: "600",
     color: "#555555",
   },
+
+  popupTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+
   popupTitle: {
     fontSize: 17 * scale,
     fontWeight: "700",
     color: "#222222",
-    marginTop: 4,
+    flex: 1,
   },
+
   popupPrice: {
     fontSize: 15 * scale,
     fontWeight: "700",
     color: "#28a745",
-    marginTop: 2,
-    marginBottom: 6,
   },
+
   popupHint: {
     fontSize: 12.5 * scale,
     color: "#777777",
     marginBottom: 8,
   },
+
   popupInput: {
     borderWidth: 1,
     borderColor: "#dddddd",
@@ -608,11 +629,13 @@ const styles = StyleSheet.create({
     color: "#222222",
     marginBottom: 16,
   },
+
   popupRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
   },
+
   popupSecondaryBtn: {
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -621,17 +644,20 @@ const styles = StyleSheet.create({
     borderColor: "#cccccc",
     marginRight: 8,
   },
+
   popupSecondaryText: {
     fontSize: 13 * scale,
     fontWeight: "600",
     color: "#444444",
   },
+
   popupPrimaryBtn: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
     backgroundColor: "#28a745",
   },
+
   popupPrimaryText: {
     fontSize: 13.5 * scale,
     fontWeight: "700",

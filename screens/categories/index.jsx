@@ -185,6 +185,21 @@ export default function Categories({ route, navigation }) {
       : "Closed Today"
     : "Loading...";
 
+    const highlightAmount = (text) => {
+  const regex = /(£\s?0\.25|£0\.25)/i; // detects £0.25 in any format
+  const parts = text.split(regex);
+
+  return (
+    <Text style={styles.offerText} numberOfLines={1}>
+      {parts[0]}
+      {parts[1] && (
+        <Text style={styles.offerAmount}>{parts[1]}</Text>
+      )}
+      {parts[2]}
+    </Text>
+  );
+};
+
   return (
     // 🔧 only left/right safe insets so we don't double-pad top/bottom
     <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
@@ -202,13 +217,9 @@ export default function Categories({ route, navigation }) {
         {/* OFFER STRIP */}
         <View style={styles.offerWrapper}>
           <Ionicons name="gift-outline" size={18 * scale} color="#ffffff" />
-          <Animated.Text
-            style={[styles.offerText, { opacity: fadeAnim }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {animatedTexts[textIndex]}
-          </Animated.Text>
+          <Animated.View style={{ opacity: fadeAnim, flex: 1, marginLeft: 10 }}>
+            {highlightAmount(animatedTexts[textIndex])}
+          </Animated.View>
         </View>
 
         {/* RESTAURANT CARD */}
@@ -351,6 +362,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
+offerAmount: {
+  color: "#fffa75",        // premium light-gold
+  fontWeight: "900",
+  textShadowColor: "rgba(0,0,0,0.35)",
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 3,
+},
 
   offerWrapper: {
     flexDirection: "row",
@@ -472,11 +490,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   categoryImage: {
-    width: "100%",
-    height: (width - 52) / 2 - 26,
-    borderRadius: 5,
-    resizeMode: "cover",
-  },
+  width: "100%",
+  height: (width - 52) / 2 - 26,
+  borderRadius: 5,
+  resizeMode: "contain",   // ⭐ prevents cropping
+  backgroundColor: "#fff", // ⭐ avoids empty gaps behind image
+},
+
   categoryText: {
     marginTop: 8,
     fontSize: 14,

@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     width: width * 0.92,
     height: 150 * scale,
     alignSelf: "center",
-    borderRadius: 8,
+    borderRadius: 5,
     resizeMode: "cover",
   },
   dotContainer: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     width: (width - 40) / 2,
     height: 100 * scale,
     borderRadius: 8,
-    resizeMode: "cover",
+    resizeMode: "contain",
     borderWidth: 1,
     borderColor: "#e5e5e5",
   },
