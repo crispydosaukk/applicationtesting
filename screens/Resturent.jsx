@@ -14,6 +14,8 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
+import { RefreshControl } from "react-native";
+import useRefresh from "../hooks/useRefresh";
 
 import AppHeader from "./AppHeader";
 import BottomBar from "./BottomBar";
@@ -152,6 +154,31 @@ export default function Resturent({ navigation }) {
     r.name.toLowerCase().includes(search.toLowerCase())
   );
 
+
+  const { refreshing, onRefresh } = useRefresh(async () => {
+  // reload restaurants
+  const list = await fetchRestaurants();
+  setRestaurants(list);
+
+  // reload user cart
+  if (user) {
+    const customerId = user.id ?? user.customer_id;
+    const res = await getCart(customerId);
+
+    if (res?.status === 1 && Array.isArray(res.data)) {
+      const map = {};
+      res.data.forEach((item) => {
+        const qty = item.product_quantity ?? 0;
+        if (qty > 0) {
+          map[item.product_id] = (map[item.product_id] || 0) + qty;
+        }
+      });
+      setCartItems(map);
+    }
+  }
+});
+
+
   return (
     <View style={styles.root}>
       {/* header (handles top inset itself, like CartSummary) */}
@@ -181,12 +208,15 @@ export default function Resturent({ navigation }) {
         </View>
       </View>
 
-      {/* Main Scroll Content */}
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 80 }} // tighter bottom gap
+        contentContainerStyle={{ paddingBottom: 80 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
+
         {/* Slider */}
         <View style={{ marginTop: 8 }}>
           <ScrollView

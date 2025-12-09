@@ -27,6 +27,9 @@ import {
   fetchRestaurantTimings,
 } from "../../services/restaurantService";
 import { getCart } from "../../services/cartService";
+import { RefreshControl } from "react-native";
+import useRefresh from "../../hooks/useRefresh";
+
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
@@ -155,6 +158,36 @@ export default function Categories({ route, navigation }) {
     (c?.name || "").toLowerCase().includes(searchText.toLowerCase())
   );
 
+  const { refreshing, onRefresh } = useRefresh(async () => {
+  // Reload restaurant
+  const d = await fetchRestaurantDetails(userId);
+  setRestaurant(d);
+
+  // Reload categories
+  const c = await fetchCategories(userId);
+  setCategories(Array.isArray(c) ? c : []);
+
+  // Reload timings
+  if (d?.id) {
+    const t = await fetchRestaurantTimings(d.id);
+    const today = new Date().toLocaleString("en-US", { weekday: "long" });
+    setTodayTiming(t.find((i) => i.day === today) || null);
+  }
+
+  // Reload cart
+  if (user) {
+    const id = user.id ?? user.customer_id;
+    const res = await getCart(id);
+    if (res?.status === 1 && Array.isArray(res.data)) {
+      const map = {};
+      res.data.forEach((i) => {
+        if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
+      });
+      setCartItems(map);
+    }
+  }
+});
+
   const renderCategory = ({ item }) => (
     <TouchableOpacity
       style={styles.categoryCard}
@@ -212,8 +245,12 @@ export default function Categories({ route, navigation }) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 48 }} // reduced bottom padding
+        contentContainerStyle={{ paddingBottom: 48 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
+
         {/* OFFER STRIP */}
         <View style={styles.offerWrapper}>
           <Ionicons name="gift-outline" size={18 * scale} color="#ffffff" />
@@ -234,7 +271,7 @@ export default function Categories({ route, navigation }) {
               style={styles.restaurantImage}
             />
             <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.85)"]}
+              colors={["rgba(0,0,0,0.05)", "rgba(0,0,0,0.55)"]}   // 👈 pehle "transparent", "rgba(0,0,0,0.85)"
               style={styles.overlay}
             />
             <View style={styles.overlayContent}>
@@ -392,10 +429,10 @@ offerAmount: {
   restaurantCard: {
     marginHorizontal: 18,
     marginTop: 12,
-    borderRadius: 5,
+    borderRadius: 10,
     overflow: "hidden",
     elevation: 4,
-    backgroundColor: "#000000",
+    backgroundColor: "#ffffff",
   },
   restaurantImage: {
     width: "100%",
@@ -415,10 +452,10 @@ offerAmount: {
     right: 12,
   },
   glassPanel: {
-    backgroundColor: "rgba(0,0,0,0.65)",
-    borderRadius: 5,
-    padding: 10,
-  },
+  backgroundColor: "rgba(0,0,0,0.45)",   // 👈 pehle 0.65 tha
+  borderRadius: 8,
+  padding: 10,
+},
   restaurantTitle: {
     color: "#ffffff",
     fontSize: 18,

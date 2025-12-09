@@ -15,6 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useIsFocused } from "@react-navigation/native";
+import { RefreshControl } from "react-native";
+import useRefresh from "../hooks/useRefresh";
 
 import AppHeader from "./AppHeader";
 import BottomBar from "./BottomBar";
@@ -132,6 +134,18 @@ export default function CheckoutScreen({ navigation }) {
     }
   };
 
+  const { refreshing, onRefresh } = useRefresh(async () => {
+  if (!user) return;
+
+  const cid = user.id ?? user.customer_id;
+  const res = await getCart(cid);
+
+  if (res?.status === 1) {
+    setCart(res.data || []);
+  }
+});
+
+
   const renderDeliverySummary = () => (
     <View style={styles.deliverySummaryBox}>
       <Text style={styles.summaryText}>
@@ -227,6 +241,9 @@ export default function CheckoutScreen({ navigation }) {
             </Text>
           </View>
         )}
+        refreshControl={
+    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+  }
       />
 
       {/* FLOATING BAR – stays above bottom bar */}

@@ -5,7 +5,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-
+import { RefreshControl, ScrollView } from "react-native";
+import useRefresh from "../hooks/useRefresh";
 import AppHeader from "./AppHeader";
 import BottomBar from "./BottomBar";
 import MenuModal from "./MenuModal";
@@ -19,6 +20,9 @@ export default function CartSummary({ navigation }) {
 
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
+  const { refreshing, onRefresh } = useRefresh(async () => {
+    await refreshCart();   // you already have this function 👌
+  });
 
   useEffect(() => {
     (async () => {
@@ -120,7 +124,13 @@ export default function CartSummary({ navigation }) {
       </View>
 
       {products.length < 1 ? (
-        <View style={styles.emptyContainer}>
+        <ScrollView
+          contentContainerStyle={styles.emptyContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+
           <Text style={styles.emptyEmoji}>🛒</Text>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySubtitle}>
@@ -132,7 +142,7 @@ export default function CartSummary({ navigation }) {
           >
             <Text style={styles.startOrderText}>Browse restaurants</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       ) : (
         <>
           {/* ETA row */}
@@ -205,6 +215,9 @@ export default function CartSummary({ navigation }) {
                 </View>
               );
             }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           />
 
           {/* Grand total bar */}

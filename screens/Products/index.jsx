@@ -15,7 +15,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
-
+import { RefreshControl } from "react-native";
+import useRefresh from "../../hooks/useRefresh";
 import { fetchProducts } from "../../services/productService";
 import { addToCart } from "../../services/cartService";
 import AppHeader from "../AppHeader";
@@ -145,6 +146,22 @@ export default function Products({ route, navigation }) {
       );
     }
   }, [searchText, products]);
+
+  const { refreshing, onRefresh } = useRefresh(async () => {
+  // Reload products
+  const data = await fetchProducts(userId, categoryId);
+  const list = Array.isArray(data) ? data : [];
+  setProducts(list);
+  setFilteredProducts(list);
+
+  // Reload cart from storage
+  const stored = await AsyncStorage.getItem("cart");
+  if (stored) {
+    const parsed = JSON.parse(stored);
+    setCartItems(parsed[userId] || {});
+  }
+});
+
 
   const increment = (id) =>
     setCartItems((p) => ({ ...p, [id]: (p[id] || 0) + 1 }));
@@ -324,7 +341,11 @@ export default function Products({ route, navigation }) {
           renderItem={renderItem}
           keyExtractor={(i) => i.id.toString()}
           contentContainerStyle={{ paddingBottom: 180 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         />
+
       )}
 
       {/* Checkout sticky */}
