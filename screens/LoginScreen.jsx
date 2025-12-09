@@ -24,15 +24,26 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter email & password");
+      Alert.alert("Error", "Please enter Email / Mobile Number and Password");
+      return;
+    }
+
+    // 🔥 Detect if input is valid email or mobile number
+    const trimmed = email.trim();
+    const isMobile = /^[0-9]{8,15}$/.test(trimmed);
+    const isEmailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+
+    if (!isMobile && !isEmailFormat) {
+      Alert.alert("Invalid Input", "Please enter a valid Email or Mobile Number");
       return;
     }
 
     setLoading(true);
     try {
-      const { user, token } = await loginUser(email, password);
+      const { user, token } = await loginUser(trimmed, password);
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("user", JSON.stringify(user));
+
       Alert.alert("Login Successful", `Welcome back ${user.full_name}`);
       navigation.replace("Resturent");
     } catch (e) {
@@ -69,21 +80,25 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.title}>Hello 👋</Text>
             <Text style={styles.subtitle}>Sign in to your account</Text>
 
-            {/* Email */}
+            {/* Email / Mobile */}
             <View style={styles.box}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>Email or Mobile Number</Text>
               <View style={styles.inputRow}>
-                <Ionicons name="mail-outline" size={20} color="#1f4d35" />
+                <Ionicons name="person-outline" size={20} color="#1f4d35" />
                 <TextInput
-                  placeholder="Enter your email"
+                  placeholder="Enter email or mobile number"
                   placeholderTextColor="#88a796"
                   autoCapitalize="none"
-                  keyboardType="email-address"
+                  keyboardType="default"
                   value={email}
                   onChangeText={setEmail}
                   style={styles.input}
                 />
               </View>
+
+              <Text style={styles.helperText}>
+                You can login using your Email or Mobile Number.
+              </Text>
             </View>
 
             {/* Password */}
@@ -225,6 +240,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#000",
     marginLeft: 8,
+  },
+
+  helperText: {
+    color: "#4a7f65",
+    fontSize: 13,
+    marginTop: 5,
   },
 
   forgotBtn: { alignSelf: "flex-end", marginTop: 4 },
