@@ -16,6 +16,7 @@ import Products from "./screens/Products/index.jsx";
 import CartSummary from "./screens/CartSummary.jsx";
 import CheckoutScreen from "./screens/CheckoutScreen.jsx";
 import Orders from "./screens/Orders.jsx";
+import Credits from "./screens/Credits/index.jsx";
 
 const Stack = createNativeStackNavigator();
 
@@ -52,6 +53,7 @@ export default function App() {
           <Stack.Screen name="Orders" component={Orders} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="Credits" component={Credits} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
