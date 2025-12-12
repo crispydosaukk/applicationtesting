@@ -1,35 +1,48 @@
 // screens/Credits/index.jsx
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
 
 import BottomBar from "../BottomBar.jsx";
-import api from "../../config/api";
+import {
+  getWalletSummary,
+  redeemLoyaltyToWallet,
+} from "../../services/walletService";
 
-// ✅ Same header components as Orders.jsx
 import AppHeader from "../AppHeader";
 import MenuModal from "../MenuModal";
-
-// ✅ cart service (same as Orders.jsx)
 import { getCart } from "../../services/cartService";
 
 export default function CreditsScreen({ navigation }) {
-  // ✅ 1) Hooks MUST be at top-level (never inside conditions)
   const isFocused = useIsFocused();
 
-  // ✅ 2) Header states (same as Orders.jsx)
+  // Header states
   const [user, setUser] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [cartItems, setCartItems] = useState({});
 
-  // ✅ 3) Wallet/Credits states
+  // Wallet/Credits states
   const [walletBalance, setWalletBalance] = useState(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(null);
+  const [pendingLoyaltyPoints, setPendingLoyaltyPoints] = useState(0); // ✅ NEW
+  const [availableAfterHours, setAvailableAfterHours] = useState(24); // ✅ NEW
   const [referralCredits, setReferralCredits] = useState(null);
   const [history, setHistory] = useState([]);
 
-  // ✅ Load user (same pattern as Orders.jsx)
+  // Redeem settings + loading
+  const [loyaltyRedeemPoints, setLoyaltyRedeemPoints] = useState(10);
+  const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState(1);
+  const [redeeming, setRedeeming] = useState(false);
+
+  // Load user
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -42,7 +55,7 @@ export default function CreditsScreen({ navigation }) {
     loadUser();
   }, []);
 
-  // ✅ Fetch cart for header badge (same as Orders.jsx)
+  // Fetch cart for header badge
   useEffect(() => {
     const fetchCart = async () => {
       if (!user) return;
@@ -56,9 +69,7 @@ export default function CreditsScreen({ navigation }) {
           const map = {};
           res.data.forEach((item) => {
             const qty = item.product_quantity || 0;
-            if (qty > 0) {
-              map[item.product_id] = (map[item.product_id] || 0) + qty;
-            }
+            if (qty > 0) map[item.product_id] = (map[item.product_id] || 0) + qty;
           });
           setCartItems(map);
         } else {
@@ -72,53 +83,68 @@ export default function CreditsScreen({ navigation }) {
     if (isFocused && user) fetchCart();
   }, [isFocused, user]);
 
-  // ✅ Load credits/wallet summary
+  // Load credits/wallet summary
   const loadCreditsData = async () => {
+    const data = await getWalletSummary();
+
+    setWalletBalance(Number(data.wallet_balance || 0));
+    setLoyaltyPoints(Number(data.loyalty_points || 0));
+    setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0)); // ✅ NEW
+    setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24)); // ✅ NEW
+    setReferralCredits(Number(data.referral_credits || 0));
+
+    setLoyaltyRedeemPoints(Number(data.loyalty_redeem_points || 10));
+    setLoyaltyRedeemValue(Number(data.loyalty_redeem_value || 1));
+
+    setHistory(Array.isArray(data.history) ? data.history : []);
+  };
+
+  // Redeem call
+  const handleRedeem = async () => {
+    if (redeeming) return;
+
+    const lp = Number(loyaltyPoints || 0);
+    const need = Number(loyaltyRedeemPoints || 10);
+
+    if (lp < need) {
+      Alert.alert("Not enough points", `You need at least ${need} points to redeem.`);
+      return;
+    }
+
     try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        console.log("No token found, user not logged in");
-        return;
+      setRedeeming(true);
+
+      const res = await redeemLoyaltyToWallet();
+
+      if (res?.status === 1) {
+        Alert.alert(
+          "Redeemed Successfully",
+          `Converted ${res.points_redeemed} points to £${Number(res.wallet_amount).toFixed(2)}`
+        );
+        await loadCreditsData();
+      } else {
+        Alert.alert("Redeem failed", res?.message || "Unable to redeem.");
       }
-
-      const res = await api.get("/wallet/summary", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = res.data || {};
-
-      setWalletBalance(
-        typeof data.wallet_balance === "number"
-          ? data.wallet_balance
-          : Number(data.wallet_balance || 0)
-      );
-
-      setLoyaltyPoints(data.loyalty_points ?? 0);
-
-      setReferralCredits(
-        typeof data.referral_credits === "number"
-          ? data.referral_credits
-          : Number(data.referral_credits || 0)
-      );
-
-      // Expecting array from backend:
-      // [{ id, title, desc, date, amount }, ...]
-      setHistory(Array.isArray(data.history) ? data.history : []);
     } catch (err) {
-      console.error("Failed to load credits:", err.response?.data || err.message);
+      Alert.alert("Redeem error", "Redeem failed");
+    } finally {
+      setRedeeming(false);
     }
   };
 
-  // ✅ Fetch credits whenever screen is focused
+  // Fetch credits whenever screen is focused
   useEffect(() => {
     if (isFocused) loadCreditsData();
   }, [isFocused]);
 
+  // Display helpers
+  const units = Math.floor(
+    Number(loyaltyPoints || 0) / Number(loyaltyRedeemPoints || 10)
+  );
+  const willGet = Number((units * Number(loyaltyRedeemValue || 1)).toFixed(2));
+
   return (
     <View style={styles.root}>
-      {/* ✅ SAME HEADER AS Orders.jsx */}
       <AppHeader
         user={user}
         navigation={navigation}
@@ -126,17 +152,12 @@ export default function CreditsScreen({ navigation }) {
         onMenuPress={() => setMenuVisible(true)}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* HEADER TEXT */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Credits & Wallet</Text>
         <Text style={styles.subtitle}>
           Track your wallet, loyalty points & referral rewards.
         </Text>
 
-        {/* SUMMARY CARDS */}
         <View style={styles.row}>
           <View style={[styles.card, styles.walletCard]}>
             <Text style={styles.cardLabel}>Wallet Balance</Text>
@@ -151,21 +172,55 @@ export default function CreditsScreen({ navigation }) {
             <Text style={styles.cardValue}>
               {loyaltyPoints !== null ? loyaltyPoints : "—"}
             </Text>
-            <Text style={styles.cardHint}>Points earned from orders.</Text>
+            <Text style={styles.cardHint}>Redeemable points available now.</Text>
+
+            {/* ✅ NEW: Pending points indication */}
+            {pendingLoyaltyPoints > 0 && (
+              <View style={{ marginTop: 6 }}>
+                <Text style={styles.pendingTitle}>
+                  🎉 {pendingLoyaltyPoints} points earned!
+                </Text>
+                <Text style={styles.pendingDesc}>
+                  Redeem available after {availableAfterHours} hour(s).
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Referral Credits</Text>
           <Text style={styles.cardValue}>
-            {referralCredits !== null ? referralCredits : "—"}
+            {referralCredits !== null ? `£${Number(referralCredits).toFixed(2)}` : "—"}
           </Text>
-          <Text style={styles.cardHint}>
-            Earn rewards when your referrals order.
-          </Text>
+          <Text style={styles.cardHint}>Earn rewards when your referrals order.</Text>
         </View>
 
-        {/* HISTORY */}
+        <View style={[styles.card, { marginTop: 12 }]}>
+          <Text style={styles.cardLabel}>Redeem Loyalty</Text>
+
+          <Text style={[styles.cardValue, { fontSize: 16 }]}>
+            {Number(loyaltyRedeemPoints || 10)} pts = £{Number(loyaltyRedeemValue || 1).toFixed(2)}
+          </Text>
+
+          <Text style={styles.cardHint}>
+            You can redeem {units} time(s) and get £{willGet.toFixed(2)}.
+          </Text>
+
+          <TouchableOpacity
+            onPress={handleRedeem}
+            disabled={redeeming || units <= 0}
+            style={[
+              styles.redeemBtn,
+              (redeeming || units <= 0) && styles.redeemBtnDisabled,
+            ]}
+          >
+            <Text style={styles.redeemBtnText}>
+              {redeeming ? "Redeeming..." : "Redeem to Wallet"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.sectionTitle}>Recent Activity</Text>
 
         <View style={styles.historyBox}>
@@ -186,11 +241,11 @@ export default function CreditsScreen({ navigation }) {
                   <Text style={styles.historyTitle}>
                     {item.title ?? item.description ?? "Transaction"}
                   </Text>
+
                   {!!(item.desc ?? item.note) && (
-                    <Text style={styles.historyDesc}>
-                      {item.desc ?? item.note}
-                    </Text>
+                    <Text style={styles.historyDesc}>{item.desc ?? item.note}</Text>
                   )}
+
                   {!!(item.date ?? item.created_at) && (
                     <Text style={styles.historyDate}>
                       {item.date ?? item.created_at}
@@ -214,7 +269,6 @@ export default function CreditsScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* ✅ SAME MENU MODAL AS Orders.jsx */}
       <MenuModal
         visible={menuVisible}
         setVisible={setMenuVisible}
@@ -228,34 +282,13 @@ export default function CreditsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
+  root: { flex: 1, backgroundColor: "#ffffff" },
+  content: { paddingHorizontal: 16, paddingBottom: 90, paddingTop: 16 },
 
-  content: {
-    paddingHorizontal: 16,
-    paddingBottom: 90,
-    paddingTop: 16,
-  },
+  title: { fontSize: 20, fontWeight: "700", color: "#111827", marginBottom: 4 },
+  subtitle: { fontSize: 13, color: "#6b7280", marginBottom: 16 },
 
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "#6b7280",
-    marginBottom: 16,
-  },
-
-  row: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12,
-  },
+  row: { flexDirection: "row", gap: 12, marginBottom: 12 },
   card: {
     flex: 1,
     backgroundColor: "#fff",
@@ -267,30 +300,26 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  walletCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: "#10b981",
-  },
-  pointsCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: "#3b82f6",
-  },
+  walletCard: { borderLeftWidth: 3, borderLeftColor: "#10b981" },
+  pointsCard: { borderLeftWidth: 3, borderLeftColor: "#3b82f6" },
 
-  cardLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-    marginBottom: 4,
+  cardLabel: { fontSize: 12, color: "#6b7280", marginBottom: 4 },
+  cardValue: { fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 4 },
+  cardHint: { fontSize: 11, color: "#9ca3af" },
+
+  // ✅ Pending points indication styles
+  pendingTitle: { fontSize: 11, color: "#f59e0b", fontWeight: "700" },
+  pendingDesc: { fontSize: 11, color: "#9ca3af", marginTop: 2 },
+
+  redeemBtn: {
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#111827",
+    alignItems: "center",
   },
-  cardValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  cardHint: {
-    fontSize: 11,
-    color: "#9ca3af",
-  },
+  redeemBtnDisabled: { opacity: 0.5 },
+  redeemBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
 
   sectionTitle: {
     marginTop: 18,
@@ -300,43 +329,13 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
-  historyBox: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-  },
-  historyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  historyRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e5e7eb",
-  },
-  historyTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  historyDesc: {
-    fontSize: 11,
-    color: "#6b7280",
-  },
-  historyDate: {
-    fontSize: 10,
-    color: "#9ca3af",
-    marginTop: 2,
-  },
-  historyAmount: {
-    fontSize: 13,
-    fontWeight: "700",
-    marginLeft: 8,
-  },
-  positive: {
-    color: "#16a34a",
-  },
-  negative: {
-    color: "#dc2626",
-  },
+  historyBox: { backgroundColor: "#fff", borderRadius: 14, paddingHorizontal: 12 },
+  historyRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
+  historyRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#e5e7eb" },
+  historyTitle: { fontSize: 13, fontWeight: "600", color: "#111827" },
+  historyDesc: { fontSize: 11, color: "#6b7280" },
+  historyDate: { fontSize: 10, color: "#9ca3af", marginTop: 2 },
+  historyAmount: { fontSize: 13, fontWeight: "700", marginLeft: 8 },
+  positive: { color: "#16a34a" },
+  negative: { color: "#dc2626" },
 });
