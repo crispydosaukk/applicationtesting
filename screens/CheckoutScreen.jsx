@@ -23,6 +23,7 @@ import BottomBar from "./BottomBar";
 import MenuModal from "./MenuModal";
 import { getCart } from "../services/cartService";
 import { createOrder } from "../services/orderService";
+import { getWalletSummary } from "../services/walletService";
 
 export default function CheckoutScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -39,6 +40,9 @@ export default function CheckoutScreen({ navigation }) {
 
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [useWallet, setUseWallet] = useState(false);
+  const [walletUsed, setWalletUsed] = useState(0);
 
   const isFocused = useIsFocused();
 
@@ -68,13 +72,19 @@ export default function CheckoutScreen({ navigation }) {
     })();
   }, [user, isFocused]);
 
-  const calculateTotal = () =>
-    cart
-      .reduce((sum, item) => {
-        const p = Number(item.discount_price ?? item.product_price ?? 0);
-        return sum + p * (item.product_quantity || 0);
-      }, 0)
-      .toFixed(2);
+
+const getCartTotal = () => {
+  return cart.reduce((sum, item) => {
+    const p = Number(item.discount_price ?? item.product_price ?? 0);
+    return sum + p * (item.product_quantity || 0);
+  }, 0);
+};
+
+const getFinalTotal = () => {
+  const total = getCartTotal();
+  return Math.max(0, total - (useWallet ? walletUsed : 0));
+};
+
 
   const continueDeliverySelection = () => {
     if (!deliveryMethod) {
@@ -109,6 +119,7 @@ export default function CheckoutScreen({ navigation }) {
       reg_number: kerbsideReg,
       owner_name: kerbsideName,
       mobile_number: user.mobile_number || "",
+      wallet_used: useWallet ? walletUsed : 0,
       items: cart.map((i) => ({
         product_id: i.product_id,
         product_name: i.product_name,
@@ -125,11 +136,15 @@ export default function CheckoutScreen({ navigation }) {
     const res = await createOrder(payload);
     if (res.status === 1) {
       setOrderPlaced(true);
+      setUseWallet(false);
+      setWalletUsed(0);
+        
       setTimeout(() => {
         setOrderPlaced(false);
         navigation.navigate("Home");
       }, 2000);
-    } else {
+    }
+    else {
       alert(res.message || "Order failed");
     }
   };
@@ -179,6 +194,16 @@ export default function CheckoutScreen({ navigation }) {
     </View>
   );
 
+  useEffect(() => {
+  if (!isFocused) return;
+
+  (async () => {
+    const data = await getWalletSummary();
+    setWalletBalance(Number(data.wallet_balance || 0));
+  })();
+}, [isFocused]);
+
+
   return (
     // 🔧 no extra top/bottom padding; AppHeader & BottomBar handle it
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
@@ -191,8 +216,8 @@ export default function CheckoutScreen({ navigation }) {
 
       <FlatList
         data={cart}
-        keyExtractor={(i) => i.product_id.toString()}
-        contentContainerStyle={{ padding: 16, paddingBottom: 200 }}
+  keyExtractor={(i) => i.product_id.toString()}
+  contentContainerStyle={{ padding: 16, paddingBottom: 220 }}
         ListHeaderComponent={
           <>
             <View style={styles.summaryBox}>
@@ -242,16 +267,53 @@ export default function CheckoutScreen({ navigation }) {
           </View>
         )}
         refreshControl={
-    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-  }
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
+
+      {/* WALLET SECTION */}
+{walletBalance > 0 && (
+  <View style={styles.walletBox}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.walletTitle}>Wallet Balance</Text>
+      <Text style={styles.walletAmount}>£{walletBalance.toFixed(2)}</Text>
+    </View>
+      {useWallet && walletUsed > 0 && (
+    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+      Wallet used: -£{walletUsed.toFixed(2)}
+    </Text>
+  )}
+
+    <TouchableOpacity
+      style={[
+        styles.walletBtn,
+        useWallet && styles.walletBtnActive,
+      ]}
+      onPress={() => {
+        if (useWallet) {
+          setUseWallet(false);
+          setWalletUsed(0);
+        } else {
+          const total = getCartTotal();
+          const usable = Math.min(walletBalance, total);
+          setUseWallet(true);
+          setWalletUsed(usable);
+        }
+      }}
+    >
+      <Text style={styles.walletBtnText}>
+        {useWallet ? "Remove" : "Apply"}
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
 
       {/* FLOATING BAR – stays above bottom bar */}
       {!deliveryPopup && !allergyPopup && (
         <View style={styles.floatingBar}>
           <View>
             <Text style={styles.floatLabel}>Grand Total</Text>
-            <Text style={styles.floatAmount}>£{calculateTotal()}</Text>
+            <Text style={styles.floatAmount}>£{getFinalTotal().toFixed(2)}</Text>
           </View>
           <TouchableOpacity style={styles.floatBtn} onPress={placeOrder}>
             <Text style={styles.floatBtnText}>Place Order</Text>
@@ -424,6 +486,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
+
+  walletBox: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#f1f8e9",
+  padding: 14,
+  borderRadius: 5,
+  marginBottom: 200,
+  borderLeftWidth: 4,
+  borderLeftColor: "#28a745",
+},
+walletTitle: {
+  fontSize: 14,
+  color: "#333",
+  fontWeight: "600",
+},
+walletAmount: {
+  fontSize: 18,
+  fontWeight: "800",
+  color: "#28a745",
+},
+walletBtn: {
+  backgroundColor: "#28a745",
+  paddingVertical: 8,
+  paddingHorizontal: 16,
+  borderRadius: 5,
+},
+walletBtnActive: {
+  backgroundColor: "#999",
+},
+walletBtnText: {
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: "700",
+},
 
   titleRow: {
   flexDirection: "row",
