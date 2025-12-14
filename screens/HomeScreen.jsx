@@ -148,7 +148,7 @@ export default function HomeScreen({ navigation }) {
                   },
                 ]}
               />
-              <View style={{ width: "100%", alignItems: "center", marginVertical: 6, }}>
+              {/* <View style={{ width: "100%", alignItems: "center", marginVertical: 6, }}>
                 <Animated.View
                   style={[
                     styles.offerPill,
@@ -163,7 +163,7 @@ export default function HomeScreen({ navigation }) {
                       {highlightOffer(messages[msgIndex])}
                     </Text>
                 </Animated.View>
-              </View>
+              </View> */}
 
               <View style={styles.mainTitleWrap}>
                 <Text style={styles.mainTitleBlack}>UK’S FINEST PURE</Text>
@@ -190,6 +190,23 @@ export default function HomeScreen({ navigation }) {
               </View>
 
               <Text style={styles.subtitle}>Fresh • Authentic • Pure Veg</Text>
+            </View>
+
+            <View style={{ width: "100%", alignItems: "center", marginTop: 8 }}>
+              <Animated.View
+                style={[
+                  styles.offerPill,
+                  {
+                    opacity: opacityAnim,
+                    transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+                  },
+                ]}
+              >
+                  <Ionicons name="gift-outline" size={18} color="#fff" />
+                  <Text style={styles.offerText}>
+                    {highlightOffer(messages[msgIndex])}
+                  </Text>
+              </Animated.View>
             </View>
 
             {/* 🔻 Buttons brought closer under subtitle */}
@@ -298,7 +315,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY,
   },
   imageWrapper: {
-    marginTop: 8,
+    marginTop: 4,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
@@ -316,7 +333,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY,
   },
   offerPill: {
-    marginTop: -18,
+   
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 12,

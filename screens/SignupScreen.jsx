@@ -144,7 +144,7 @@ export default function SignupScreen({ navigation }) {
           <View style={styles.inputRow}>
             <Ionicons name="person-outline" size={20} color="#1b5e20" />
             <TextInput
-              placeholder="Full Name"
+              placeholder="Last Name"
               placeholderTextColor="#7a927a"
               style={styles.input}
               value={name}
