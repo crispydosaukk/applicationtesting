@@ -14,7 +14,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Clipboard from "@react-native-clipboard/clipboard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { RefreshControl } from "react-native";
 import BottomBar from "./BottomBar.jsx";
 import { fetchProfile } from "../services/profileService";
 import { getWalletSummary } from "../services/walletService";
@@ -28,6 +28,7 @@ export default function Profile({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
   Promise.all([fetchProfile(), getWalletSummary()])
@@ -58,6 +59,27 @@ export default function Profile({ navigation }) {
     }
   };
 
+
+
+  const onRefresh = async () => {
+  try {
+    setRefreshing(true);
+
+    const [profileData, walletData] = await Promise.all([
+      fetchProfile(),
+      getWalletSummary(),
+    ]);
+
+    setProfile(profileData);
+    setWallet(walletData);
+  } catch (err) {
+    console.log("Profile refresh error", err);
+  } finally {
+    setRefreshing(false);
+  }
+};
+
+
   const logout = async () => {
     await AsyncStorage.removeItem("token");
     navigation.reset({
@@ -76,14 +98,20 @@ export default function Profile({ navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f6f7fb" }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView
+          contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+
         {/* HEADER */}
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
           <View style={styles.profileRow}>
-            <Image
+            {/* <Image
               source={{ uri: "https://i.pravatar.cc/300" }}
               style={styles.avatar}
-            />
+            /> */}
             <View style={{ marginLeft: 14 }}>
               <Text style={styles.name}>{profile.full_name}</Text>
               <Text style={styles.phone}>

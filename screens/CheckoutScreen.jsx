@@ -140,9 +140,13 @@ const getFinalTotal = () => {
       setWalletUsed(0);
         
       setTimeout(() => {
-        setOrderPlaced(false);
-        navigation.navigate("Home");
-      }, 2000);
+  setOrderPlaced(false);
+  navigation.reset({
+    index: 0,
+    routes: [{ name: "Resturent" }],
+  });
+}, 2000);
+
     }
     else {
       alert(res.message || "Order failed");

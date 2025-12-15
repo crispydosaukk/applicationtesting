@@ -20,6 +20,7 @@ import {
 import AppHeader from "../AppHeader";
 import MenuModal from "../MenuModal";
 import { getCart } from "../../services/cartService";
+import { RefreshControl } from "react-native";
 
 export default function CreditsScreen({ navigation }) {
   const isFocused = useIsFocused();
@@ -28,6 +29,7 @@ export default function CreditsScreen({ navigation }) {
   const [user, setUser] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [cartItems, setCartItems] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
 
   // Wallet/Credits states
   const [walletBalance, setWalletBalance] = useState(null);
@@ -36,6 +38,9 @@ export default function CreditsScreen({ navigation }) {
   const [availableAfterHours, setAvailableAfterHours] = useState(24); // ✅ NEW
   const [referralCredits, setReferralCredits] = useState(null);
   const [history, setHistory] = useState([]);
+
+  const [pendingLoyaltyList, setPendingLoyaltyList] = useState([]);
+  const [referredUsersCount, setReferredUsersCount] = useState(0);
 
   // Redeem settings + loading
   const [loyaltyRedeemPoints, setLoyaltyRedeemPoints] = useState(10);
@@ -83,21 +88,22 @@ export default function CreditsScreen({ navigation }) {
     if (isFocused && user) fetchCart();
   }, [isFocused, user]);
 
-  // Load credits/wallet summary
   const loadCreditsData = async () => {
-    const data = await getWalletSummary();
+  const data = await getWalletSummary();
 
-    setWalletBalance(Number(data.wallet_balance || 0));
-    setLoyaltyPoints(Number(data.loyalty_points || 0));
-    setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0)); // ✅ NEW
-    setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24)); // ✅ NEW
-    setReferralCredits(Number(data.referral_credits || 0));
+  setWalletBalance(Number(data.wallet_balance || 0));
+  setLoyaltyPoints(Number(data.loyalty_points || 0));
+  setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0));
+  setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24));
+  setReferralCredits(Number(data.referral_credits || 0));
 
-    setLoyaltyRedeemPoints(Number(data.loyalty_redeem_points || 10));
-    setLoyaltyRedeemValue(Number(data.loyalty_redeem_value || 1));
+  setPendingLoyaltyList(Array.isArray(data.loyalty_pending_list) ? data.loyalty_pending_list : []); // ✅ ADD
+  setReferredUsersCount(Number(data.referred_users_count || 0));
 
-    setHistory(Array.isArray(data.history) ? data.history : []);
-  };
+  setLoyaltyRedeemPoints(Number(data.loyalty_redeem_points || 10));
+  setLoyaltyRedeemValue(Number(data.loyalty_redeem_value || 1));
+  setHistory(Array.isArray(data.history) ? data.history : []);
+};
 
   // Redeem call
   const handleRedeem = async () => {
@@ -143,6 +149,38 @@ export default function CreditsScreen({ navigation }) {
   );
   const willGet = Number((units * Number(loyaltyRedeemValue || 1)).toFixed(2));
 
+  const onRefresh = async () => {
+  try {
+    setRefreshing(true);
+
+    // reload credits
+    await loadCreditsData();
+
+    // reload cart badge
+    if (user) {
+      const customerId = user.id ?? user.customer_id;
+      if (customerId) {
+        const res = await getCart(customerId);
+        if (res?.status === 1 && Array.isArray(res.data)) {
+          const map = {};
+          res.data.forEach((item) => {
+            const qty = item.product_quantity || 0;
+            if (qty > 0) map[item.product_id] = qty;
+          });
+          setCartItems(map);
+        } else {
+          setCartItems({});
+        }
+      }
+    }
+  } catch (e) {
+    console.log("Credits refresh error:", e);
+  } finally {
+    setRefreshing(false);
+  }
+};
+
+
   return (
     <View style={styles.root}>
       <AppHeader
@@ -152,7 +190,14 @@ export default function CreditsScreen({ navigation }) {
         onMenuPress={() => setMenuVisible(true)}
       />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+
         <Text style={styles.title}>Credits & Wallet</Text>
         <Text style={styles.subtitle}>
           Track your wallet, loyalty points & referral rewards.
@@ -185,15 +230,54 @@ export default function CreditsScreen({ navigation }) {
                 </Text>
               </View>
             )}
+            {pendingLoyaltyList.length > 0 && (
+  <View style={[styles.card, { marginTop: 12 }]}>
+    <Text style={styles.cardLabel}>Pending Loyalty Points</Text>
+
+    {pendingLoyaltyList.map((item, idx) => {
+      const unlockAt = new Date(item.available_from);
+      const hoursLeft = Math.max(
+        0,
+        Math.ceil((unlockAt.getTime() - Date.now()) / (1000 * 60 * 60))
+      );
+
+      return (
+        <View
+          key={item.id || idx}
+          style={{
+            paddingVertical: 8,
+            borderBottomWidth:
+              idx !== pendingLoyaltyList.length - 1 ? StyleSheet.hairlineWidth : 0,
+            borderBottomColor: "#e5e7eb",
+          }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: "600", color: "#111827" }}>
+            {item.points_remaining} pts
+          </Text>
+
+          <Text style={{ fontSize: 11, color: "#6b7280" }}>
+            Unlocks in {hoursLeft} hour(s)
+          </Text>
+        </View>
+      );
+    })}
+  </View>
+)}
+
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Referral Credits</Text>
+          <Text style={styles.cardLabel}>Referrals</Text>
+
           <Text style={styles.cardValue}>
-            {referralCredits !== null ? `£${Number(referralCredits).toFixed(2)}` : "—"}
+            {referredUsersCount} user{referredUsersCount === 1 ? "" : "s"}
           </Text>
-          <Text style={styles.cardHint}>Earn rewards when your referrals order.</Text>
+
+          <Text style={styles.cardHint}>
+            {referredUsersCount} referred • £{Number(referralCredits).toFixed(2)} earned
+          </Text>
+
         </View>
 
         <View style={[styles.card, { marginTop: 12 }]}>

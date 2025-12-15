@@ -18,6 +18,7 @@ export const getWalletSummary = async () => {
       wallet_balance: 0,
       loyalty_points: 0,
       loyalty_pending_points: 0,
+      loyalty_pending_list: [],
       referral_credits: 0,
       history: [],
       loyalty_redeem_points: 10,
