@@ -24,6 +24,8 @@ import MenuModal from "./MenuModal";
 import { getCart } from "../services/cartService";
 import { createOrder } from "../services/orderService";
 import { getWalletSummary } from "../services/walletService";
+import { useStripe } from "@stripe/stripe-react-native";
+import { API_BASE_URL } from "../config/baseURL";
 
 export default function CheckoutScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -43,6 +45,8 @@ export default function CheckoutScreen({ navigation }) {
   const [walletBalance, setWalletBalance] = useState(0);
   const [useWallet, setUseWallet] = useState(false);
   const [walletUsed, setWalletUsed] = useState(0);
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   const isFocused = useIsFocused();
 
@@ -105,14 +109,61 @@ const getFinalTotal = () => {
   };
 
   const placeOrder = async () => {
+  if (processingPayment) return;
+
+  try {
+    setProcessingPayment(true);
+
     if (!user) return;
 
-    const cid = user.customer_id ?? user.id;
+    const amount = getFinalTotal();
+    if (amount <= 0) {
+      alert("Invalid amount");
+      setProcessingPayment(false);
+      return;
+    }
 
+    // 1️⃣ Create Payment Intent
+    const res = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount }),
+    });
+
+    const data = await res.json();
+    if (!data.clientSecret) {
+      alert("Payment initialization failed");
+      setProcessingPayment(false);
+      return;
+    }
+
+    // 2️⃣ Init Payment Sheet
+    const init = await initPaymentSheet({
+      paymentIntentClientSecret: data.clientSecret,
+      merchantDisplayName: "Crispy Dosa",
+    });
+
+    if (init.error) {
+      alert(init.error.message);
+      setProcessingPayment(false);
+      return;
+    }
+
+    // 3️⃣ Present Payment Sheet
+    const paymentResult = await presentPaymentSheet();
+
+    if (paymentResult.error) {
+      // ❗ user cancelled manually
+      setProcessingPayment(false);
+      return;
+    }
+
+    // 4️⃣ SUCCESS → Create Order
     const payload = {
       user_id: user.id,
-      customer_id: cid,
-      payment_mode: 0,
+      customer_id: user.customer_id ?? user.id,
+      payment_mode: 1,
+      payment_request_id: data.payment_intent_id,
       instore: deliveryMethod === "instore" ? 1 : 0,
       allergy_note: allergyNote,
       car_color: kerbsideColor,
@@ -123,7 +174,6 @@ const getFinalTotal = () => {
       items: cart.map((i) => ({
         product_id: i.product_id,
         product_name: i.product_name,
-        textfield: i.textfield || "",
         price: i.product_price,
         discount_amount: i.discount_price
           ? i.product_price - i.discount_price
@@ -133,25 +183,27 @@ const getFinalTotal = () => {
       })),
     };
 
-    const res = await createOrder(payload);
-    if (res.status === 1) {
-      setOrderPlaced(true);
-      setUseWallet(false);
-      setWalletUsed(0);
-        
-      setTimeout(() => {
-  setOrderPlaced(false);
-  navigation.reset({
-    index: 0,
-    routes: [{ name: "Resturent" }],
-  });
-}, 2000);
+    const orderRes = await createOrder(payload);
 
+    if (orderRes.status === 1) {
+      setOrderPlaced(true);
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Resturent" }],
+        });
+      }, 2000);
+    } else {
+      alert(orderRes.message || "Order failed");
     }
-    else {
-      alert(res.message || "Order failed");
-    }
-  };
+
+    setProcessingPayment(false);
+  } catch (err) {
+    console.error("Stripe/order error:", err);
+    setProcessingPayment(false);
+    alert("Something went wrong");
+  }
+};
 
   const { refreshing, onRefresh } = useRefresh(async () => {
   if (!user) return;
@@ -319,7 +371,14 @@ const getFinalTotal = () => {
             <Text style={styles.floatLabel}>Grand Total</Text>
             <Text style={styles.floatAmount}>£{getFinalTotal().toFixed(2)}</Text>
           </View>
-          <TouchableOpacity style={styles.floatBtn} onPress={placeOrder}>
+          <TouchableOpacity
+              style={[
+                styles.floatBtn,
+                processingPayment && { opacity: 0.6 }
+              ]}
+              disabled={processingPayment}
+              onPress={placeOrder}
+            >
             <Text style={styles.floatBtnText}>Place Order</Text>
             <Icon name="chevron-right" size={20} color="#fff" />
           </TouchableOpacity>

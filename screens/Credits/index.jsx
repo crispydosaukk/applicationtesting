@@ -21,6 +21,8 @@ import AppHeader from "../AppHeader";
 import MenuModal from "../MenuModal";
 import { getCart } from "../../services/cartService";
 import { RefreshControl } from "react-native";
+import Clipboard from "@react-native-clipboard/clipboard";
+import { Share } from "react-native";
 
 export default function CreditsScreen({ navigation }) {
   const isFocused = useIsFocused();
@@ -180,6 +182,24 @@ export default function CreditsScreen({ navigation }) {
   }
 };
 
+const copyReferralCode = () => {
+  if (!user?.referral_code) return;
+  Clipboard.setString(user.referral_code);
+  Alert.alert("Copied", "Referral code copied to clipboard");
+};
+
+const shareReferralCode = async () => {
+  if (!user?.referral_code) return;
+
+  try {
+    await Share.share({
+      message: `Use my referral code *${user.referral_code}* and get rewards on your first order 🎉`,
+    });
+  } catch (err) {
+    console.log("Share error:", err);
+  }
+};
+
 
   return (
     <View style={styles.root}>
@@ -213,7 +233,7 @@ export default function CreditsScreen({ navigation }) {
           </View>
 
           <View style={[styles.card, styles.pointsCard]}>
-            <Text style={styles.cardLabel}>Loyalty Points</Text>
+            <Text style={styles.cardLabel}>Loyalty Credits</Text>
             <Text style={styles.cardValue}>
               {loyaltyPoints !== null ? loyaltyPoints : "—"}
             </Text>
@@ -279,6 +299,35 @@ export default function CreditsScreen({ navigation }) {
           </Text>
 
         </View>
+<View style={styles.card}>
+  <Text style={styles.cardLabel}>Refer & Earn</Text>
+
+  {/* Referral Code */}
+  <Text style={[styles.cardValue, { letterSpacing: 1 }]}>
+    {user?.referral_code || "—"}
+  </Text>
+
+  <Text style={styles.cardHint}>
+    Share your referral code and earn rewards when friends place orders.
+  </Text>
+
+  {/* ACTION BUTTONS */}
+  <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+    <TouchableOpacity
+      onPress={copyReferralCode}
+      style={[styles.refBtn, styles.copyBtn]}
+    >
+      <Text style={styles.refBtnText}>Copy</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      onPress={shareReferralCode}
+      style={[styles.refBtn, styles.shareBtn]}
+    >
+      <Text style={styles.refBtnText}>Share</Text>
+    </TouchableOpacity>
+  </View>
+</View>
 
         <View style={[styles.card, { marginTop: 12 }]}>
           <Text style={styles.cardLabel}>Redeem Loyalty</Text>
@@ -412,6 +461,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
   },
+
+  refBtn: {
+  flex: 1,
+  paddingVertical: 10,
+  borderRadius: 8,
+  alignItems: "center",
+},
+
+copyBtn: {
+  backgroundColor: "#e5e7eb",
+},
+
+shareBtn: {
+  backgroundColor: "#28a745",
+},
+
+refBtnText: {
+  fontSize: 13,
+  fontWeight: "700",
+  color: "#111827",
+},
 
   historyBox: { backgroundColor: "#fff", borderRadius: 14, paddingHorizontal: 12 },
   historyRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },

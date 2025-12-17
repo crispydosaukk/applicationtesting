@@ -108,10 +108,10 @@ export default function Profile({ navigation }) {
         {/* HEADER */}
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
           <View style={styles.profileRow}>
-            {/* <Image
-              source={{ uri: "https://i.pravatar.cc/300" }}
-              style={styles.avatar}
-            /> */}
+            <View style={styles.avatar}>
+              <Ionicons name="person-outline" size={34} color="#28a745" />
+            </View>
+
             <View style={{ marginLeft: 14 }}>
               <Text style={styles.name}>{profile.full_name}</Text>
               <Text style={styles.phone}>
@@ -170,6 +170,11 @@ export default function Profile({ navigation }) {
 
         {/* MENU */}
         <View style={styles.menuCard}>
+          <MenuItem
+            icon="card-outline"
+            label="Payment History"
+            onPress={() => navigation.navigate("PaymentHistory")}
+          />
           <MenuItem icon="person-outline" label="Edit Profile" />
           <MenuItem icon="location-outline" label="Saved Addresses" />
           <MenuItem icon="gift-outline" label="Refer & Earn" />
@@ -227,12 +232,15 @@ const styles = StyleSheet.create({
   },
   profileRow: { flexDirection: "row", alignItems: "center" },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
+  width: 64,
+  height: 64,
+  borderRadius: 32,
+  backgroundColor: "#ffffff",
+  alignItems: "center",
+  justifyContent: "center",
+  elevation: 5,
+},
+
   name: { fontSize: 18 * scale, fontWeight: "700", color: "#fff" },
   phone: { fontSize: 13 * scale, color: "#eaffef" },
 
