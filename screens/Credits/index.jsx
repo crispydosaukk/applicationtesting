@@ -32,6 +32,7 @@ export default function CreditsScreen({ navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [cartItems, setCartItems] = useState({});
   const [refreshing, setRefreshing] = useState(false);
+  const [loyaltyExpiryList, setLoyaltyExpiryList] = useState([]);
 
   // Wallet/Credits states
   const [walletBalance, setWalletBalance] = useState(null);
@@ -92,12 +93,17 @@ export default function CreditsScreen({ navigation }) {
 
   const loadCreditsData = async () => {
   const data = await getWalletSummary();
-
+  
   setWalletBalance(Number(data.wallet_balance || 0));
   setLoyaltyPoints(Number(data.loyalty_points || 0));
   setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0));
   setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24));
   setReferralCredits(Number(data.referral_credits || 0));
+    setLoyaltyExpiryList(
+  Array.isArray(data.loyalty_expiry_list)
+    ? data.loyalty_expiry_list
+    : []
+);
 
   setPendingLoyaltyList(Array.isArray(data.loyalty_pending_list) ? data.loyalty_pending_list : []); // ✅ ADD
   setReferredUsersCount(Number(data.referred_users_count || 0));
@@ -283,6 +289,47 @@ const shareReferralCode = async () => {
     })}
   </View>
 )}
+
+{loyaltyExpiryList.length > 0 && (
+  <View style={[styles.card, { marginTop: 12 }]}>
+    <Text style={styles.cardLabel}>Loyalty Expiry</Text>
+
+    {loyaltyExpiryList.map((item, idx) => {
+      const expiry = new Date(item.expires_at);
+      const daysLeft = Math.max(
+        0,
+        Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      );
+
+      return (
+        <View
+          key={item.id || idx}
+          style={{
+            paddingVertical: 8,
+            borderBottomWidth:
+              idx !== loyaltyExpiryList.length - 1
+                ? StyleSheet.hairlineWidth
+                : 0,
+            borderBottomColor: "#e5e7eb",
+          }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: "600" }}>
+            {item.points_remaining} pts
+          </Text>
+
+          <Text style={{ fontSize: 11, color: "#dc2626" }}>
+            Expires in {daysLeft} day(s)
+          </Text>
+
+          <Text style={{ fontSize: 10, color: "#9ca3af" }}>
+            Expiry on {expiry.toDateString()}
+          </Text>
+        </View>
+      );
+    })}
+  </View>
+)}
+
 
           </View>
         </View>

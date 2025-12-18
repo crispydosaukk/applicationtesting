@@ -176,7 +176,6 @@ export default function Profile({ navigation }) {
             onPress={() => navigation.navigate("PaymentHistory")}
           />
           <MenuItem icon="person-outline" label="Edit Profile" />
-          <MenuItem icon="location-outline" label="Saved Addresses" />
           <MenuItem icon="gift-outline" label="Refer & Earn" />
           <MenuItem icon="help-circle-outline" label="Help Center" />
           <MenuItem

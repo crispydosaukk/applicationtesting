@@ -40,3 +40,22 @@ export const getOrders = async (customerId) => {
     };
   }
 };
+
+// Fetch single order details by id
+export const getOrder = async (orderId) => {
+  try {
+    // try common endpoint patterns (backend might implement one of these)
+    // primary: /order?id=123
+    let response = await api.get(`/order?id=${orderId}`);
+    if (response?.data) return response.data;
+
+    // fallback: /orders/{id}
+    response = await api.get(`/orders/${orderId}`);
+    if (response?.data) return response.data;
+
+    return { status: 0, message: "No data" };
+  } catch (err) {
+    console.log("getOrder error:", err);
+    return { status: 0, message: err.response?.data?.message || "Unable to fetch order" };
+  }
+};

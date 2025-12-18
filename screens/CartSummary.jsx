@@ -1,6 +1,6 @@
 // CartSummary.js
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
@@ -16,6 +16,8 @@ export default function CartSummary({ navigation }) {
   const [user, setUser] = useState(null);
   const [cartItems, setCartItems] = useState({});
   const [products, setProducts] = useState([]);
+  const [updating, setUpdating] = useState({});
+  const [loadingCart, setLoadingCart] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const isFocused = useIsFocused();
@@ -32,26 +34,39 @@ export default function CartSummary({ navigation }) {
   }, []);
 
   useEffect(() => {
-    if (isFocused) refreshCart();
+    if (isFocused) {
+      setLoadingCart(true);
+      refreshCart();
+    }
   }, [isFocused]);
 
   const refreshCart = async () => {
-    const storedUser = await AsyncStorage.getItem("user");
-    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-    const customerId = parsedUser?.id ?? parsedUser?.customer_id;
-    if (!customerId) return;
+    try {
+      const storedUser = await AsyncStorage.getItem("user");
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      const customerId = parsedUser?.id ?? parsedUser?.customer_id;
+      if (!customerId) return;
 
-    const res = await getCart(customerId);
-    if (res?.status === 1 && Array.isArray(res.data)) {
-      setProducts(res.data);
-      const map = {};
-      res.data.forEach((i) => {
-        map[i.product_id] = i.product_quantity || 0;
-      });
-      setCartItems(map);
-    } else {
+      const res = await getCart(customerId);
+      if (res?.status === 1 && Array.isArray(res.data)) {
+        // Remove any items with zero quantity so the cart UI doesn't show removed items
+        const filtered = res.data.filter((i) => (i.product_quantity || 0) > 0);
+        setProducts(filtered);
+        const map = {};
+        filtered.forEach((i) => {
+          map[i.product_id] = i.product_quantity || 0;
+        });
+        setCartItems(map);
+      } else {
+        setProducts([]);
+        setCartItems({});
+      }
+    } catch (e) {
+      console.warn("Failed to refresh cart", e);
       setProducts([]);
       setCartItems({});
+    } finally {
+      setLoadingCart(false);
     }
   };
 
@@ -73,36 +88,49 @@ export default function CartSummary({ navigation }) {
     const customerId = parsedUser?.id ?? parsedUser?.customer_id;
     if (!customerId) return;
 
-    if (updated <= 0) {
-      await removeFromCart(item.cart_id || item.id);
+    // prevent double updates for the same product
+    setUpdating((s) => ({ ...s, [item.product_id]: true }));
+    try {
+      if (updated <= 0) {
+        // remove from server
+        await removeFromCart(item.cart_id || item.id);
 
-      const newCart = { ...cartItems };
-      delete newCart[item.product_id];
-      setCartItems(newCart);
+        // update local state
+        setCartItems((prev) => {
+          const next = { ...prev };
+          delete next[item.product_id];
+          return next;
+        });
 
-      setProducts((prev) =>
-        prev.filter((p) => p.product_id !== item.product_id)
-      );
-    } else {
-      await addToCart({
-        customer_id: customerId,
-        user_id: parsedUser.id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        product_price: item.product_price,
-        product_quantity: delta,
-        textfield: item.textfield || "",
+        setProducts((prev) => prev.filter((p) => p.product_id !== item.product_id));
+      } else {
+        // send delta to server
+        await addToCart({
+          customer_id: customerId,
+          user_id: parsedUser.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          product_price: item.product_price,
+          product_quantity: delta,
+          textfield: item.textfield || "",
+        });
+
+        setCartItems((prev) => ({ ...prev, [item.product_id]: updated }));
+
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.product_id === item.product_id ? { ...p, product_quantity: updated } : p
+          )
+        );
+      }
+    } catch (e) {
+      console.warn("Failed to update cart item", e);
+    } finally {
+      setUpdating((s) => {
+        const next = { ...s };
+        delete next[item.product_id];
+        return next;
       });
-
-      setCartItems({ ...cartItems, [item.product_id]: updated });
-
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.product_id === item.product_id
-            ? { ...p, product_quantity: updated }
-            : p
-        )
-      );
     }
   };
 
@@ -123,7 +151,11 @@ export default function CartSummary({ navigation }) {
         </Text>
       </View>
 
-      {products.length < 1 ? (
+      {loadingCart ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" />
+        </View>
+      ) : products.length < 1 ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
           refreshControl={
@@ -185,13 +217,12 @@ export default function CartSummary({ navigation }) {
                           { backgroundColor: qty === 1 ? "#e53935" : "#ff9800" },
                         ]}
                         onPress={() => updateQty(item, -1)}
+                        disabled={!!updating[item.product_id]}
                       >
-                        {qty === 1 ? (
-                          <Icon
-                            name="trash-can-outline"
-                            size={18}
-                            color="#ffffff"
-                          />
+                        {updating[item.product_id] ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : qty === 1 ? (
+                          <Icon name="trash-can-outline" size={18} color="#ffffff" />
                         ) : (
                           <Text style={styles.qtyBtnLabel}>-</Text>
                         )}
@@ -200,13 +231,15 @@ export default function CartSummary({ navigation }) {
                       <Text style={styles.qtyCount}>{qty}</Text>
 
                       <TouchableOpacity
-                        style={[
-                          styles.qtyBtn,
-                          { backgroundColor: "#28a745" },
-                        ]}
+                        style={[styles.qtyBtn, { backgroundColor: "#28a745" }]}
                         onPress={() => updateQty(item, 1)}
+                        disabled={!!updating[item.product_id]}
                       >
-                        <Text style={styles.qtyBtnLabel}>+</Text>
+                        {updating[item.product_id] ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={styles.qtyBtnLabel}>+</Text>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -236,7 +269,7 @@ export default function CartSummary({ navigation }) {
               style={styles.floatBtn}
               onPress={() => navigation.navigate("CheckoutScreen")}
             >
-              <Text style={styles.floatBtnText}>Proceed</Text>
+              <Text style={styles.floatBtnText}>Check Out</Text>
               <Icon name="chevron-right" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>

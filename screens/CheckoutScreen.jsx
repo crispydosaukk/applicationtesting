@@ -60,6 +60,11 @@ export default function CheckoutScreen({ navigation }) {
     return map;
   }, [cart]);
 
+  // only show items with quantity > 0 in checkout
+  const visibleCart = useMemo(() => {
+    return (cart || []).filter((i) => (i.product_quantity || 0) > 0);
+  }, [cart]);
+
   useEffect(() => {
     (async () => {
       const stored = await AsyncStorage.getItem("user");
@@ -111,10 +116,16 @@ const getFinalTotal = () => {
   const placeOrder = async () => {
   if (processingPayment) return;
 
+  // Ensure user is signed in before we begin payment flow; otherwise we
+  // would early-return while `processingPayment` remains true which blocks
+  // further attempts.
+  if (!user) {
+    alert("Please sign in to place an order.");
+    return;
+  }
+
   try {
     setProcessingPayment(true);
-
-    if (!user) return;
 
     const amount = getFinalTotal();
     if (amount <= 0) {
@@ -187,12 +198,69 @@ const getFinalTotal = () => {
 
     if (orderRes.status === 1) {
       setOrderPlaced(true);
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Resturent" }],
-        });
-      }, 2000);
+
+      // Persist created order locally so Orders screen can show it immediately
+      let createdOrderId = null;
+      try {
+        // Determine created object and orderId robustly (backends vary)
+        let created = null;
+
+        if (orderRes.data && typeof orderRes.data === "object" && (orderRes.data.order_id || orderRes.data.id)) {
+          created = orderRes.data;
+        } else if (orderRes.order && (orderRes.order.order_id || orderRes.order.id)) {
+          created = orderRes.order;
+        } else if (orderRes.order_id || orderRes.id) {
+          // minimal info from response
+          created = {
+            order_id: orderRes.order_id || orderRes.id,
+            order_no: orderRes.order_no || `#${orderRes.order_id || orderRes.id}`,
+            total_amount: orderRes.total_amount ?? orderRes.amount ?? getFinalTotal(),
+            items: payload.items,
+            created_at: orderRes.created_at || new Date().toISOString(),
+          };
+        } else {
+          // fallback: synthesize a local record if server didn't supply an id
+          const syntheticId = `local_${Date.now()}`;
+          created = {
+            order_id: syntheticId,
+            order_no: `#${syntheticId}`,
+            total_amount: getFinalTotal(),
+            items: payload.items,
+            created_at: new Date().toISOString(),
+            note: "Locally recorded order (awaiting server id)",
+          };
+        }
+
+        const orderId = created.order_id || created.id || created.orderId || null;
+        if (orderId) {
+          const key = `order_${orderId}`;
+          await AsyncStorage.setItem(key, JSON.stringify(created));
+
+          // update orders cache (most recent first)
+          const existing = await AsyncStorage.getItem("orders_cache");
+          let arr = existing ? JSON.parse(existing) : [];
+          // make sure we don't duplicate
+          arr = [created].concat(arr.filter(o => (o.order_id || o.id) !== (orderId)));
+          await AsyncStorage.setItem("orders_cache", JSON.stringify(arr));
+
+          // remember for navigation
+          createdOrderId = orderId;
+        }
+      } catch (e) {
+        console.warn("Failed to cache created order", e);
+      }
+
+      // clear local cart & persisted cart key if present
+      try {
+        setCart([]);
+        await AsyncStorage.removeItem("cart");
+      } catch (e) {
+        console.warn("Failed to clear cart", e);
+      }
+
+      // navigate to Orders screen and pass the new order id so Orders can show it instantly
+      const newOrderId = createdOrderId || (orderRes.data && (orderRes.data.order_id || orderRes.data.id)) || orderRes.order_id || orderRes.id || `local_${Date.now()}`;
+      navigation.navigate("Orders", { newOrderId });
     } else {
       alert(orderRes.message || "Order failed");
     }
@@ -271,8 +339,8 @@ const getFinalTotal = () => {
       />
 
       <FlatList
-        data={cart}
-  keyExtractor={(i) => i.product_id.toString()}
+        data={visibleCart}
+  keyExtractor={(i, idx) => String(i.product_id ?? i.id ?? idx)}
   contentContainerStyle={{ padding: 16, paddingBottom: 220 }}
         ListHeaderComponent={
           <>
@@ -298,6 +366,12 @@ const getFinalTotal = () => {
 
             {!deliveryPopup && !allergyPopup && renderDeliverySummary()}
           </>
+        }
+        ListEmptyComponent={
+          <View style={styles.centerBox}>
+            <Text style={styles.emptyTitle}>Your cart is empty</Text>
+            <Text style={styles.emptySubtitle}>Add items to proceed to checkout.</Text>
+          </View>
         }
         renderItem={({ item }) => (
           <View style={styles.itemCard}>
@@ -365,7 +439,7 @@ const getFinalTotal = () => {
 )}
 
       {/* FLOATING BAR – stays above bottom bar */}
-      {!deliveryPopup && !allergyPopup && (
+      {!deliveryPopup && !allergyPopup && visibleCart.length > 0 && (
         <View style={styles.floatingBar}>
           <View>
             <Text style={styles.floatLabel}>Grand Total</Text>
@@ -374,9 +448,9 @@ const getFinalTotal = () => {
           <TouchableOpacity
               style={[
                 styles.floatBtn,
-                processingPayment && { opacity: 0.6 }
+                (processingPayment || getFinalTotal() <= 0) && { opacity: 0.6 }
               ]}
-              disabled={processingPayment}
+              disabled={processingPayment || getFinalTotal() <= 0}
               onPress={placeOrder}
             >
             <Text style={styles.floatBtnText}>Place Order</Text>

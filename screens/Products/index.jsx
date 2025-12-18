@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,9 +16,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import useRefresh from "../../hooks/useRefresh";
 import { fetchProducts } from "../../services/productService";
 import { addToCart } from "../../services/cartService";
+import { getCart } from "../../services/cartService";
 import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
@@ -41,6 +43,9 @@ export default function Products({ route, navigation }) {
   const [notes, setNotes] = useState({});
   const [popupIndex, setPopupIndex] = useState(0);
   const [popupVisible, setPopupVisible] = useState(false);
+  const [popupTargetIds, setPopupTargetIds] = useState(null);
+  const [updating, setUpdating] = useState({});
+  const [pending, setPending] = useState({});
   const [noteInput, setNoteInput] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -118,7 +123,7 @@ export default function Products({ route, navigation }) {
     })();
   }, []);
 
-  // load products + cart
+  // load products + cart — also re-run when `user` becomes available so quantities show immediately
   useEffect(() => {
     (async () => {
       const data = await fetchProducts(userId, categoryId);
@@ -127,13 +132,88 @@ export default function Products({ route, navigation }) {
       setFilteredProducts(list);
       setLoading(false);
 
-      const stored = await AsyncStorage.getItem("cart");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setCartItems(parsed[userId] || {});
+      try {
+        const uid = user?.id ?? user?.customer_id;
+        if (uid) {
+          const res = await getCart(uid);
+          if (res?.status === 1 && Array.isArray(res.data)) {
+            const map = {};
+            res.data.forEach((i) => {
+              if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
+            });
+            setCartItems(map);
+            return;
+          }
+        }
+
+        const stored = await AsyncStorage.getItem("cart");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setCartItems(parsed[userId] || {});
+        }
+      } catch (e) {
+        console.warn("Failed to load cart on init", e);
       }
     })();
-  }, [userId, categoryId]);
+  }, [userId, categoryId, user]);
+
+  // Reload cart from AsyncStorage whenever this screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        try {
+          // Prefer server-side cart if user is signed in (keeps behavior like Categories)
+          const uid = user?.id ?? user?.customer_id;
+          if (uid) {
+            const res = await getCart(uid);
+            if (!active) return;
+            if (res?.status === 1 && Array.isArray(res.data)) {
+              const map = {};
+              res.data.forEach((i) => {
+                if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
+              });
+              setCartItems(map);
+              // server is authoritative; clear any pending flags
+              setPending({});
+              return;
+            }
+          }
+
+          // Fallback to local storage
+          const stored = await AsyncStorage.getItem("cart");
+          if (!active) return;
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            setCartItems(parsed[userId] || {});
+          } else {
+            setCartItems({});
+          }
+        } catch (e) {
+          console.warn("Failed to load cart on focus", e);
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [userId])
+  );
+
+  // Persist cart state to AsyncStorage whenever it changes
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!userId) return;
+        const stored = await AsyncStorage.getItem("cart");
+        const parsed = stored ? JSON.parse(stored) : {};
+        parsed[userId] = cartItems || {};
+        await AsyncStorage.setItem("cart", JSON.stringify(parsed));
+      } catch (e) {
+        console.warn("Failed to persist cart", e);
+      }
+    })();
+  }, [cartItems, userId]);
 
   // search
   useEffect(() => {
@@ -153,44 +233,42 @@ export default function Products({ route, navigation }) {
   const list = Array.isArray(data) ? data : [];
   setProducts(list);
   setFilteredProducts(list);
-
-  // Reload cart from storage
-  const stored = await AsyncStorage.getItem("cart");
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    setCartItems(parsed[userId] || {});
+  // Reload cart: prefer server cart when signed-in (keeps parity with Categories)
+  try {
+    const uid = user?.id ?? user?.customer_id;
+    if (uid) {
+      const res = await getCart(uid);
+      if (res?.status === 1 && Array.isArray(res.data)) {
+        const map = {};
+        res.data.forEach((i) => {
+          if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
+        });
+        setCartItems(map);
+      }
+    } else {
+      const stored = await AsyncStorage.getItem("cart");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setCartItems(parsed[userId] || {});
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to reload cart on refresh", e);
   }
 });
 
 
-  const increment = (id) =>
-    setCartItems((p) => ({ ...p, [id]: (p[id] || 0) + 1 }));
+  const increment = async (id) => {
+    // optimistic update
+    const prev = cartItems[id] || 0;
+    setCartItems((p) => ({ ...p, [id]: prev + 1 }));
+    // If this item is pending (added locally, waiting for special-instructions confirmation), don't sync yet
+    if (!user || pending[id]) return;
 
-  const decrement = (id) =>
-    setCartItems((p) => {
-      if (!p[id]) return p;
-      const q = p[id] - 1;
-      const u = { ...p };
-      if (q <= 0) delete u[id];
-      else u[id] = q;
-      return u;
-    });
-
-  const startCheckout = () => {
-    const ids = Object.keys(cartItems);
-    if (ids.length === 0) return alert("Please add some items first.");
-    setPopupIndex(0);
-    setNoteInput(notes[ids[0]] || "");
-    setPopupVisible(true);
-  };
-
-  const handleNextPopup = async () => {
-    const ids = Object.keys(cartItems);
-    const pid = ids[popupIndex];
-    setNotes((p) => ({ ...p, [pid]: noteInput }));
-
-    const prod = products.find((p) => p.id == pid);
-    if (prod && user) {
+    setUpdating((s) => ({ ...s, [id]: true }));
+    try {
+      const prod = products.find((p) => p.id == id);
+      if (!prod) return;
       await addToCart({
         customer_id: user.id,
         user_id: prod.user_id,
@@ -198,9 +276,113 @@ export default function Products({ route, navigation }) {
         product_name: prod.name,
         product_price: prod.price,
         product_tax: 0,
-        product_quantity: cartItems[pid],
-        textfield: noteInput || "",
+        product_quantity: 1,
+        textfield: "",
       });
+    } catch (e) {
+      console.warn("Failed to increment cart item", e);
+      // revert
+      setCartItems((p) => ({ ...p, [id]: prev }));
+    } finally {
+      setUpdating((s) => {
+        const n = { ...s };
+        delete n[id];
+        return n;
+      });
+    }
+  };
+
+  const decrement = async (id) => {
+    const prev = cartItems[id] || 0;
+    if (!prev) return;
+
+    const nextQty = prev - 1;
+    // optimistic update
+    setCartItems((p) => {
+      const u = { ...p };
+      if (nextQty <= 0) delete u[id];
+      else u[id] = nextQty;
+      return u;
+    });
+    // If this item is pending (not yet synced to server), just update local state
+    if (!user || pending[id]) return;
+
+    setUpdating((s) => ({ ...s, [id]: true }));
+    try {
+      const prod = products.find((p) => p.id == id);
+      if (!prod) return;
+      // send delta -1
+      await addToCart({
+        customer_id: user.id,
+        user_id: prod.user_id,
+        product_id: prod.id,
+        product_name: prod.name,
+        product_price: prod.price,
+        product_tax: 0,
+        product_quantity: -1,
+        textfield: "",
+      });
+    } catch (e) {
+      console.warn("Failed to decrement cart item", e);
+      // revert
+      setCartItems((p) => ({ ...p, [id]: prev }));
+    } finally {
+      setUpdating((s) => {
+        const n = { ...s };
+        delete n[id];
+        return n;
+      });
+    }
+  };
+
+  const startCheckout = () => {
+    const ids = Object.keys(cartItems);
+    if (ids.length === 0) return alert("Please add some items first.");
+    setPopupTargetIds(null);
+    setPopupIndex(0);
+    setNoteInput(notes[ids[0]] || "");
+    setPopupVisible(true);
+  };
+
+  // Add item locally and open popup for that single item
+  const addAndOpenPopup = (id) => {
+    // mark pending so it won't sync until popup confirmation
+    setCartItems((p) => ({ ...p, [id]: (p[id] || 0) + 1 }));
+    setPending((s) => ({ ...s, [id]: true }));
+    setPopupTargetIds([id]);
+    setPopupIndex(0);
+    setNoteInput(notes[id] || "");
+    setPopupVisible(true);
+  };
+
+  const handleNextPopup = async () => {
+    const ids = popupTargetIds || Object.keys(cartItems);
+    const pid = ids[popupIndex];
+    setNotes((p) => ({ ...p, [pid]: noteInput }));
+
+    const prod = products.find((p) => p.id == pid);
+    // If this is not the single-item add flow (popupTargetIds), persist cart items for checkout
+    if (prod && user) {
+      // If this product was locally added (pending), send full quantity to server now.
+      if (pending[pid]) {
+        await addToCart({
+          customer_id: user.id,
+          user_id: prod.user_id,
+          product_id: prod.id,
+          product_name: prod.name,
+          product_price: prod.price,
+          product_tax: 0,
+          product_quantity: cartItems[pid],
+          textfield: noteInput || "",
+        });
+        // clear pending flag for this item
+        setPending((s) => {
+          const n = { ...s };
+          delete n[pid];
+          return n;
+        });
+      }
+      // If not pending, we assume increments/decrements already synced with server
     }
 
     if (popupIndex < ids.length - 1) {
@@ -209,23 +391,31 @@ export default function Products({ route, navigation }) {
       setNoteInput(notes[ids[next]] || "");
     } else {
       setPopupVisible(false);
-      navigation.navigate("CartSummary", { cartItems, notes, user });
+      // clear target ids if we were in single-item flow
+      setPopupTargetIds(null);
+      // if coming from single-item add flow, don't navigate away; otherwise, go to CartSummary
+      if (!popupTargetIds) {
+        navigation.navigate("CartSummary", { cartItems, notes, user });
+      }
     }
   };
 
   const handleBackPopup = () => {
     if (popupIndex === 0) return;
-    const ids = Object.keys(cartItems);
+    const ids = popupTargetIds || Object.keys(cartItems);
     const prev = popupIndex - 1;
     setPopupIndex(prev);
     setNoteInput(notes[ids[prev]] || "");
   };
 
   const selectedIds = Object.keys(cartItems);
+  const popupIds = popupTargetIds || selectedIds;
   const currentProduct =
-    popupVisible && selectedIds.length > 0
-      ? products.find((p) => p.id == selectedIds[popupIndex])
+    popupVisible && popupIds.length > 0
+      ? products.find((p) => p.id == popupIds[popupIndex])
       : null;
+
+  const totalItemsInCart = Object.values(cartItems || {}).reduce((a, b) => a + b, 0);
 
   const renderItem = ({ item }) => {
     const qty = cartItems[item.id] || 0;
@@ -258,8 +448,13 @@ export default function Products({ route, navigation }) {
                 <TouchableOpacity
                   style={styles.qtyBtn}
                   onPress={() => decrement(item.id)}
+                  disabled={!!updating[item.id]}
                 >
-                  <Ionicons name="remove-outline" size={18 * scale} color="#000" />
+                  {updating[item.id] ? (
+                    <ActivityIndicator size="small" />
+                  ) : (
+                    <Ionicons name="remove-outline" size={18 * scale} color="#000" />
+                  )}
                 </TouchableOpacity>
 
                 <Text style={styles.qtyText}>{qty}</Text>
@@ -267,14 +462,19 @@ export default function Products({ route, navigation }) {
                 <TouchableOpacity
                   style={styles.qtyBtn}
                   onPress={() => increment(item.id)}
+                  disabled={!!updating[item.id]}
                 >
-                  <Ionicons name="add-outline" size={18 * scale} color="#000" />
+                  {updating[item.id] ? (
+                    <ActivityIndicator size="small" />
+                  ) : (
+                    <Ionicons name="add-outline" size={18 * scale} color="#000" />
+                  )}
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
                 style={styles.addBtn}
-                onPress={() => increment(item.id)}
+                onPress={() => addAndOpenPopup(item.id)}
               >
                 <Ionicons name="add-outline" size={20 * scale} color="#fff" />
                 <Text style={styles.addText}>ADD</Text>
@@ -348,7 +548,7 @@ export default function Products({ route, navigation }) {
 
       )}
 
-      {/* Checkout sticky */}
+      {/* Professional sticky 'Go to Cart' button */}
       {selectedIds.length > 0 && (
         <View
           style={[
@@ -356,9 +556,12 @@ export default function Products({ route, navigation }) {
             { bottom: 66 + insets.bottom + 8 },
           ]}
         >
-          <TouchableOpacity style={styles.checkoutBtn} onPress={startCheckout}>
+          <TouchableOpacity
+            style={styles.checkoutBtn}
+            onPress={() => navigation.navigate("CartSummary", { cartItems, notes, user })}
+          >
             <Ionicons name="cart-outline" size={20 * scale} color="#ffffff" />
-            <Text style={styles.checkoutText}>Review Order</Text>
+            <Text style={styles.checkoutText}>{`Go to Cart${totalItemsInCart > 0 ? ` (${totalItemsInCart})` : ""}`}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -377,7 +580,10 @@ export default function Products({ route, navigation }) {
             {/* TOP ROW RESTORED EXACTLY LIKE BEFORE */}
             <View style={styles.popupTopRow}>
               <TouchableOpacity
-                onPress={() => setPopupVisible(false)}
+                onPress={() => {
+                  setPopupVisible(false);
+                  setPopupTargetIds(null);
+                }}
                 style={styles.popupBackIconWrap}
               >
                 <Ionicons name="arrow-back" size={20 * scale} color="#222222" />
@@ -414,7 +620,7 @@ export default function Products({ route, navigation }) {
                   style={styles.popupSecondaryBtn}
                   onPress={handleBackPopup}
                 >
-                  <Text style={styles.popupSecondaryText}>Previous</Text>
+                  <Text style={styles.popupSecondaryText}>Back</Text>
                 </TouchableOpacity>
               )}
 
@@ -423,9 +629,7 @@ export default function Products({ route, navigation }) {
                 onPress={handleNextPopup}
               >
                 <Text style={styles.popupPrimaryText}>
-                  {popupIndex === selectedIds.length - 1
-                    ? "Proceed to Cart"
-                    : "Next Item"}
+                  {popupIndex === popupIds.length - 1 ? "Add to Cart" : "Continue"}
                 </Text>
               </TouchableOpacity>
             </View>
