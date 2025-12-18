@@ -6,6 +6,7 @@ import { getPaymentHistory } from "../services/paymentService";
 import AppHeader from "./AppHeader";
 import MenuModal from "./MenuModal";
 import BottomBar from "./BottomBar";
+import { AuthRequiredInline } from "./AuthRequired";
 
 export default function PaymentHistory({ navigation }) {
   const [data, setData] = useState([]);
@@ -24,6 +25,13 @@ export default function PaymentHistory({ navigation }) {
 
     try {
       const stored = await AsyncStorage.getItem("user");
+      if (!stored) {
+        // no signed-in user -> don't call API
+        setData([]);
+        setError(null);
+        return;
+      }
+
       if (stored && !user) setUser(JSON.parse(stored));
 
       const res = await getPaymentHistory();
@@ -59,7 +67,11 @@ export default function PaymentHistory({ navigation }) {
         onMenuPress={() => setMenuVisible(true)}
       />
 
-      {loading && data.length === 0 ? (
+      {!user ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <AuthRequiredInline onSignIn={() => navigation.replace("Login")} description={"Sign in to view your payment history and transactions."} />
+        </View>
+      ) : loading && data.length === 0 ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 60 }}>
           <ActivityIndicator size="large" />
           <Text style={{ marginTop: 12 }}>Loading payment history...</Text>

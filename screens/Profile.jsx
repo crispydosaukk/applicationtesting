@@ -16,6 +16,8 @@ import Clipboard from "@react-native-clipboard/clipboard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RefreshControl } from "react-native";
 import BottomBar from "./BottomBar.jsx";
+import AppHeader from "./AppHeader";
+import { AuthRequiredInline, AuthRequiredModal } from "./AuthRequired";
 import { fetchProfile } from "../services/profileService";
 import { getWalletSummary } from "../services/walletService";
 
@@ -30,26 +32,54 @@ export default function Profile({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // local user to determine if authenticated
+  const [userLocal, setUserLocal] = useState(null);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+
   useEffect(() => {
-  Promise.all([fetchProfile(), getWalletSummary()])
-    .then(([profileData, walletData]) => {
-      setProfile(profileData);
-      setWallet(walletData);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.log("Profile error", err);
-      setLoading(false);
-    });
-}, []);
+    const init = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("user");
+        const parsed = stored ? JSON.parse(stored) : null;
+        setUserLocal(parsed);
+
+        if (!parsed) {
+          // not signed in — avoid API calls and stop loading
+          setLoading(false);
+          return;
+        }
+
+        // signed in: fetch profile and wallet
+        const [profileData, walletData] = await Promise.all([fetchProfile(), getWalletSummary()]);
+        setProfile(profileData);
+        setWallet(walletData);
+      } catch (err) {
+        console.log("Profile error", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, []);
 
 
   const copyReferralCode = () => {
+    if (!profile?.referral_code) {
+      Alert.alert("No referral code", "Please sign in to access your referral code.");
+      return;
+    }
+
     Clipboard.setString(profile.referral_code);
     Alert.alert("Copied", "Referral code copied to clipboard");
   };
 
   const shareReferral = async () => {
+    if (!profile?.referral_code) {
+      Alert.alert("No referral code", "Please sign in to access and share your referral code.");
+      return;
+    }
+
     try {
       await Share.share({
         message: `Use my referral code *${profile.referral_code}* and get rewards on your first order 🚀`,
@@ -62,22 +92,27 @@ export default function Profile({ navigation }) {
 
 
   const onRefresh = async () => {
-  try {
-    setRefreshing(true);
+    if (!userLocal) {
+      setRefreshing(false);
+      return;
+    }
 
-    const [profileData, walletData] = await Promise.all([
-      fetchProfile(),
-      getWalletSummary(),
-    ]);
+    try {
+      setRefreshing(true);
 
-    setProfile(profileData);
-    setWallet(walletData);
-  } catch (err) {
-    console.log("Profile refresh error", err);
-  } finally {
-    setRefreshing(false);
-  }
-};
+      const [profileData, walletData] = await Promise.all([
+        fetchProfile(),
+        getWalletSummary(),
+      ]);
+
+      setProfile(profileData);
+      setWallet(walletData);
+    } catch (err) {
+      console.log("Profile refresh error", err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
 
   const logout = async () => {
@@ -92,6 +127,32 @@ export default function Profile({ navigation }) {
     return (
       <View style={styles.center}>
         <Text>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  // If not signed in, show the inline prompt (with header + bottom bar) immediately
+  if (!userLocal) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#f6f7fb" }}>
+        <AppHeader
+          user={null}
+          navigation={navigation}
+          cartItems={{}}
+          onMenuPress={() => setAuthModalVisible(true)}
+        />
+
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <AuthRequiredInline onSignIn={() => navigation.replace("Login")} description={"Sign in to view your profile, orders and rewards."} />
+
+          <AuthRequiredModal
+            visible={authModalVisible}
+            onClose={() => setAuthModalVisible(false)}
+            onSignIn={() => { setAuthModalVisible(false); navigation.replace("Login"); }}
+          />
+        </View>
+
+        <BottomBar navigation={navigation} />
       </View>
     );
   }
@@ -113,9 +174,9 @@ export default function Profile({ navigation }) {
             </View>
 
             <View style={{ marginLeft: 14 }}>
-              <Text style={styles.name}>{profile.full_name}</Text>
+              <Text style={styles.name}>{profile?.full_name || "—"}</Text>
               <Text style={styles.phone}>
-                {profile.country_code} {profile.mobile_number}
+                {profile?.country_code || ""} {profile?.mobile_number || ""}
               </Text>
             </View>
           </View>
@@ -134,7 +195,7 @@ export default function Profile({ navigation }) {
         <View style={styles.referralCard}>
           <View>
             <Text style={styles.refTitle}>Your Referral Code</Text>
-            <Text style={styles.refCode}>{profile.referral_code}</Text>
+            <Text style={styles.refCode}>{profile?.referral_code || "—"}</Text>
             <Text style={styles.refSub}>
               Invite friends & earn credits
             </Text>
@@ -173,11 +234,30 @@ export default function Profile({ navigation }) {
           <MenuItem
             icon="card-outline"
             label="Payment History"
-            onPress={() => navigation.navigate("PaymentHistory")}
+            onPress={() => {
+              if (!userLocal) setAuthModalVisible(true);
+              else navigation.navigate("PaymentHistory");
+            }}
           />
           <MenuItem icon="person-outline" label="Edit Profile" />
           <MenuItem icon="gift-outline" label="Refer & Earn" />
           <MenuItem icon="help-circle-outline" label="Help Center" />
+          <MenuItem
+            icon="receipt-outline"
+            label="Orders"
+            onPress={() => {
+              if (!userLocal) setAuthModalVisible(true);
+              else navigation.navigate("Orders");
+            }}
+          />
+          <MenuItem
+            icon="wallet-outline"
+            label="Credits"
+            onPress={() => {
+              if (!userLocal) setAuthModalVisible(true);
+              else navigation.navigate("Credits");
+            }}
+          />
           <MenuItem
             icon="log-out-outline"
             label="Logout"

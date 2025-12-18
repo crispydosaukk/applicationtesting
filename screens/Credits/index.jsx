@@ -18,6 +18,7 @@ import {
 } from "../../services/walletService";
 
 import AppHeader from "../AppHeader";
+import { AuthRequiredInline } from "../AuthRequired";
 import MenuModal from "../MenuModal";
 import { getCart } from "../../services/cartService";
 import { RefreshControl } from "react-native";
@@ -92,6 +93,7 @@ export default function CreditsScreen({ navigation }) {
   }, [isFocused, user]);
 
   const loadCreditsData = async () => {
+  if (!user) return; // skip if not signed in
   const data = await getWalletSummary();
   
   setWalletBalance(Number(data.wallet_balance || 0));
@@ -216,13 +218,18 @@ const shareReferralCode = async () => {
         onMenuPress={() => setMenuVisible(true)}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      {!user ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <AuthRequiredInline onSignIn={() => navigation.replace("Login")} description={"Sign in to view your wallet, referral rewards and loyalty details."} />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
 
         <Text style={styles.title}>Credits & Wallet</Text>
         <Text style={styles.subtitle}>
@@ -448,6 +455,7 @@ const shareReferralCode = async () => {
           )}
         </View>
       </ScrollView>
+      )}
 
       <MenuModal
         visible={menuVisible}

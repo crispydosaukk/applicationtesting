@@ -13,6 +13,7 @@ import { useIsFocused } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 import AppHeader from "./AppHeader";
+import { AuthRequiredInline } from "./AuthRequired";
 import BottomBar from "./BottomBar";
 import MenuModal from "./MenuModal";
 import { Modal, ScrollView, Image } from "react-native";
@@ -323,7 +324,11 @@ export default function Orders({ navigation, route }) {
         onMenuPress={() => setMenuVisible(true)}
       />
 
-      {loading ? (
+      {!user ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <AuthRequiredInline onSignIn={() => navigation.replace("Login")} description={"Sign in to view your orders, order history and tracking."} />
+        </View>
+      ) : loading ? (
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" />
           <Text style={styles.loadingText}>Loading your orders...</Text>

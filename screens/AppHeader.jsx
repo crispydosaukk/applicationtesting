@@ -6,6 +6,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { getWalletSummary } from "../services/walletService";
+import { AuthRequiredModal } from "./AuthRequired";
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
@@ -16,6 +17,7 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
 
   const [walletBalance, setWalletBalance] = useState(null);
   const [loadingWallet, setLoadingWallet] = useState(false);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
 
   const fetchWallet = useCallback(async () => {
     if (!user) {
@@ -56,7 +58,8 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
             style={styles.leftWrap}
             activeOpacity={0.8}
             onPress={() => {
-              if (!user) navigation.replace("Login");
+              if (!user) setAuthModalVisible(true);
+              else navigation.navigate("Profile");
             }}
           >
             <Ionicons
@@ -77,7 +80,10 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
 
               <TouchableOpacity
                 style={styles.walletBtn}
-                onPress={() => navigation.navigate("Credits")}
+                onPress={() => {
+                  if (!user) setAuthModalVisible(true);
+                  else navigation.navigate("Credits");
+                }}
                 activeOpacity={0.8}
               >
                 <View style={styles.walletIconCircle}>
@@ -94,7 +100,7 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
                 </View>
               </TouchableOpacity>
 
-            <TouchableOpacity style={{ marginLeft:8,padding:4 }} onPress={() => navigation.navigate("CartSummary")}>
+            <TouchableOpacity style={{ marginLeft:8,padding:4 }} onPress={() => { if (!user) setAuthModalVisible(true); else navigation.navigate("CartSummary"); }}>
               <Ionicons name="cart-outline" size={28 * scale} color="#222" />
               {totalItems > 0 && (
                 <View style={{ position:"absolute",right:-4,top:-4,backgroundColor:"#ff3b30",minWidth:16 * scale,height:16 * scale,borderRadius:20,justifyContent:"center",alignItems:"center",paddingHorizontal:3 }}>
@@ -109,6 +115,15 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
           </View>
         </LinearGradient>
       </SafeAreaView>
+
+      <AuthRequiredModal
+        visible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+        onSignIn={() => {
+          setAuthModalVisible(false);
+          try { navigation.replace("Login"); } catch (e) { navigation.navigate("Login"); }
+        }}
+      />
     </>
   );
 }
