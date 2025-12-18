@@ -83,7 +83,7 @@ export default function CheckoutScreen({ navigation }) {
 
 
 const getCartTotal = () => {
-  return cart.reduce((sum, item) => {
+  return (visibleCart || []).reduce((sum, item) => {
     const p = Number(item.discount_price ?? item.product_price ?? 0);
     return sum + p * (item.product_quantity || 0);
   }, 0);
@@ -182,7 +182,7 @@ const getFinalTotal = () => {
       owner_name: kerbsideName,
       mobile_number: user.mobile_number || "",
       wallet_used: useWallet ? walletUsed : 0,
-      items: cart.map((i) => ({
+      items: (visibleCart || []).filter(i => (i.product_quantity || 0) > 0).map((i) => ({
         product_id: i.product_id,
         product_name: i.product_name,
         price: i.product_price,
@@ -190,80 +190,52 @@ const getFinalTotal = () => {
           ? i.product_price - i.discount_price
           : 0,
         vat: 0,
-        quantity: i.product_quantity,
+        quantity: Number(i.product_quantity) || 0,
       })),
+
     };
 
     const orderRes = await createOrder(payload);
-
     if (orderRes.status === 1) {
-      setOrderPlaced(true);
+  const created = orderRes.data;
+  const orderId = created?.order_id;
 
-      // Persist created order locally so Orders screen can show it immediately
-      let createdOrderId = null;
-      try {
-        // Determine created object and orderId robustly (backends vary)
-        let created = null;
+  // show success popup
+  setOrderPlaced(true);
 
-        if (orderRes.data && typeof orderRes.data === "object" && (orderRes.data.order_id || orderRes.data.id)) {
-          created = orderRes.data;
-        } else if (orderRes.order && (orderRes.order.order_id || orderRes.order.id)) {
-          created = orderRes.order;
-        } else if (orderRes.order_id || orderRes.id) {
-          // minimal info from response
-          created = {
-            order_id: orderRes.order_id || orderRes.id,
-            order_no: orderRes.order_no || `#${orderRes.order_id || orderRes.id}`,
-            total_amount: orderRes.total_amount ?? orderRes.amount ?? getFinalTotal(),
-            items: payload.items,
-            created_at: orderRes.created_at || new Date().toISOString(),
-          };
-        } else {
-          // fallback: synthesize a local record if server didn't supply an id
-          const syntheticId = `local_${Date.now()}`;
-          created = {
-            order_id: syntheticId,
-            order_no: `#${syntheticId}`,
-            total_amount: getFinalTotal(),
-            items: payload.items,
-            created_at: new Date().toISOString(),
-            note: "Locally recorded order (awaiting server id)",
-          };
-        }
+  // cache order if id exists
+  if (orderId) {
+    await AsyncStorage.setItem(
+      `order_${orderId}`,
+      JSON.stringify(created)
+    );
 
-        const orderId = created.order_id || created.id || created.orderId || null;
-        if (orderId) {
-          const key = `order_${orderId}`;
-          await AsyncStorage.setItem(key, JSON.stringify(created));
+    const existing = await AsyncStorage.getItem("orders_cache");
+    const arr = existing ? JSON.parse(existing) : [];
+    await AsyncStorage.setItem(
+      "orders_cache",
+      JSON.stringify([created, ...arr])
+    );
+  } else {
+    console.warn("Order placed but order_id missing", orderRes);
+  }
 
-          // update orders cache (most recent first)
-          const existing = await AsyncStorage.getItem("orders_cache");
-          let arr = existing ? JSON.parse(existing) : [];
-          // make sure we don't duplicate
-          arr = [created].concat(arr.filter(o => (o.order_id || o.id) !== (orderId)));
-          await AsyncStorage.setItem("orders_cache", JSON.stringify(arr));
+  // clear cart
+  setCart([]);
+  await AsyncStorage.removeItem("cart");
 
-          // remember for navigation
-          createdOrderId = orderId;
-        }
-      } catch (e) {
-        console.warn("Failed to cache created order", e);
-      }
+  // redirect after popup
+  setTimeout(() => {
+    setOrderPlaced(false);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Orders", params: orderId ? { newOrderId: orderId } : {} }],
+    });
+  }, 1800);
 
-      // clear local cart & persisted cart key if present
-      try {
-        setCart([]);
-        await AsyncStorage.removeItem("cart");
-      } catch (e) {
-        console.warn("Failed to clear cart", e);
-      }
-
-      // navigate to Orders screen and pass the new order id so Orders can show it instantly
-      const newOrderId = createdOrderId || (orderRes.data && (orderRes.data.order_id || orderRes.data.id)) || orderRes.order_id || orderRes.id || `local_${Date.now()}`;
-      navigation.navigate("Orders", { newOrderId });
-    } else {
-      alert(orderRes.message || "Order failed");
-    }
+} else {
+  alert(orderRes.message || "Order failed");
+}
 
     setProcessingPayment(false);
   } catch (err) {

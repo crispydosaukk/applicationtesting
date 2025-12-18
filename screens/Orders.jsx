@@ -1,5 +1,5 @@
 // screens/Orders.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -72,110 +72,119 @@ export default function Orders({ navigation, route }) {
     if (isFocused && user) fetchCart();
   }, [isFocused, user]);
 
-  // Fetch order history
-  useEffect(() => {
-    const fetchOrders = async () => {
-      if (!user) return;
-      const customerId = user.id ?? user.customer_id;
-      if (!customerId) return;
+  const [refreshing, setRefreshing] = useState(false);
 
-      setLoading(true);
-      try {
-        // if navigation passed a newOrderId, show it immediately if cached
-        const newOrderId = route?.params?.newOrderId;
-        if (newOrderId) {
-          try {
-            const cachedSingle = await AsyncStorage.getItem(`order_${newOrderId}`);
-            if (cachedSingle) {
-              const parsed = JSON.parse(cachedSingle);
-              setOrders(prev => {
-                // if already present, don't duplicate
-                const exists = prev.find(o => (o.order_id || o.id) == (parsed.order_id || parsed.id));
-                if (exists) return prev;
-                return [parsed].concat(prev || []);
-              });
+  // Fetch order history (exposed so we can pull-to-refresh)
+  const fetchOrders = useCallback(async (isRefresh = false) => {
+    if (!user) return;
+    const customerId = user.id ?? user.customer_id;
+    if (!customerId) return;
 
-              // also ensure it's in orders_cache
-              try {
-                const existing = await AsyncStorage.getItem("orders_cache");
-                let arr = existing ? JSON.parse(existing) : [];
-                arr = [parsed].concat(arr.filter(o => (o.order_id || o.id) !== (parsed.order_id || parsed.id)));
-                await AsyncStorage.setItem("orders_cache", JSON.stringify(arr));
-              } catch (e) {
-                console.warn("Failed to update orders_cache with new order", e);
-              }
-            }
-          } catch (e) {
-            console.warn("Failed to read single cached order", e);
-          }
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
 
-          // clear the param so it doesn't re-trigger
-          try {
-            navigation.setParams({ newOrderId: undefined });
-          } catch (e) {}
-        }
-
-        // show cached orders (if any) immediately
-        let cachedArr = [];
+    try {
+      // if navigation passed a newOrderId, show it immediately if cached
+      const newOrderId = route?.params?.newOrderId;
+      if (newOrderId) {
         try {
-          const cached = await AsyncStorage.getItem("orders_cache");
-          if (cached) {
-            cachedArr = JSON.parse(cached) || [];
-            if (Array.isArray(cachedArr) && cachedArr.length > 0) setOrders(cachedArr);
+          const cachedSingle = await AsyncStorage.getItem(`order_${newOrderId}`);
+          if (cachedSingle) {
+            const parsed = JSON.parse(cachedSingle);
+            setOrders(prev => {
+              // if already present, don't duplicate
+              const exists = prev.find(o => (o.order_id || o.id) == (parsed.order_id || parsed.id));
+              if (exists) return prev;
+              return [parsed].concat(prev || []);
+            });
+
+            // also ensure it's in orders_cache
+            try {
+              const existing = await AsyncStorage.getItem("orders_cache");
+              let arr = existing ? JSON.parse(existing) : [];
+              arr = [parsed].concat(arr.filter(o => (o.order_id || o.id) !== (parsed.order_id || parsed.id)));
+              await AsyncStorage.setItem("orders_cache", JSON.stringify(arr));
+            } catch (e) {
+              console.warn("Failed to update orders_cache with new order", e);
+            }
           }
         } catch (e) {
-          console.warn("Failed to read orders cache", e);
+          console.warn("Failed to read single cached order", e);
         }
 
-        // fetch fresh orders from server
-        const res = await getOrders(customerId);
+        // clear the param so it doesn't re-trigger
+        try {
+          navigation.setParams({ newOrderId: undefined });
+        } catch (e) {}
+      }
 
-        // Accept multiple response shapes (backends vary): res.data (arr), res.orders (arr), res.data.data (arr)
-        let fresh = null;
-        if (res && res.status === 1) {
-          if (Array.isArray(res.data)) fresh = res.data;
-          else if (Array.isArray(res.orders)) fresh = res.orders;
-          else if (Array.isArray(res.data?.data)) fresh = res.data.data;
+      // show cached orders (if any) immediately
+      let cachedArr = [];
+      try {
+        const cached = await AsyncStorage.getItem("orders_cache");
+        if (cached) {
+          cachedArr = JSON.parse(cached) || [];
+          if (Array.isArray(cachedArr) && cachedArr.length > 0) setOrders(cachedArr);
         }
+      } catch (e) {
+        console.warn("Failed to read orders cache", e);
+      }
 
-        if (fresh) {
-          // If we had a cached "new" order (e.g. just created locally) ensure it remains
-          // visible even if the server's fresh list doesn't include it yet. We assume the
-          // most-recent locally cached order is at cachedArr[0]. If it's missing from
-          // fresh, prepend it to preserve user feedback.
-          if (Array.isArray(cachedArr) && cachedArr.length > 0) {
-            const head = cachedArr[0];
-            const headId = head && (head.order_id || head.id);
-            if (headId) {
-              const found = fresh.find(o => (o.order_id || o.id) == headId);
-              if (!found) {
-                fresh = [head].concat(fresh.filter(o => (o.order_id || o.id) !== headId));
-              }
+      // fetch fresh orders from server
+      const res = await getOrders(customerId);
+
+      // Accept multiple response shapes (backends vary): res.data (arr), res.orders (arr), res.data.data (arr)
+      let fresh = null;
+      if (res && res.status === 1) {
+        if (Array.isArray(res.data)) fresh = res.data;
+        else if (Array.isArray(res.orders)) fresh = res.orders;
+        else if (Array.isArray(res.data?.data)) fresh = res.data.data;
+      }
+
+      if (fresh) {
+        // If we had a cached "new" order (e.g. just created locally) ensure it remains
+        // visible even if the server's fresh list doesn't include it yet. We assume the
+        // most-recent locally cached order is at cachedArr[0]. If it's missing from
+        // fresh, prepend it to preserve user feedback.
+        if (Array.isArray(cachedArr) && cachedArr.length > 0) {
+          const head = cachedArr[0];
+          const headId = head && (head.order_id || head.id);
+          if (headId) {
+            const found = fresh.find(o => (o.order_id || o.id) == headId);
+            if (!found) {
+              fresh = [head].concat(fresh.filter(o => (o.order_id || o.id) !== headId));
             }
           }
-
-          setOrders(fresh);
-
-          // update cache
-          try {
-            await AsyncStorage.setItem("orders_cache", JSON.stringify(fresh || []));
-          } catch (e) {
-            console.warn("Failed to update orders cache", e);
-          }
-        } else {
-          // don't overwrite existing cached orders if the server returned an unexpected shape
-          console.warn("Orders fetch returned unexpected shape or empty result:", res);
         }
-      } catch (err) {
-        console.log("Orders fetch error:", err);
-        setOrders([]);
-      } finally {
-        setLoading(false);
-      }
-    };
 
+        setOrders(fresh);
+
+        // update cache
+        try {
+          await AsyncStorage.setItem("orders_cache", JSON.stringify(fresh || []));
+        } catch (e) {
+          console.warn("Failed to update orders cache", e);
+        }
+      } else {
+        // don't overwrite existing cached orders if the server returned an unexpected shape
+        console.warn("Orders fetch returned unexpected shape or empty result:", res);
+      }
+    } catch (err) {
+      console.log("Orders fetch error:", err);
+      setOrders([]);
+    } finally {
+      if (isRefresh) setRefreshing(false);
+      else setLoading(false);
+    }
+  }, [user, route, navigation]);
+
+  useEffect(() => {
     if (isFocused && user) fetchOrders();
-  }, [isFocused, user]);
+  }, [isFocused, user, fetchOrders]);
+
+  const onRefresh = async () => {
+    await fetchOrders(true);
+  };
 
   const renderStatusChip = (status) => {
     const s = (status || "").toString().toLowerCase();
@@ -334,6 +343,8 @@ export default function Orders({ navigation, route }) {
             String(item.order_id || item.id || index)
           }
           renderItem={renderOrder}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           contentContainerStyle={{ padding: 16, paddingBottom: 80 }} // tighter bottom
           ListHeaderComponent={
             <View style={styles.headerRow}>

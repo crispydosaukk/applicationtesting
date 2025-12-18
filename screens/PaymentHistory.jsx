@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, TouchableOpacity } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { getPaymentHistory } from "../services/paymentService";
@@ -12,14 +12,41 @@ export default function PaymentHistory({ navigation }) {
   const [user, setUser] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
 
-  useEffect(() => {
-    (async () => {
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchPayments = async ({ refresh = false } = {}) => {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+
+    setError(null);
+
+    try {
       const stored = await AsyncStorage.getItem("user");
-      if (stored) setUser(JSON.parse(stored));
+      if (stored && !user) setUser(JSON.parse(stored));
 
       const res = await getPaymentHistory();
-      if (res?.status === 1) setData(res.data || []);
-    })();
+
+      // Accept common shapes and fall back safely
+      if (res?.status === 1) {
+        if (Array.isArray(res.data)) setData(res.data || []);
+        else if (Array.isArray(res)) setData(res || []);
+        else setData(res.data || []);
+      } else {
+        setData([]);
+      }
+    } catch (err) {
+      console.warn("Payment history fetch error:", err);
+      setError(err?.message || "Failed to load payment history");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayments();
   }, []);
 
   return (
@@ -32,21 +59,54 @@ export default function PaymentHistory({ navigation }) {
         onMenuPress={() => setMenuVisible(true)}
       />
 
-      <FlatList
-        data={data}
-        keyExtractor={(item, index) => index.toString()}
-        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.order}>Order: {item.order_no}</Text>
-            <Text>Status: {item.payment_status}</Text>
-            <Text>Amount: £{Number(item.amount).toFixed(2)}</Text>
-            <Text style={styles.date}>
-              {new Date(item.created_at).toLocaleString()}
-            </Text>
-          </View>
-        )}
-      />
+      {loading && data.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 60 }}>
+          <ActivityIndicator size="large" />
+          <Text style={{ marginTop: 12 }}>Loading payment history...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item, index) => String(item.id || item.transaction_id || item.order_no || index)}
+          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+          refreshing={refreshing}
+          onRefresh={() => fetchPayments({ refresh: true })}
+          ListEmptyComponent={() => (
+            <View style={{ alignItems: "center", marginTop: 60 }}>
+              <Text style={{ fontSize: 18, color: "#999", marginBottom: 8 }}>No payments yet</Text>
+              {error ? (
+                <>
+                  <Text style={{ color: "#a00", marginBottom: 12 }}>{error}</Text>
+                  <TouchableOpacity onPress={() => fetchPayments()} style={{ padding: 10, backgroundColor: "#28a745", borderRadius: 8 }}>
+                    <Text style={{ color: "#fff" }}>Retry</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
+            </View>
+          )}
+          renderItem={({ item }) => {
+            const date = item.created_at ? new Date(item.created_at) : null;
+            const dateStr = date && !isNaN(date.getTime()) ? date.toLocaleString() : "";
+            const currency = item.currency || "£";
+            const amount = Number(item.amount || 0).toFixed(2);
+            const status = (item.payment_status || "").toString().toLowerCase();
+            let statusLabel = item.payment_status || "";
+            if (status === "1" || status === "completed" || status === "paid") statusLabel = "Completed";
+            else if (status === "failed" || status === "0") statusLabel = "Failed";
+            else if (status === "pending") statusLabel = "Pending";
+
+            return (
+              <View style={styles.card}>
+                <Text style={styles.order}>Order: {item.order_no || item.order_id || "-"}</Text>
+                <Text>Status: {statusLabel}</Text>
+                <Text>Amount: {currency}{amount}</Text>
+                {item.transaction_id ? <Text>Txn: {item.transaction_id}</Text> : null}
+                <Text style={styles.date}>{dateStr}</Text>
+              </View>
+            );
+          }}
+        />
+      )}
 
       {/* SAME MENU + BOTTOM BAR */}
       <MenuModal

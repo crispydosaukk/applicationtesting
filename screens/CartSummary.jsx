@@ -99,6 +99,20 @@ export default function CartSummary({ navigation }) {
         setCartItems((prev) => {
           const next = { ...prev };
           delete next[item.product_id];
+
+          // persist change to AsyncStorage for current user so other screens see the removal
+          (async () => {
+            try {
+              const stored = await AsyncStorage.getItem("cart");
+              const parsed = stored ? JSON.parse(stored) : {};
+              parsed[customerId] = parsed[customerId] || {};
+              delete parsed[customerId][item.product_id];
+              await AsyncStorage.setItem("cart", JSON.stringify(parsed));
+            } catch (err) {
+              console.warn("Failed to persist cart removal", err);
+            }
+          })();
+
           return next;
         });
 
@@ -115,7 +129,24 @@ export default function CartSummary({ navigation }) {
           textfield: item.textfield || "",
         });
 
-        setCartItems((prev) => ({ ...prev, [item.product_id]: updated }));
+        setCartItems((prev) => {
+          const next = { ...prev, [item.product_id]: updated };
+
+          // persist updated quantity to AsyncStorage so other screens see updated value immediately
+          (async () => {
+            try {
+              const stored = await AsyncStorage.getItem("cart");
+              const parsed = stored ? JSON.parse(stored) : {};
+              parsed[customerId] = parsed[customerId] || {};
+              parsed[customerId][item.product_id] = updated;
+              await AsyncStorage.setItem("cart", JSON.stringify(parsed));
+            } catch (err) {
+              console.warn("Failed to persist cart update", err);
+            }
+          })();
+
+          return next;
+        });
 
         setProducts((prev) =>
           prev.map((p) =>
