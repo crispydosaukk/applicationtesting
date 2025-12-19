@@ -160,11 +160,11 @@ export default function Profile({ navigation }) {
   return (
     <View style={{ flex: 1, backgroundColor: "#f6f7fb" }}>
       <ScrollView
-          contentContainerStyle={{ paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
+        contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
 
         {/* HEADER */}
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
@@ -239,9 +239,13 @@ export default function Profile({ navigation }) {
               else navigation.navigate("PaymentHistory");
             }}
           />
-          <MenuItem icon="person-outline" label="Edit Profile" />
-          <MenuItem icon="gift-outline" label="Refer & Earn" />
-          <MenuItem icon="help-circle-outline" label="Help Center" />
+          <MenuItem
+            icon="person-outline"
+            label="Edit Profile"
+            onPress={() => navigation.navigate("EditProfile")}
+          />
+          <MenuItem icon="gift-outline" label="Refer & Earn" onPress={() => navigation.navigate("InviteFriends")} />
+          <MenuItem icon="help-circle-outline" label="Help Center" onPress={() => navigation.navigate("HelpCenter")} />
           <MenuItem
             icon="receipt-outline"
             label="Orders"
@@ -311,14 +315,14 @@ const styles = StyleSheet.create({
   },
   profileRow: { flexDirection: "row", alignItems: "center" },
   avatar: {
-  width: 64,
-  height: 64,
-  borderRadius: 32,
-  backgroundColor: "#ffffff",
-  alignItems: "center",
-  justifyContent: "center",
-  elevation: 5,
-},
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 5,
+  },
 
   name: { fontSize: 18 * scale, fontWeight: "700", color: "#fff" },
   phone: { fontSize: 13 * scale, color: "#eaffef" },

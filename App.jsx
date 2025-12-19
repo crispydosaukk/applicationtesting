@@ -6,7 +6,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { STRIPE_PUBLISHABLE_KEY } from "@env";
-
 import SplashScreen from "./screens/SplashScreen.jsx";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import Resturent from "./screens/Resturent.jsx";
@@ -23,6 +22,8 @@ import Profile from "./screens/Profile.jsx";
 import PaymentHistory from "./screens/PaymentHistory.jsx";
 import FAQ from "./screens/FAQ.jsx";
 import InviteFriends from "./screens/InviteFriends.jsx";
+import EditProfile from "./screens/EditProfile.jsx";
+import HelpCenter from "./screens/HelpCenter.jsx";
 
 const Stack = createNativeStackNavigator();
 
@@ -64,7 +65,8 @@ export default function App() {
             <Stack.Screen name="PaymentHistory" component={PaymentHistory} />
             <Stack.Screen name="FAQ" component={FAQ} />
             <Stack.Screen name="InviteFriends" component={InviteFriends} />
-
+            <Stack.Screen name="EditProfile" component={EditProfile} />
+            <Stack.Screen name="HelpCenter" component={HelpCenter} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
