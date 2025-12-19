@@ -47,6 +47,9 @@ export default function CheckoutScreen({ navigation }) {
   const [walletUsed, setWalletUsed] = useState(0);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [loyaltyCredits, setLoyaltyCredits] = useState([]);
+  const [loyaltyUsed, setLoyaltyUsed] = useState(0);
+  const [useLoyalty, setUseLoyalty] = useState(false);
 
   const isFocused = useIsFocused();
 
@@ -91,8 +94,14 @@ const getCartTotal = () => {
 
 const getFinalTotal = () => {
   const total = getCartTotal();
-  return Math.max(0, total - (useWallet ? walletUsed : 0));
+  return Math.max(
+    0,
+    total
+    - (useWallet ? walletUsed : 0)
+    - (useLoyalty ? loyaltyUsed : 0)
+  );
 };
+
 
 
   const continueDeliverySelection = () => {
@@ -132,7 +141,7 @@ const getFinalTotal = () => {
       alert("Invalid amount");
       setProcessingPayment(false);
       return;
-    }
+        }
 
     // 1️⃣ Create Payment Intent
     const res = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
@@ -182,6 +191,7 @@ const getFinalTotal = () => {
       owner_name: kerbsideName,
       mobile_number: user.mobile_number || "",
       wallet_used: useWallet ? walletUsed : 0,
+      loyalty_used: useLoyalty ? loyaltyUsed : 0,
       items: (visibleCart || []).filter(i => (i.product_quantity || 0) > 0).map((i) => ({
         product_id: i.product_id,
         product_name: i.product_name,
@@ -295,10 +305,20 @@ const getFinalTotal = () => {
 
   (async () => {
     const data = await getWalletSummary();
+
     setWalletBalance(Number(data.wallet_balance || 0));
+
+    const usableCredits = (data.loyalty_expiry_list || []).filter(
+      c => new Date(c.expires_at) > new Date()
+    );
+
+    setLoyaltyCredits(usableCredits);
+
+    // ✅ IMPORTANT: do NOT auto apply
+    setUseLoyalty(false);
+    setLoyaltyUsed(0);
   })();
 }, [isFocused]);
-
 
   return (
     // 🔧 no extra top/bottom padding; AppHeader & BottomBar handle it
@@ -380,11 +400,12 @@ const getFinalTotal = () => {
       <Text style={styles.walletTitle}>Wallet Balance</Text>
       <Text style={styles.walletAmount}>£{walletBalance.toFixed(2)}</Text>
     </View>
-      {useWallet && walletUsed > 0 && (
-    <Text style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-      Wallet used: -£{walletUsed.toFixed(2)}
-    </Text>
-  )}
+
+    {useWallet && walletUsed > 0 && (
+      <Text style={{ fontSize: 12, color: "#555" }}>
+        Wallet used: -£{walletUsed.toFixed(2)}
+      </Text>
+    )}
 
     <TouchableOpacity
       style={[
@@ -409,6 +430,53 @@ const getFinalTotal = () => {
     </TouchableOpacity>
   </View>
 )}
+
+{loyaltyCredits.length > 0 && (
+  <View style={styles.walletBox}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.walletTitle}>Loyalty Credits</Text>
+      <Text style={styles.walletAmount}>
+        £{loyaltyCredits.reduce(
+          (sum, c) => sum + Number(c.credit_value || 0),
+          0
+        ).toFixed(2)}
+      </Text>
+    </View>
+
+    {useLoyalty && loyaltyUsed > 0 && (
+      <Text style={{ fontSize: 12, color: "#555" }}>
+        Loyalty used: -£{loyaltyUsed.toFixed(2)}
+      </Text>
+    )}
+
+    <TouchableOpacity
+      style={[
+        styles.walletBtn,
+        useLoyalty && styles.walletBtnActive,
+      ]}
+      onPress={() => {
+        if (useLoyalty) {
+          setUseLoyalty(false);
+          setLoyaltyUsed(0);
+        } else {
+          const total = getCartTotal();
+          const totalLoyaltyValue = loyaltyCredits.reduce(
+            (sum, c) => sum + Number(c.credit_value || 0),
+            0
+          );
+          const usable = Math.min(total, totalLoyaltyValue);
+          setUseLoyalty(true);
+          setLoyaltyUsed(usable);
+        }
+      }}
+    >
+      <Text style={styles.walletBtnText}>
+        {useLoyalty ? "Remove" : "Apply"}
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
+
 
       {/* FLOATING BAR – stays above bottom bar */}
       {!deliveryPopup && !allergyPopup && visibleCart.length > 0 && (

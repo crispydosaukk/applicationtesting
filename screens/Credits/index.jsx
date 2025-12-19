@@ -51,6 +51,11 @@ export default function CreditsScreen({ navigation }) {
   const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState(1);
   const [redeeming, setRedeeming] = useState(false);
 
+  const totalLoyaltyValue = loyaltyExpiryList.reduce(
+  (sum, item) => sum + Number(item.credit_value || 0),
+  0
+);
+
   // Load user
   useEffect(() => {
     const loadUser = async () => {
@@ -247,10 +252,14 @@ const shareReferralCode = async () => {
 
           <View style={[styles.card, styles.pointsCard]}>
             <Text style={styles.cardLabel}>Loyalty Credits</Text>
-            <Text style={styles.cardValue}>
-              {loyaltyPoints !== null ? loyaltyPoints : "—"}
-            </Text>
-            <Text style={styles.cardHint}>Redeemable points available now.</Text>
+
+          <Text style={styles.cardValue}>
+            £{totalLoyaltyValue.toFixed(2)}
+          </Text>
+
+          <Text style={styles.cardHint}>
+            {loyaltyPoints} points available • Auto-applied at checkout
+          </Text>
 
             {/* ✅ NEW: Pending points indication */}
             {pendingLoyaltyPoints > 0 && (
@@ -264,80 +273,77 @@ const shareReferralCode = async () => {
               </View>
             )}
             {pendingLoyaltyList.length > 0 && (
-  <View style={[styles.card, { marginTop: 12 }]}>
-    <Text style={styles.cardLabel}>Pending Loyalty Points</Text>
+            <View style={[styles.card, { marginTop: 12 }]}>
+              <Text style={styles.cardLabel}>Pending Loyalty Points</Text>
 
-    {pendingLoyaltyList.map((item, idx) => {
-      const unlockAt = new Date(item.available_from);
-      const hoursLeft = Math.max(
-        0,
-        Math.ceil((unlockAt.getTime() - Date.now()) / (1000 * 60 * 60))
-      );
+              {pendingLoyaltyList.map((item, idx) => {
+                const unlockAt = new Date(item.available_from);
+                const hoursLeft = Math.max(
+                  0,
+                  Math.ceil((unlockAt.getTime() - Date.now()) / (1000 * 60 * 60))
+                );
 
-      return (
-        <View
-          key={item.id || idx}
-          style={{
-            paddingVertical: 8,
-            borderBottomWidth:
-              idx !== pendingLoyaltyList.length - 1 ? StyleSheet.hairlineWidth : 0,
-            borderBottomColor: "#e5e7eb",
-          }}
-        >
-          <Text style={{ fontSize: 13, fontWeight: "600", color: "#111827" }}>
-            {item.points_remaining} pts
-          </Text>
+                return (
+                  <View
+                    key={item.id || idx}
+                    style={{
+                      paddingVertical: 8,
+                      borderBottomWidth:
+                        idx !== pendingLoyaltyList.length - 1 ? StyleSheet.hairlineWidth : 0,
+                      borderBottomColor: "#e5e7eb",
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#111827" }}>
+                      {item.points_remaining} pts = £{Number(item.credit_value).toFixed(2)}
+                    </Text>
 
-          <Text style={{ fontSize: 11, color: "#6b7280" }}>
-            Unlocks in {hoursLeft} hour(s)
-          </Text>
-        </View>
-      );
-    })}
-  </View>
-)}
+                    <Text style={{ fontSize: 11, color: "#6b7280" }}>
+                      Unlocks in {hoursLeft} hour(s)
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
-{loyaltyExpiryList.length > 0 && (
-  <View style={[styles.card, { marginTop: 12 }]}>
-    <Text style={styles.cardLabel}>Loyalty Expiry</Text>
+          {loyaltyExpiryList.length > 0 && (
+            <View style={[styles.card, { marginTop: 12 }]}>
+              <Text style={styles.cardLabel}>Loyalty Expiry</Text>
 
-    {loyaltyExpiryList.map((item, idx) => {
-      const expiry = new Date(item.expires_at);
-      const daysLeft = Math.max(
-        0,
-        Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      );
+              {loyaltyExpiryList.map((item, idx) => {
+                const expiry = new Date(item.expires_at);
+                const daysLeft = Math.max(
+                  0,
+                  Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                );
 
-      return (
-        <View
-          key={item.id || idx}
-          style={{
-            paddingVertical: 8,
-            borderBottomWidth:
-              idx !== loyaltyExpiryList.length - 1
-                ? StyleSheet.hairlineWidth
-                : 0,
-            borderBottomColor: "#e5e7eb",
-          }}
-        >
-          <Text style={{ fontSize: 13, fontWeight: "600" }}>
-            {item.points_remaining} pts
-          </Text>
+                return (
+                  <View
+                    key={item.id || idx}
+                    style={{
+                      paddingVertical: 8,
+                      borderBottomWidth:
+                        idx !== loyaltyExpiryList.length - 1
+                          ? StyleSheet.hairlineWidth
+                          : 0,
+                      borderBottomColor: "#e5e7eb",
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "600" }}>
+                      {item.points_remaining} pts = £{Number(item.credit_value).toFixed(2)}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#dc2626" }}>
+                      Expires in {daysLeft} day(s)
+                    </Text>
 
-          <Text style={{ fontSize: 11, color: "#dc2626" }}>
-            Expires in {daysLeft} day(s)
-          </Text>
-
-          <Text style={{ fontSize: 10, color: "#9ca3af" }}>
-            Expiry on {expiry.toDateString()}
-          </Text>
-        </View>
-      );
-    })}
-  </View>
-)}
-
-
+                    <Text style={{ fontSize: 10, color: "#9ca3af" }}>
+                      Expiry on {expiry.toDateString()}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
           </View>
         </View>
 
@@ -353,36 +359,36 @@ const shareReferralCode = async () => {
           </Text>
 
         </View>
-<View style={styles.card}>
-  <Text style={styles.cardLabel}>Refer & Earn</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Refer & Earn</Text>
 
-  {/* Referral Code */}
-  <Text style={[styles.cardValue, { letterSpacing: 1 }]}>
-    {user?.referral_code || "—"}
-  </Text>
+          {/* Referral Code */}
+          <Text style={[styles.cardValue, { letterSpacing: 1 }]}>
+            {user?.referral_code || "—"}
+          </Text>
 
-  <Text style={styles.cardHint}>
-    Share your referral code and earn rewards when friends place orders.
-  </Text>
+          <Text style={styles.cardHint}>
+            Share your referral code and earn rewards when friends place orders.
+          </Text>
 
-  {/* ACTION BUTTONS */}
-  <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
-    <TouchableOpacity
-      onPress={copyReferralCode}
-      style={[styles.refBtn, styles.copyBtn]}
-    >
-      <Text style={styles.refBtnText}>Copy</Text>
-    </TouchableOpacity>
+          {/* ACTION BUTTONS */}
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+            <TouchableOpacity
+              onPress={copyReferralCode}
+              style={[styles.refBtn, styles.copyBtn]}
+            >
+              <Text style={styles.refBtnText}>Copy</Text>
+            </TouchableOpacity>
 
-    <TouchableOpacity
-      onPress={shareReferralCode}
-      style={[styles.refBtn, styles.shareBtn]}
-    >
-      <Text style={styles.refBtnText}>Share</Text>
-    </TouchableOpacity>
-  </View>
-</View>
-
+            <TouchableOpacity
+              onPress={shareReferralCode}
+              style={[styles.refBtn, styles.shareBtn]}
+            >
+              <Text style={styles.refBtnText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {false && (
         <View style={[styles.card, { marginTop: 12 }]}>
           <Text style={styles.cardLabel}>Redeem Loyalty</Text>
 
@@ -407,7 +413,7 @@ const shareReferralCode = async () => {
             </Text>
           </TouchableOpacity>
         </View>
-
+        )}
         <Text style={styles.sectionTitle}>Recent Activity</Text>
 
         <View style={styles.historyBox}>

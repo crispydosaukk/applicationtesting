@@ -21,6 +21,8 @@ import Orders from "./screens/Orders.jsx";
 import Credits from "./screens/Credits/index.jsx";
 import Profile from "./screens/Profile.jsx";
 import PaymentHistory from "./screens/PaymentHistory.jsx";
+import FAQ from "./screens/FAQ.jsx";
+import InviteFriends from "./screens/InviteFriends.jsx";
 
 const Stack = createNativeStackNavigator();
 
@@ -60,6 +62,8 @@ export default function App() {
             <Stack.Screen name="Credits" component={Credits} />
             <Stack.Screen name="Profile" component={Profile} />
             <Stack.Screen name="PaymentHistory" component={PaymentHistory} />
+            <Stack.Screen name="FAQ" component={FAQ} />
+            <Stack.Screen name="InviteFriends" component={InviteFriends} />
 
           </Stack.Navigator>
         </NavigationContainer>
