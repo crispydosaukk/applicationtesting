@@ -1,6 +1,6 @@
 // AppHeader.js
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, StatusBar, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, StatusBar, ActivityIndicator, Animated } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -83,28 +83,22 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
               <Ionicons name="notifications-outline" size={24 * scale} color="#222" />
             </TouchableOpacity>
 
+            {/* Wallet - Premium Full Width */}
             <TouchableOpacity
-              style={styles.walletBtn}
+              style={{ marginLeft: 6, marginRight: 2 }}
+              activeOpacity={0.8}
               onPress={() => {
                 if (!user) setAuthModalVisible(true);
                 else navigation.navigate("Credits");
               }}
-              activeOpacity={0.8}
             >
-              <View style={styles.walletIconCircle}>
-                <Ionicons name="cash-outline" size={16 * scale} color="#ffffff" />
-                {walletBalance !== null && walletBalance > 0 && (
-                  <View style={styles.walletBadge}>
-                    {loadingWallet ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={styles.walletBadgeText}>
-                        {`£${walletBalance.toFixed(2)}`}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </View>
+              {walletBalance !== null && walletBalance > 0 ? (
+                <AnimatedBadge balance={walletBalance} loading={loadingWallet} />
+              ) : (
+                <View style={styles.walletPlaceholder}>
+                  <Ionicons name="wallet-outline" size={24 * scale} color="#222" />
+                </View>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity style={{ marginLeft: 8, padding: 4 }} onPress={() => { if (!user) setAuthModalVisible(true); else navigation.navigate("CartSummary"); }}>
@@ -178,24 +172,24 @@ const styles = StyleSheet.create({
   },
   walletBadge: {
     position: "absolute",
-    right: -12,
-    top: -12,
-    paddingHorizontal: 6 * scale,
-    paddingVertical: 2 * scale,
-    minHeight: 22 * scale,
-    minWidth: 22 * scale,
-    borderRadius: 11 * scale,
+    right: -10,
+    top: -14,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    minWidth: 24,
+    borderRadius: 12,
     backgroundColor: "#0b7a2a",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 4,
+    elevation: 5,
     borderWidth: 1.5,
     borderColor: "#ffffff",
+    zIndex: 99,
   },
   walletBadgeText: {
     color: "#ffffff",
     fontWeight: "800",
-    fontSize: 10 * scale,
+    fontSize: 11 * scale,
     textAlign: "center",
   },
   leftWrap: {
@@ -212,4 +206,62 @@ const styles = StyleSheet.create({
     color: "#222",
     maxWidth: 160 * scale,
   },
+  premiumWalletBadge: {
+    backgroundColor: "#0b7a2a",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    minWidth: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#0b7a2a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  premiumWalletText: {
+    color: "#fff",
+    fontSize: 14 * scale,
+    fontWeight: "800",
+  },
+  walletPlaceholder: {
+    padding: 4,
+  },
 });
+
+const AnimatedBadge = ({ balance, loading }) => {
+  // Blinking animation
+  const [opacity] = useState(new Animated.Value(1));
+
+  useEffect(() => {
+    if (loading) return;
+    const animate = () => {
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.6,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]).start(() => animate());
+    };
+    animate();
+  }, [loading]);
+
+  return (
+    <Animated.View style={[styles.premiumWalletBadge, { opacity }]}>
+      {loading ? (
+        <ActivityIndicator size="small" color="#fff" />
+      ) : (
+        <Text style={styles.premiumWalletText} numberOfLines={1}>
+          {`£${balance.toFixed(2)}`}
+        </Text>
+      )}
+    </Animated.View>
+  );
+};

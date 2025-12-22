@@ -274,7 +274,7 @@ export default function Orders({ navigation, route }) {
         </View>
 
         <View style={styles.row}>
-          <Text style={styles.labelText}>Total</Text>
+          <Text style={styles.labelText}>Grand Total</Text>
           <Text style={styles.totalText}>
             £{Number(total).toFixed(2)}
           </Text>
@@ -438,6 +438,7 @@ export default function Orders({ navigation, route }) {
                       <Text style={styles.summaryLabel}>Items total</Text>
                       <Text>£{Number(orderDetails.sub_total || orderDetails.items_total || orderDetails.total_items_price || 0).toFixed(2)}</Text>
                     </View>
+                    {/* 
                     <View style={styles.summaryRow}>
                       <Text style={styles.summaryLabel}>Delivery</Text>
                       <Text>£{Number(orderDetails.delivery_charge || orderDetails.delivery_fee || 0).toFixed(2)}</Text>
@@ -445,7 +446,8 @@ export default function Orders({ navigation, route }) {
                     <View style={styles.summaryRow}>
                       <Text style={styles.summaryLabel}>Tax</Text>
                       <Text>£{Number(orderDetails.tax || 0).toFixed(2)}</Text>
-                    </View>
+                    </View> 
+                    */}
                     {(Number(orderDetails.wallet_used) > 0) && (
                       <View style={styles.summaryRow}>
                         <Text style={styles.summaryLabel}>Wallet Used</Text>

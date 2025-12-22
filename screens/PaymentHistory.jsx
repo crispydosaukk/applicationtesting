@@ -46,7 +46,9 @@ export default function PaymentHistory({ navigation }) {
       }
     } catch (err) {
       console.warn("Payment history fetch error:", err);
-      setError(err?.message || "Failed to load payment history");
+      // Try to extract backend error message if available
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to load payment history";
+      setError(errMsg);
     } finally {
       setLoading(false);
       setRefreshing(false);

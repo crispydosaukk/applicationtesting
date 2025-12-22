@@ -162,16 +162,17 @@ export default function CreditsScreen({ navigation }) {
     }
   };
 
-  // Fetch credits whenever screen is focused
+  // Fetch credits whenever screen is focused or user loads
   useEffect(() => {
-    if (isFocused) loadCreditsData();
-  }, [isFocused]);
+    if (isFocused && user) loadCreditsData();
+  }, [isFocused, user]);
 
   // Display helpers
   const units = Math.floor(
     Number(loyaltyPoints || 0) / Number(loyaltyRedeemPoints || 10)
   );
   const willGet = Number((units * Number(loyaltyRedeemValue || 1)).toFixed(2));
+  const pendingValue = ((Number(pendingLoyaltyPoints || 0) * Number(loyaltyRedeemValue || 1)) / Number(loyaltyRedeemPoints || 10)).toFixed(2);
 
   const onRefresh = async () => {
     try {
@@ -275,21 +276,21 @@ export default function CreditsScreen({ navigation }) {
               <View style={styles.creditsRow}>
                 <Text style={styles.cardValue}>
                   £{totalLoyaltyValue.toFixed(2)}
-                </Text>
-                <Text style={styles.pointsSubText}>
-                  ({loyaltyPoints} credits)
-                </Text>
+                </Text>{/*
+                  <Text style={styles.pointsSubText}>
+                    ({loyaltyPoints} credits)
+                  </Text>*/}
               </View>
 
               <Text style={styles.cardHint}>
-                Auto-applied at checkout for instant discounts.
+                Use this amount at checkout
               </Text>
 
               {/* ✅ NEW: Pending points indication */}
               {pendingLoyaltyPoints > 0 && (
                 <View style={{ marginTop: 6 }}>
                   <Text style={styles.pendingTitle}>
-                    🎉 {pendingLoyaltyPoints} credits earned!
+                    🎉 £{pendingValue} earned!
                   </Text>
                   <Text style={styles.pendingDesc}>
                     Available to use after {availableAfterHours} hour(s).
@@ -327,7 +328,7 @@ export default function CreditsScreen({ navigation }) {
                             style={styles.dropdownItem}
                           >
                             <Text style={styles.itemMainText}>
-                              {item.points_remaining} credits = £{Number(item.credit_value).toFixed(2)}
+                              £{Number(item.credit_value).toFixed(2)}
                             </Text>
                             <Text style={styles.itemSubText}>
                               Unlocks in {hoursLeft} hour(s)
@@ -370,7 +371,7 @@ export default function CreditsScreen({ navigation }) {
                             style={[styles.dropdownItem, { borderBottomWidth: idx === loyaltyExpiryList.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
                           >
                             <Text style={styles.itemMainText}>
-                              {item.points_remaining} credits = £{Number(item.credit_value).toFixed(2)}
+                              £{Number(item.credit_value).toFixed(2)}
                             </Text>
                             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                               <Text style={[styles.itemSubText, { color: "#dc2626" }]}>
