@@ -19,15 +19,15 @@ export default function FAQ({ navigation }) {
         },
         {
             question: "What payment methods do you accept?",
-            answer: "We accept credit/debit cards, wallet credits, and loyalty points. All payments are processed securely through Stripe.",
+            answer: "We accept credit/debit cards, wallet credits, and loyalty credits. All payments are processed securely through Stripe.",
         },
         {
             question: "How does the wallet work?",
             answer: "Add credits to your wallet and use them for faster checkout. You can top up your wallet from the Credits section in your profile.",
         },
         {
-            question: "What are loyalty points?",
-            answer: "Earn loyalty points with every purchase and redeem them for discounts on future orders.",
+            question: "What are loyalty credits?",
+            answer: "Earn loyalty credits with every purchase and redeem them for discounts on future orders.",
         },
         {
             question: "How can I track my order?",

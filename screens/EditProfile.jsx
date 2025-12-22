@@ -13,7 +13,10 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import api from "../config/api";
+import { fetchRestaurants } from "../services/restaurantService";
 
 export default function EditProfile({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -30,9 +33,22 @@ export default function EditProfile({ navigation }) {
     preferred_restaurant: "",
   });
 
+  const [restaurants, setRestaurants] = useState([]);
+  const [showDobPicker, setShowDobPicker] = useState(false);
+
   useEffect(() => {
     loadProfile();
+    loadRestaurants();
   }, []);
+
+  const loadRestaurants = async () => {
+    try {
+      const data = await fetchRestaurants();
+      setRestaurants(data || []);
+    } catch (err) {
+      console.warn("Failed to load restaurants", err);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -125,32 +141,72 @@ export default function EditProfile({ navigation }) {
         />
 
         {/* GENDER */}
-        <Input
-          label="Gender"
-          value={form.gender}
-          onChangeText={(v) => setForm({ ...form, gender: v })}
-          icon="male-female-outline"
-          placeholder="Male / Female"
-        />
+        <View style={styles.inputCard}>
+          <Text style={styles.label}>Gender</Text>
+          <View style={styles.inputRow}>
+            <Ionicons name="male-female-outline" size={18} color="#777" />
+            <Picker
+              selectedValue={form.gender}
+              onValueChange={(v) => setForm({ ...form, gender: v })}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Gender" value="" />
+              <Picker.Item label="Male" value="male" />
+              <Picker.Item label="Female" value="female" />
+              <Picker.Item label="Other" value="other" />
+            </Picker>
+          </View>
+        </View>
 
         {/* DOB */}
-        <Input
-          label="Date of Birth"
-          value={form.date_of_birth}
-          onChangeText={(v) => setForm({ ...form, date_of_birth: v })}
-          icon="calendar-outline"
-          placeholder="YYYY-MM-DD"
-        />
+        <View style={styles.inputCard}>
+          <Text style={styles.label}>Date of Birth</Text>
+          <TouchableOpacity
+            style={styles.inputRow}
+            onPress={() => setShowDobPicker(true)}
+          >
+            <Ionicons name="calendar-outline" size={18} color="#777" />
+            <Text style={[styles.input, !form.date_of_birth && { color: "#aaa" }]}>
+              {form.date_of_birth ? new Date(form.date_of_birth).toLocaleDateString("en-GB") : "Select Date"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showDobPicker && (
+          <DateTimePicker
+            mode="date"
+            display="default"
+            value={form.date_of_birth ? new Date(form.date_of_birth) : new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
+            maximumDate={new Date()}
+            onChange={(e, selectedDate) => {
+              setShowDobPicker(false);
+              if (selectedDate) {
+                setForm({
+                  ...form,
+                  date_of_birth: selectedDate.toISOString().split("T")[0],
+                });
+              }
+            }}
+          />
+        )}
 
         {/* PREFERRED RESTAURANT */}
-        <Input
-          label="Preferred Restaurant"
-          value={form.preferred_restaurant}
-          onChangeText={(v) =>
-            setForm({ ...form, preferred_restaurant: v })
-          }
-          icon="restaurant-outline"
-        />
+        <View style={styles.inputCard}>
+          <Text style={styles.label}>Preferred Restaurant</Text>
+          <View style={styles.inputRow}>
+            <Ionicons name="restaurant-outline" size={18} color="#777" />
+            <Picker
+              selectedValue={form.preferred_restaurant}
+              onValueChange={(v) => setForm({ ...form, preferred_restaurant: v })}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Restaurant" value="" />
+              {restaurants.map((r) => (
+                <Picker.Item key={r.id || r.name} label={r.name} value={r.name} />
+              ))}
+            </Picker>
+          </View>
+        </View>
 
         {/* SAVE BUTTON */}
         <TouchableOpacity
@@ -246,6 +302,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     fontSize: 14,
+    color: "#000",
+    paddingVertical: 10, // Ensure text is centered in TouchableOpacity
+  },
+  picker: {
+    flex: 1,
+    marginLeft: 4,
     color: "#000",
   },
 

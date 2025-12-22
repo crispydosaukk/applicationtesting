@@ -116,7 +116,7 @@ export default function Orders({ navigation, route }) {
         // clear the param so it doesn't re-trigger
         try {
           navigation.setParams({ newOrderId: undefined });
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // show cached orders (if any) immediately
@@ -218,7 +218,9 @@ export default function Orders({ navigation, route }) {
     let dateStr = "";
     if (createdAt) {
       const d = new Date(createdAt);
-      if (!isNaN(d.getTime())) dateStr = d.toLocaleString();
+      if (!isNaN(d.getTime())) {
+        dateStr = d.toLocaleDateString("en-GB") + ", " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      }
     }
 
     const total =
@@ -242,7 +244,15 @@ export default function Orders({ navigation, route }) {
             />
             <Text style={styles.orderNo}>{orderNo}</Text>
           </View>
-          {renderStatusChip(item.status)}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {renderStatusChip(item.status)}
+            <Ionicons
+              name="eye-outline"
+              size={18}
+              color="#28a745"
+              style={{ marginLeft: 8 }}
+            />
+          </View>
         </View>
 
         {dateStr ? (
@@ -266,7 +276,7 @@ export default function Orders({ navigation, route }) {
         <View style={styles.row}>
           <Text style={styles.labelText}>Total</Text>
           <Text style={styles.totalText}>
-            £ {Number(total).toFixed(2)}
+            £{Number(total).toFixed(2)}
           </Text>
         </View>
       </TouchableOpacity>
@@ -379,7 +389,11 @@ export default function Orders({ navigation, route }) {
                 <Text style={{ fontSize: 16, fontWeight: "800" }}>{orderDetails?.order_no || "Order"}</Text>
                 <TouchableOpacity onPress={closeDetails}><Text style={{ color: "#007AFF" }}>Close</Text></TouchableOpacity>
               </View>
-              <Text style={{ color: "#666", marginTop: 6 }}>{orderDetails?.created_at || orderDetails?.order_date || ""}</Text>
+              <Text style={{ color: "#666", marginTop: 6 }}>
+                {orderDetails?.created_at || orderDetails?.order_date
+                  ? new Date(orderDetails.created_at || orderDetails.order_date).toLocaleDateString("en-GB") + ", " + new Date(orderDetails.created_at || orderDetails.order_date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+                  : ""}
+              </Text>
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -420,21 +434,33 @@ export default function Orders({ navigation, route }) {
                   {/* Totals */}
                   <View style={{ marginTop: 12 }}>
                     <Text style={{ fontWeight: "800" }}>Summary</Text>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-                      <Text style={{ color: "#666" }}>Items total</Text>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Items total</Text>
                       <Text>£{Number(orderDetails.sub_total || orderDetails.items_total || orderDetails.total_items_price || 0).toFixed(2)}</Text>
                     </View>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
-                      <Text style={{ color: "#666" }}>Delivery</Text>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Delivery</Text>
                       <Text>£{Number(orderDetails.delivery_charge || orderDetails.delivery_fee || 0).toFixed(2)}</Text>
                     </View>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
-                      <Text style={{ color: "#666" }}>Tax</Text>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Tax</Text>
                       <Text>£{Number(orderDetails.tax || 0).toFixed(2)}</Text>
                     </View>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
-                      <Text style={{ fontWeight: "800" }}>Grand total</Text>
-                      <Text style={{ fontWeight: "800" }}>£{Number(orderDetails.total_amount || orderDetails.grand_total || orderDetails.amount || 0).toFixed(2)}</Text>
+                    {(Number(orderDetails.wallet_used) > 0) && (
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Wallet Used</Text>
+                        <Text style={{ color: "#e53935" }}>-£{Number(orderDetails.wallet_used).toFixed(2)}</Text>
+                      </View>
+                    )}
+                    {(Number(orderDetails.loyalty_used) > 0) && (
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Loyalty Credits Used</Text>
+                        <Text style={{ color: "#e53935" }}>-£{Number(orderDetails.loyalty_used).toFixed(2)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Grand total</Text>
+                      <Text style={styles.summaryTotal}>£{Number(orderDetails.total_amount || orderDetails.grand_total || orderDetails.amount || 0).toFixed(2)}</Text>
                     </View>
                   </View>
                 </>
@@ -545,5 +571,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#28a745",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  summaryLabel: {
+    color: "#666",
+  },
+  summaryTotal: {
+    fontWeight: "800",
   },
 });

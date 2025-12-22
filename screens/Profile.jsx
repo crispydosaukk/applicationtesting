@@ -49,15 +49,17 @@ export default function Profile({ navigation }) {
           return;
         }
 
+        // Show screen immediately while fetching
+        setLoading(false);
+
         // signed in: fetch profile and wallet
         const [profileData, walletData] = await Promise.all([fetchProfile(), getWalletSummary()]);
         setProfile(profileData);
         setWallet(walletData);
       } catch (err) {
         console.log("Profile error", err);
-      } finally {
-        setLoading(false);
       }
+      // finally block removed as setLoading(false) is handled earlier
     };
 
     init();
@@ -226,7 +228,11 @@ export default function Profile({ navigation }) {
             label="Credits"
             onPress={() => navigation.navigate("Credits")}
           />
-          <QuickItem icon="headset-outline" label="Support" />
+          <QuickItem
+            icon="headset-outline"
+            label="Support"
+            onPress={() => navigation.navigate("HelpCenter")}
+          />
         </View>
 
         {/* MENU */}
@@ -243,24 +249,6 @@ export default function Profile({ navigation }) {
             icon="person-outline"
             label="Edit Profile"
             onPress={() => navigation.navigate("EditProfile")}
-          />
-          <MenuItem icon="gift-outline" label="Refer & Earn" onPress={() => navigation.navigate("InviteFriends")} />
-          <MenuItem icon="help-circle-outline" label="Help Center" onPress={() => navigation.navigate("HelpCenter")} />
-          <MenuItem
-            icon="receipt-outline"
-            label="Orders"
-            onPress={() => {
-              if (!userLocal) setAuthModalVisible(true);
-              else navigation.navigate("Orders");
-            }}
-          />
-          <MenuItem
-            icon="wallet-outline"
-            label="Credits"
-            onPress={() => {
-              if (!userLocal) setAuthModalVisible(true);
-              else navigation.navigate("Credits");
-            }}
           />
           <MenuItem
             icon="log-out-outline"

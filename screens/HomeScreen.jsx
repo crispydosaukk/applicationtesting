@@ -46,10 +46,10 @@ export default function HomeScreen({ navigation }) {
   });
 
   const messages = [
-  "Earn £0.25 on every order",
-  "Loyalty points earn £0.25",
-  "Earn £0.25 welcome gift",
-];
+    "Earn £0.25 on every order",
+    "Loyalty credits earn £0.25",
+    "Earn £0.25 welcome gift",
+  ];
 
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -102,26 +102,26 @@ export default function HomeScreen({ navigation }) {
   const logoWidth = isVerySmallScreen
     ? width * 0.5
     : isSmallScreen
-    ? width * 0.55
-    : width * 0.6;
+      ? width * 0.55
+      : width * 0.6;
   const logoHeight = logoWidth * 0.66;
   const imageCircleSize = isVerySmallScreen
     ? width * 0.5
     : isSmallScreen
-    ? width * 0.56
-    : width * 0.62;
+      ? width * 0.56
+      : width * 0.62;
   const verticalPadding = isVerySmallScreen ? 4 : isSmallScreen ? 8 : 12;
 
   const highlightOffer = (text) => {
-  const parts = text.split("£0.25");
-  return (
-    <Text style={styles.offerText}>
-      {parts[0].toUpperCase()}
-      <Text style={styles.offerAmount}>£0.25</Text>
-      {parts[1]?.toUpperCase()}
-    </Text>
-  );
-};
+    const parts = text.split("£0.25");
+    return (
+      <Text style={styles.offerText}>
+        {parts[0].toUpperCase()}
+        <Text style={styles.offerAmount}>£0.25</Text>
+        {parts[1]?.toUpperCase()}
+      </Text>
+    );
+  };
 
   return (
     <>
@@ -202,10 +202,10 @@ export default function HomeScreen({ navigation }) {
                   },
                 ]}
               >
-                  <Ionicons name="gift-outline" size={18} color="#fff" />
-                  <Text style={styles.offerText}>
-                    {highlightOffer(messages[msgIndex])}
-                  </Text>
+                <Ionicons name="gift-outline" size={18} color="#fff" />
+                <Text style={styles.offerText}>
+                  {highlightOffer(messages[msgIndex])}
+                </Text>
               </Animated.View>
             </View>
 
@@ -266,12 +266,12 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   offerAmount: {
-  fontWeight: "900",
-  color: "#fff700",   // bright highlight (change if needed)
-  textShadowColor: "rgba(0,0,0,0.3)",
-  textShadowOffset: { width: 0, height: 1 },
-  textShadowRadius: 2,
-},
+    fontWeight: "900",
+    color: "#fff700",   // bright highlight (change if needed)
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
 
   // ⬇️ mainContent no more space-between (this was causing big gap)
   mainContent: {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
 
   topSection: {
     alignItems: "center",
-     marginTop: -18,
+    marginTop: -18,
   },
 
   // small margin so buttons sit just under subtitle
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_FAMILY,
   },
   offerPill: {
-   
+
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 12,

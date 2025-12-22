@@ -24,10 +24,15 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
       setWalletBalance(null);
       return;
     }
-    setLoadingWallet(true);
+    if (walletBalance === null) setLoadingWallet(true);
     try {
       const data = await getWalletSummary();
-      setWalletBalance(Number(data.wallet_balance || 0));
+      const wb = Number(data.wallet_balance || 0);
+      const lc = (data.loyalty_expiry_list || []).reduce(
+        (sum, item) => sum + Number(item.credit_value || 0),
+        0
+      );
+      setWalletBalance(wb + lc);
     } catch (e) {
       console.warn("Failed to fetch wallet summary", e);
       setWalletBalance(null);
@@ -52,8 +57,8 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
   return (
     <>
       <StatusBar backgroundColor="#d7f7df" barStyle="dark-content" />
-      <SafeAreaView style={{ width:"100%",backgroundColor:"#d7f7df",paddingTop:insets.top,paddingLeft:insets.left,paddingRight:insets.right }} edges={["top","left","right"]}>
-        <LinearGradient colors={["#d7f7df","#ffffff"]} style={{ width:"100%",paddingHorizontal:10,paddingBottom:10,flexDirection:"row",alignItems:"center",justifyContent:"space-between" }}>
+      <SafeAreaView style={{ width: "100%", backgroundColor: "#d7f7df", paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }} edges={["top", "left", "right"]}>
+        <LinearGradient colors={["#d7f7df", "#ffffff"]} style={{ width: "100%", paddingHorizontal: 10, paddingTop: 12, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <TouchableOpacity
             style={styles.leftWrap}
             activeOpacity={0.8}
@@ -73,43 +78,45 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
             </Text>
           </TouchableOpacity>
 
-          <View style={{ flexDirection:"row",alignItems:"center" }}>
-            <TouchableOpacity style={{ marginLeft:6, padding:4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity style={{ marginLeft: 6, padding: 4 }}>
               <Ionicons name="notifications-outline" size={24 * scale} color="#222" />
             </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.walletBtn}
-                onPress={() => {
-                  if (!user) setAuthModalVisible(true);
-                  else navigation.navigate("Credits");
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.walletIconCircle}>
-                  <Ionicons name="cash-outline" size={16 * scale} color="#ffffff" />
+            <TouchableOpacity
+              style={styles.walletBtn}
+              onPress={() => {
+                if (!user) setAuthModalVisible(true);
+                else navigation.navigate("Credits");
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={styles.walletIconCircle}>
+                <Ionicons name="cash-outline" size={16 * scale} color="#ffffff" />
+                {walletBalance !== null && walletBalance > 0 && (
                   <View style={styles.walletBadge}>
                     {loadingWallet ? (
                       <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
-                      <Text style={styles.walletBadgeText} numberOfLines={1}>
-                        {walletBalance !== null ? `£${walletBalance.toFixed(2)}` : "—"}
+                      <Text style={styles.walletBadgeText}>
+                        {`£${walletBalance.toFixed(2)}`}
                       </Text>
                     )}
                   </View>
-                </View>
-              </TouchableOpacity>
+                )}
+              </View>
+            </TouchableOpacity>
 
-            <TouchableOpacity style={{ marginLeft:8,padding:4 }} onPress={() => { if (!user) setAuthModalVisible(true); else navigation.navigate("CartSummary"); }}>
+            <TouchableOpacity style={{ marginLeft: 8, padding: 4 }} onPress={() => { if (!user) setAuthModalVisible(true); else navigation.navigate("CartSummary"); }}>
               <Ionicons name="cart-outline" size={28 * scale} color="#222" />
               {totalItems > 0 && (
-                <View style={{ position:"absolute",right:-4,top:-4,backgroundColor:"#ff3b30",minWidth:16 * scale,height:16 * scale,borderRadius:20,justifyContent:"center",alignItems:"center",paddingHorizontal:3 }}>
-                  <Text style={{ color:"#fff",fontWeight:"700",fontSize:10 * scale }}>{totalItems}</Text>
+                <View style={{ position: "absolute", right: -4, top: -4, backgroundColor: "#ff3b30", minWidth: 16 * scale, height: 16 * scale, borderRadius: 20, justifyContent: "center", alignItems: "center", paddingHorizontal: 3 }}>
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 10 * scale }}>{totalItems}</Text>
                 </View>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={{ marginLeft:8,padding:4 }} onPress={onMenuPress}>
+            <TouchableOpacity style={{ marginLeft: 8, padding: 4 }} onPress={onMenuPress}>
               <Ionicons name="menu-outline" size={32 * scale} color="#222" />
             </TouchableOpacity>
           </View>
@@ -171,21 +178,25 @@ const styles = StyleSheet.create({
   },
   walletBadge: {
     position: "absolute",
-    right: -10,
-    top: -10,
-    minWidth: 44 * scale,
-    height: 22 * scale,
-    borderRadius: 12 * scale,
+    right: -12,
+    top: -12,
+    paddingHorizontal: 6 * scale,
+    paddingVertical: 2 * scale,
+    minHeight: 22 * scale,
+    minWidth: 22 * scale,
+    borderRadius: 11 * scale,
     backgroundColor: "#0b7a2a",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 6,
-    elevation: 3,
+    elevation: 4,
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
   },
   walletBadgeText: {
     color: "#ffffff",
     fontWeight: "800",
-    fontSize: 11 * scale,
+    fontSize: 10 * scale,
+    textAlign: "center",
   },
   leftWrap: {
     flexDirection: "row",
