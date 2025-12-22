@@ -108,25 +108,55 @@ export default function CreditsScreen({ navigation }) {
 
   const loadCreditsData = async () => {
     if (!user) return; // skip if not signed in
-    const data = await getWalletSummary();
 
-    setWalletBalance(Number(data.wallet_balance || 0));
-    setLoyaltyPoints(Number(data.loyalty_points || 0));
-    setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0));
-    setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24));
-    setReferralCredits(Number(data.referral_credits || 0));
-    setLoyaltyExpiryList(
-      Array.isArray(data.loyalty_expiry_list)
-        ? data.loyalty_expiry_list
-        : []
-    );
+    // 1️⃣ Try Cache First (Instant Load)
+    try {
+      const cached = await AsyncStorage.getItem("wallet_summary_cache");
+      if (cached) {
+        const data = JSON.parse(cached);
+        setWalletBalance(Number(data.wallet_balance || 0));
+        setLoyaltyPoints(Number(data.loyalty_points || 0));
+        setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0));
+        setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24));
+        setReferralCredits(Number(data.referral_credits || 0));
+        setLoyaltyExpiryList(Array.isArray(data.loyalty_expiry_list) ? data.loyalty_expiry_list : []);
+        setPendingLoyaltyList(Array.isArray(data.loyalty_pending_list) ? data.loyalty_pending_list : []);
+        setReferredUsersCount(Number(data.referred_users_count || 0));
+        setLoyaltyRedeemPoints(Number(data.loyalty_redeem_points || 10));
+        setLoyaltyRedeemValue(Number(data.loyalty_redeem_value || 1));
+        setHistory(Array.isArray(data.history) ? data.history : []);
+      }
+    } catch (e) {
+      console.log("Cache load error (Credits):", e);
+    }
 
-    setPendingLoyaltyList(Array.isArray(data.loyalty_pending_list) ? data.loyalty_pending_list : []); // ✅ ADD
-    setReferredUsersCount(Number(data.referred_users_count || 0));
+    // 2️⃣ Fetch Fresh Data (Background Update)
+    try {
+      const data = await getWalletSummary();
 
-    setLoyaltyRedeemPoints(Number(data.loyalty_redeem_points || 10));
-    setLoyaltyRedeemValue(Number(data.loyalty_redeem_value || 1));
-    setHistory(Array.isArray(data.history) ? data.history : []);
+      // Update Cache
+      AsyncStorage.setItem("wallet_summary_cache", JSON.stringify(data));
+
+      setWalletBalance(Number(data.wallet_balance || 0));
+      setLoyaltyPoints(Number(data.loyalty_points || 0));
+      setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0));
+      setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24));
+      setReferralCredits(Number(data.referral_credits || 0));
+      setLoyaltyExpiryList(
+        Array.isArray(data.loyalty_expiry_list)
+          ? data.loyalty_expiry_list
+          : []
+      );
+
+      setPendingLoyaltyList(Array.isArray(data.loyalty_pending_list) ? data.loyalty_pending_list : []); // ✅ ADD
+      setReferredUsersCount(Number(data.referred_users_count || 0));
+
+      setLoyaltyRedeemPoints(Number(data.loyalty_redeem_points || 10));
+      setLoyaltyRedeemValue(Number(data.loyalty_redeem_value || 1));
+      setHistory(Array.isArray(data.history) ? data.history : []);
+    } catch (err) {
+      console.log("Wallet fetch error:", err);
+    }
   };
 
   // Redeem call
@@ -278,7 +308,7 @@ export default function CreditsScreen({ navigation }) {
                   £{totalLoyaltyValue.toFixed(2)}
                 </Text>{/*
                   <Text style={styles.pointsSubText}>
-                    ({loyaltyPoints} credits)
+                     ({loyaltyPoints} credits)
                   </Text>*/}
               </View>
 

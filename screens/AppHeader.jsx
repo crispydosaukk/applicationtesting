@@ -1,15 +1,14 @@
-// AppHeader.js
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, StatusBar, ActivityIndicator, Animated } from "react-native";
-import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { getWalletSummary } from "../services/walletService";
 import { AuthRequiredModal } from "./AuthRequired";
 
 const { width } = Dimensions.get("window");
-const scale = width / 400;
+// Scale factor for responsiveness
+const scale = width / 375;
 
 export default function AppHeader({ user, onMenuPress, navigation, cartItems }) {
   const insets = useSafeAreaInsets();
@@ -47,75 +46,89 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
 
   useFocusEffect(
     useCallback(() => {
-      // Refresh wallet whenever the header's screen regains focus
       fetchWallet();
     }, [fetchWallet])
   );
 
-  const username = user?.full_name ? user.full_name.split(" ")[0] : user?.restaurant_name ? user.restaurant_name : "Guest";
+  const username = user?.full_name ? user.full_name.split(" ")[0] : "Guest";
 
   return (
     <>
-      <StatusBar backgroundColor="#d7f7df" barStyle="dark-content" />
-      <SafeAreaView style={{ width: "100%", backgroundColor: "#d7f7df", paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }} edges={["top", "left", "right"]}>
-        <LinearGradient colors={["#d7f7df", "#ffffff"]} style={{ width: "100%", paddingHorizontal: 10, paddingTop: 12, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+
+      {/* Container with top padding for status bar */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+
+          {/* LEFT: User Info Only */}
           <TouchableOpacity
-            style={styles.leftWrap}
-            activeOpacity={0.8}
+            style={styles.profileContainer}
+            activeOpacity={0.7}
             onPress={() => {
               if (!user) setAuthModalVisible(true);
               else navigation.navigate("Profile");
             }}
           >
-            <Ionicons
-              name="person-circle-outline"
-              size={40 * scale}
-              color="#222"
-              style={styles.avatar}
-            />
-            <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">
-              {username} 👋
-            </Text>
+            <View style={styles.avatarCircle}>
+              <Ionicons name="person" size={18 * scale} color="#FFFFFF" />
+            </View>
+            <View style={styles.textContainer}>
+              <Text style={styles.greetingText}>Hello,</Text>
+              <Text style={styles.usernameText} numberOfLines={1}>{username}</Text>
+            </View>
           </TouchableOpacity>
 
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity style={{ marginLeft: 6, padding: 4 }}>
-              <Ionicons name="notifications-outline" size={24 * scale} color="#222" />
+          {/* RIGHT: Actions */}
+          <View style={styles.rightActions}>
+
+            {/* Notification Icon */}
+            {/* marginLeft: 0 because it's the start of the right cluster */}
+            <TouchableOpacity
+              style={[styles.iconButton, { marginLeft: 0 }]}
+              onPress={() => { /* Placeholder for notification nav */ }}
+            >
+              <Ionicons name="notifications-outline" size={26 * scale} color="#1C1C1C" />
             </TouchableOpacity>
 
-            {/* Wallet - Premium Full Width */}
+            {/* Wallet Pill - Animated & Premium */}
+            {/* Added marginLeft: 12 to match iconButton spacing */}
             <TouchableOpacity
-              style={{ marginLeft: 6, marginRight: 2 }}
               activeOpacity={0.8}
               onPress={() => {
                 if (!user) setAuthModalVisible(true);
                 else navigation.navigate("Credits");
               }}
+              style={[styles.walletTouch, { marginLeft: 12 * scale }]}
             >
               {walletBalance !== null && walletBalance > 0 ? (
-                <AnimatedBadge balance={walletBalance} loading={loadingWallet} />
+                <PremiumAnimatedBadge balance={walletBalance} loading={loadingWallet} />
               ) : (
-                <View style={styles.walletPlaceholder}>
-                  <Ionicons name="wallet-outline" size={24 * scale} color="#222" />
+                <View style={styles.emptyWallet}>
+                  <Ionicons name="wallet-outline" size={22 * scale} color="#333" />
                 </View>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={{ marginLeft: 8, padding: 4 }} onPress={() => { if (!user) setAuthModalVisible(true); else navigation.navigate("CartSummary"); }}>
-              <Ionicons name="cart-outline" size={28 * scale} color="#222" />
+            {/* Cart Icon */}
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => { if (!user) setAuthModalVisible(true); else navigation.navigate("CartSummary"); }}
+            >
+              <Ionicons name="cart-outline" size={26 * scale} color="#1C1C1C" />
               {totalItems > 0 && (
-                <View style={{ position: "absolute", right: -4, top: -4, backgroundColor: "#ff3b30", minWidth: 16 * scale, height: 16 * scale, borderRadius: 20, justifyContent: "center", alignItems: "center", paddingHorizontal: 3 }}>
-                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 10 * scale }}>{totalItems}</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{totalItems}</Text>
                 </View>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={{ marginLeft: 8, padding: 4 }} onPress={onMenuPress}>
-              <Ionicons name="menu-outline" size={32 * scale} color="#222" />
+            {/* Menu Icon */}
+            <TouchableOpacity style={[styles.iconButton, { marginRight: 0 }]} onPress={onMenuPress}>
+              <Ionicons name="menu-outline" size={30 * scale} color="#1C1C1C" />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
-      </SafeAreaView>
+        </View>
+      </View>
 
       <AuthRequiredModal
         visible={authModalVisible}
@@ -129,139 +142,144 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
   );
 }
 
-const styles = StyleSheet.create({
-  walletWrap: {
-    marginLeft: 10,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 16,
-    backgroundColor: "rgba(16,127,47,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(16,127,47,0.08)",
-  },
-  walletTextWrap: {
-    marginLeft: 6,
-    minWidth: 48,
-    alignItems: "flex-start",
-  },
-  walletText: {
-    fontSize: 13 * scale,
-    fontWeight: "800",
-    color: "#0b7a2a",
-    textShadowColor: "rgba(11,122,42,0.08)",
-    textShadowRadius: 1,
-  },
-  walletWrapNoBorder: {
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  walletBtn: {
-    marginLeft: 8,
-  },
-  walletIconCircle: {
-    width: 36 * scale,
-    height: 36 * scale,
-    borderRadius: 18 * scale,
-    backgroundColor: "#0b7a2a",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  walletBadge: {
-    position: "absolute",
-    right: -10,
-    top: -14,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    minWidth: 24,
-    borderRadius: 12,
-    backgroundColor: "#0b7a2a",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 5,
-    borderWidth: 1.5,
-    borderColor: "#ffffff",
-    zIndex: 99,
-  },
-  walletBadgeText: {
-    color: "#ffffff",
-    fontWeight: "800",
-    fontSize: 11 * scale,
-    textAlign: "center",
-  },
-  leftWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexShrink: 1,
-  },
-  avatar: {
-    marginRight: 8 * scale,
-  },
-  username: {
-    fontSize: 16 * scale,
-    fontWeight: "700",
-    color: "#222",
-    maxWidth: 160 * scale,
-  },
-  premiumWalletBadge: {
-    backgroundColor: "#0b7a2a",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    minWidth: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#0b7a2a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-  },
-  premiumWalletText: {
-    color: "#fff",
-    fontSize: 14 * scale,
-    fontWeight: "800",
-  },
-  walletPlaceholder: {
-    padding: 4,
-  },
-});
-
-const AnimatedBadge = ({ balance, loading }) => {
-  // Blinking animation
-  const [opacity] = useState(new Animated.Value(1));
+const PremiumAnimatedBadge = ({ balance, loading }) => {
+  const [opacity] = useState(new Animated.Value(0.8));
 
   useEffect(() => {
     if (loading) return;
     const animate = () => {
       Animated.sequence([
         Animated.timing(opacity, {
-          toValue: 0.6,
-          duration: 800,
+          toValue: 0.5,
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 800,
+          duration: 1000,
           useNativeDriver: true,
         }),
-      ]).start(() => animate());
+      ]).start(() => animate()); // Loop
     };
     animate();
   }, [loading]);
 
   return (
-    <Animated.View style={[styles.premiumWalletBadge, { opacity }]}>
+    <Animated.View style={[styles.premiumBadge, { opacity }]}>
+      <Ionicons name="wallet" size={14 * scale} color="#FFFFFF" style={{ marginRight: 5 }} />
       {loading ? (
-        <ActivityIndicator size="small" color="#fff" />
+        <ActivityIndicator size="small" color="#FFFFFF" />
       ) : (
-        <Text style={styles.premiumWalletText} numberOfLines={1}>
-          {`£${balance.toFixed(2)}`}
-        </Text>
+        <Text style={styles.premiumBadgeText}>£{balance.toFixed(2)}</Text>
       )}
     </Animated.View>
   );
 };
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 100,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+
+  // Left: Profile / User Info
+  profileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    maxWidth: "50%",
+  },
+  avatarCircle: {
+    width: 36 * scale,
+    height: 36 * scale,
+    borderRadius: 18 * scale,
+    backgroundColor: "#E23744", // Accent Color (Zomato Red)
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  textContainer: {
+    justifyContent: "center",
+  },
+  greetingText: {
+    fontSize: 11 * scale,
+    color: "#888888",
+    marginBottom: 0,
+    fontWeight: "500",
+  },
+  usernameText: {
+    fontSize: 15 * scale,
+    fontWeight: "700",
+    color: "#1C1C1C",
+  },
+
+  // Right: Actions
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  walletTouch: {
+    // No fixed margins here, controlled by inline style for order
+  },
+  emptyWallet: {
+    width: 36 * scale,
+    height: 36 * scale,
+    borderRadius: 18 * scale,
+    backgroundColor: "#F4F4F4",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  premiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0b7a2a", // Brand Green
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    shadowColor: "#0b7a2a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  premiumBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 13 * scale,
+    fontWeight: "700",
+  },
+
+  iconButton: {
+    marginLeft: 12 * scale, // Uniform spacing
+    position: "relative",
+    padding: 2,
+  },
+  badge: {
+    position: "absolute",
+    top: -5,
+    right: -6,
+    backgroundColor: "#E23744",
+    minWidth: 18 * scale,
+    height: 18 * scale,
+    borderRadius: 9 * scale,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 9 * scale,
+    fontWeight: "bold",
+  },
+});

@@ -49,17 +49,40 @@ export default function Profile({ navigation }) {
           return;
         }
 
-        // Show screen immediately while fetching
-        setLoading(false);
+        // 1️⃣ Try Cache First (Instant Load)
+        try {
+          const [cachedProfile, cachedWallet] = await Promise.all([
+            AsyncStorage.getItem("profile_cache"),
+            AsyncStorage.getItem("wallet_summary_cache"),
+          ]);
 
-        // signed in: fetch profile and wallet
+          if (cachedProfile && cachedWallet) {
+            setProfile(JSON.parse(cachedProfile));
+            setWallet(JSON.parse(cachedWallet));
+            setLoading(false); // ✅ Show UI immediately
+          } else {
+            setLoading(false); // Show empty/partial UI rather than stuck spinner
+          }
+        } catch (e) {
+          console.log("Cache load error (Profile):", e);
+          setLoading(false);
+        }
+
+        // 2️⃣ Fetch Fresh Data (Background Update)
         const [profileData, walletData] = await Promise.all([fetchProfile(), getWalletSummary()]);
-        setProfile(profileData);
-        setWallet(walletData);
+
+        // Update Caches
+        if (profileData) {
+          setProfile(profileData);
+          AsyncStorage.setItem("profile_cache", JSON.stringify(profileData));
+        }
+        if (walletData) {
+          setWallet(walletData);
+          AsyncStorage.setItem("wallet_summary_cache", JSON.stringify(walletData));
+        }
       } catch (err) {
         console.log("Profile error", err);
       }
-      // finally block removed as setLoading(false) is handled earlier
     };
 
     init();

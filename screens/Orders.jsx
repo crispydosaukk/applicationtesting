@@ -82,7 +82,10 @@ export default function Orders({ navigation, route }) {
     if (!customerId) return;
 
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    else {
+      // If we have orders already (from state) or cache, don't show full screen loader
+      if (orders.length === 0) setLoading(true);
+    }
 
     try {
       // if navigation passed a newOrderId, show it immediately if cached
@@ -125,7 +128,10 @@ export default function Orders({ navigation, route }) {
         const cached = await AsyncStorage.getItem("orders_cache");
         if (cached) {
           cachedArr = JSON.parse(cached) || [];
-          if (Array.isArray(cachedArr) && cachedArr.length > 0) setOrders(cachedArr);
+          if (Array.isArray(cachedArr) && cachedArr.length > 0) {
+            setOrders(cachedArr);
+            setLoading(false); // ✅ Show instantly
+          }
         }
       } catch (e) {
         console.warn("Failed to read orders cache", e);
@@ -224,11 +230,12 @@ export default function Orders({ navigation, route }) {
     }
 
     const total =
+      item.net_amount ??
       item.total_amount ??
       item.grand_total ??
       item.amount ??
-      item.net_amount ??
       0;
+
     const itemsCount =
       item.items_count || item.items?.length || item.item_count || 0;
 
@@ -436,7 +443,15 @@ export default function Orders({ navigation, route }) {
                     <Text style={{ fontWeight: "800" }}>Summary</Text>
                     <View style={styles.summaryRow}>
                       <Text style={styles.summaryLabel}>Items total</Text>
-                      <Text>£{Number(orderDetails.sub_total || orderDetails.items_total || orderDetails.total_items_price || 0).toFixed(2)}</Text>
+                      <Text>£{
+                        // Calculate items total manually if main fields are missing
+                        Number(
+                          orderDetails.sub_total ||
+                          orderDetails.items_total ||
+                          orderDetails.total_items_price ||
+                          (orderDetails.items || []).reduce((sum, i) => sum + (Number(i.price || i.product_price || 0) * (Number(i.quantity || i.product_quantity || 1))), 0)
+                        ).toFixed(2)
+                      }</Text>
                     </View>
                     {/* 
                     <View style={styles.summaryRow}>
@@ -448,10 +463,10 @@ export default function Orders({ navigation, route }) {
                       <Text>£{Number(orderDetails.tax || 0).toFixed(2)}</Text>
                     </View> 
                     */}
-                    {(Number(orderDetails.wallet_used) > 0) && (
+                    {(Number(orderDetails.wallet_used) > 0 || Number(orderDetails.wallet_deducted) > 0) && (
                       <View style={styles.summaryRow}>
                         <Text style={styles.summaryLabel}>Wallet Used</Text>
-                        <Text style={{ color: "#e53935" }}>-£{Number(orderDetails.wallet_used).toFixed(2)}</Text>
+                        <Text style={{ color: "#e53935" }}>-£{Number(orderDetails.wallet_used || orderDetails.wallet_deducted).toFixed(2)}</Text>
                       </View>
                     )}
                     {(Number(orderDetails.loyalty_used) > 0) && (
@@ -462,7 +477,7 @@ export default function Orders({ navigation, route }) {
                     )}
                     <View style={styles.summaryRow}>
                       <Text style={styles.summaryLabel}>Grand total</Text>
-                      <Text style={styles.summaryTotal}>£{Number(orderDetails.total_amount || orderDetails.grand_total || orderDetails.amount || 0).toFixed(2)}</Text>
+                      <Text style={styles.summaryTotal}>£{Number(orderDetails.net_amount || orderDetails.total_amount || orderDetails.grand_total || orderDetails.amount || 0).toFixed(2)}</Text>
                     </View>
                   </View>
                 </>
