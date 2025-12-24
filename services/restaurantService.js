@@ -12,6 +12,8 @@ export const fetchRestaurants = async () => {
         name: r.name,
         address: r.address,
         photo: r.photo,
+        instore: r.instore,
+        kerbside: r.kerbside,
       }));
     }
     return [];

@@ -31,7 +31,7 @@ const { width } = Dimensions.get("window");
 const scale = width / 400;
 const FONT_FAMILY = Platform.select({ ios: "System", android: "System" });
 
-function RestaurantCard({ name, address, photo, onPress }) {
+function RestaurantCard({ name, address, photo, onPress, instore, kerbside }) {
   return (
     <TouchableOpacity
       style={cardStyles.card}
@@ -57,18 +57,19 @@ function RestaurantCard({ name, address, photo, onPress }) {
         </Text>
 
         <View style={cardStyles.serviceRow}>
-          <View style={cardStyles.serviceChip}>
-            <Ionicons
-              name="storefront-outline"
-              size={14 * scale}
-              color="#555"
-            />
-            <Text style={cardStyles.serviceChipText}>In-store</Text>
-          </View>
-          <View style={cardStyles.serviceChip}>
-            <Ionicons name="car-outline" size={14 * scale} color="#555" />
-            <Text style={cardStyles.serviceChipText}>Kerbside</Text>
-          </View>
+          {instore && (
+            <View style={cardStyles.serviceChip}>
+              <Ionicons name="storefront-outline" size={14 * scale} color="#555" />
+              <Text style={cardStyles.serviceChipText}>In-store</Text>
+            </View>
+          )}
+
+          {kerbside && (
+            <View style={cardStyles.serviceChip}>
+              <Ionicons name="car-outline" size={14 * scale} color="#555" />
+              <Text style={cardStyles.serviceChipText}>Kerbside</Text>
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -156,27 +157,27 @@ export default function Resturent({ navigation }) {
 
 
   const { refreshing, onRefresh } = useRefresh(async () => {
-  // reload restaurants
-  const list = await fetchRestaurants();
-  setRestaurants(list);
+    // reload restaurants
+    const list = await fetchRestaurants();
+    setRestaurants(list);
 
-  // reload user cart
-  if (user) {
-    const customerId = user.id ?? user.customer_id;
-    const res = await getCart(customerId);
+    // reload user cart
+    if (user) {
+      const customerId = user.id ?? user.customer_id;
+      const res = await getCart(customerId);
 
-    if (res?.status === 1 && Array.isArray(res.data)) {
-      const map = {};
-      res.data.forEach((item) => {
-        const qty = item.product_quantity ?? 0;
-        if (qty > 0) {
-          map[item.product_id] = (map[item.product_id] || 0) + qty;
-        }
-      });
-      setCartItems(map);
+      if (res?.status === 1 && Array.isArray(res.data)) {
+        const map = {};
+        res.data.forEach((item) => {
+          const qty = item.product_quantity ?? 0;
+          if (qty > 0) {
+            map[item.product_id] = (map[item.product_id] || 0) + qty;
+          }
+        });
+        setCartItems(map);
+      }
     }
-  }
-});
+  });
 
 
   return (
@@ -269,6 +270,8 @@ export default function Resturent({ navigation }) {
               name={r.name}
               address={r.address}
               photo={r.photo}
+              instore={r.instore}
+              kerbside={r.kerbside}
               onPress={() =>
                 navigation.navigate("Categories", { userId: r.userId })
               }

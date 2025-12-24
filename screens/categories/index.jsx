@@ -159,34 +159,34 @@ export default function Categories({ route, navigation }) {
   );
 
   const { refreshing, onRefresh } = useRefresh(async () => {
-  // Reload restaurant
-  const d = await fetchRestaurantDetails(userId);
-  setRestaurant(d);
+    // Reload restaurant
+    const d = await fetchRestaurantDetails(userId);
+    setRestaurant(d);
 
-  // Reload categories
-  const c = await fetchCategories(userId);
-  setCategories(Array.isArray(c) ? c : []);
+    // Reload categories
+    const c = await fetchCategories(userId);
+    setCategories(Array.isArray(c) ? c : []);
 
-  // Reload timings
-  if (d?.id) {
-    const t = await fetchRestaurantTimings(d.id);
-    const today = new Date().toLocaleString("en-US", { weekday: "long" });
-    setTodayTiming(t.find((i) => i.day === today) || null);
-  }
-
-  // Reload cart
-  if (user) {
-    const id = user.id ?? user.customer_id;
-    const res = await getCart(id);
-    if (res?.status === 1 && Array.isArray(res.data)) {
-      const map = {};
-      res.data.forEach((i) => {
-        if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
-      });
-      setCartItems(map);
+    // Reload timings
+    if (d?.id) {
+      const t = await fetchRestaurantTimings(d.id);
+      const today = new Date().toLocaleString("en-US", { weekday: "long" });
+      setTodayTiming(t.find((i) => i.day === today) || null);
     }
-  }
-});
+
+    // Reload cart
+    if (user) {
+      const id = user.id ?? user.customer_id;
+      const res = await getCart(id);
+      if (res?.status === 1 && Array.isArray(res.data)) {
+        const map = {};
+        res.data.forEach((i) => {
+          if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
+        });
+        setCartItems(map);
+      }
+    }
+  });
 
   const renderCategory = ({ item }) => (
     <TouchableOpacity
@@ -213,25 +213,25 @@ export default function Categories({ route, navigation }) {
   const timeLabel = todayTiming
     ? todayTiming.is_active
       ? `${formatTime(todayTiming.opening_time)} - ${formatTime(
-          todayTiming.closing_time
-        )}`
+        todayTiming.closing_time
+      )}`
       : "Closed Today"
     : "Loading...";
 
-    const highlightAmount = (text) => {
-  const regex = /(£\s?0\.25|£0\.25)/i; // detects £0.25 in any format
-  const parts = text.split(regex);
+  const highlightAmount = (text) => {
+    const regex = /(£\s?0\.25|£0\.25)/i; // detects £0.25 in any format
+    const parts = text.split(regex);
 
-  return (
-    <Text style={styles.offerText} numberOfLines={1}>
-      {parts[0]}
-      {parts[1] && (
-        <Text style={styles.offerAmount}>{parts[1]}</Text>
-      )}
-      {parts[2]}
-    </Text>
-  );
-};
+    return (
+      <Text style={styles.offerText} numberOfLines={1}>
+        {parts[0]}
+        {parts[1] && (
+          <Text style={styles.offerAmount}>{parts[1]}</Text>
+        )}
+        {parts[2]}
+      </Text>
+    );
+  };
 
   return (
     // 🔧 only left/right safe insets so we don't double-pad top/bottom
@@ -373,8 +373,8 @@ export default function Categories({ route, navigation }) {
                     <Text style={styles.timeText}>
                       {item.is_active
                         ? `${formatTime(item.opening_time)} - ${formatTime(
-                            item.closing_time
-                          )}`
+                          item.closing_time
+                        )}`
                         : "Closed"}
                     </Text>
                   </View>
@@ -399,13 +399,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
-offerAmount: {
-  color: "#fffa75",        // premium light-gold
-  fontWeight: "900",
-  textShadowColor: "rgba(0,0,0,0.35)",
-  textShadowOffset: { width: 0, height: 1 },
-  textShadowRadius: 3,
-},
+  offerAmount: {
+    color: "#fffa75",        // premium light-gold
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
 
   offerWrapper: {
     flexDirection: "row",
@@ -452,10 +452,10 @@ offerAmount: {
     right: 12,
   },
   glassPanel: {
-  backgroundColor: "rgba(0,0,0,0.45)",   // 👈 pehle 0.65 tha
-  borderRadius: 8,
-  padding: 10,
-},
+    backgroundColor: "rgba(0,0,0,0.45)",   // 👈 pehle 0.65 tha
+    borderRadius: 8,
+    padding: 10,
+  },
   restaurantTitle: {
     color: "#ffffff",
     fontSize: 18,
@@ -527,12 +527,12 @@ offerAmount: {
     elevation: 3,
   },
   categoryImage: {
-  width: "100%",
-  height: (width - 52) / 2 - 26,
-  borderRadius: 5,
-  resizeMode: "contain",   // ⭐ prevents cropping
-  backgroundColor: "#fff", // ⭐ avoids empty gaps behind image
-},
+    width: "100%",
+    height: (width - 52) / 2 - 26,
+    borderRadius: 5,
+    resizeMode: "contain",   // ⭐ prevents cropping
+    backgroundColor: "#fff", // ⭐ avoids empty gaps behind image
+  },
 
   categoryText: {
     marginTop: 8,

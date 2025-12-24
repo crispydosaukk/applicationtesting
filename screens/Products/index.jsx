@@ -51,6 +51,15 @@ export default function Products({ route, navigation }) {
 
   const bannerHeight = useRef(new Animated.Value(40 * scale)).current;
   const [bannerVisible, setBannerVisible] = useState(true);
+  const CONTAINS_ICONS = {
+    Dairy: require("../../assets/contains/Dairy.png"),
+    Gluten: require("../../assets/contains/Gluten.png"),
+    Mild: require("../../assets/contains/Mild.png"),
+    Nuts: require("../../assets/contains/Nuts.png"),
+    Sesame: require("../../assets/contains/Sesame.png"),
+    Vegan: require("../../assets/contains/Vegan.png"),
+    Vegetarian: require("../../assets/contains/Vegetarian.png"),
+  };
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [textIndex, setTextIndex] = useState(0);
@@ -61,17 +70,17 @@ export default function Products({ route, navigation }) {
   ];
 
   const highlightAmount = (text) => {
-  const regex = /(£\s?0\.25|£0\.25)/i;
-  const parts = text.split(regex);
+    const regex = /(£\s?0\.25|£0\.25)/i;
+    const parts = text.split(regex);
 
-  return (
-    <Text style={styles.bannerText}>
-      {parts[0]}
-      {parts[1] && <Text style={styles.amountHighlight}>{parts[1]}</Text>}
-      {parts[2]}
-    </Text>
-  );
-};
+    return (
+      <Text style={styles.bannerText}>
+        {parts[0]}
+        {parts[1] && <Text style={styles.amountHighlight}>{parts[1]}</Text>}
+        {parts[2]}
+      </Text>
+    );
+  };
 
 
   // animated banner text
@@ -228,34 +237,34 @@ export default function Products({ route, navigation }) {
   }, [searchText, products]);
 
   const { refreshing, onRefresh } = useRefresh(async () => {
-  // Reload products
-  const data = await fetchProducts(userId, categoryId);
-  const list = Array.isArray(data) ? data : [];
-  setProducts(list);
-  setFilteredProducts(list);
-  // Reload cart: prefer server cart when signed-in (keeps parity with Categories)
-  try {
-    const uid = user?.id ?? user?.customer_id;
-    if (uid) {
-      const res = await getCart(uid);
-      if (res?.status === 1 && Array.isArray(res.data)) {
-        const map = {};
-        res.data.forEach((i) => {
-          if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
-        });
-        setCartItems(map);
+    // Reload products
+    const data = await fetchProducts(userId, categoryId);
+    const list = Array.isArray(data) ? data : [];
+    setProducts(list);
+    setFilteredProducts(list);
+    // Reload cart: prefer server cart when signed-in (keeps parity with Categories)
+    try {
+      const uid = user?.id ?? user?.customer_id;
+      if (uid) {
+        const res = await getCart(uid);
+        if (res?.status === 1 && Array.isArray(res.data)) {
+          const map = {};
+          res.data.forEach((i) => {
+            if (i.product_quantity > 0) map[i.product_id] = i.product_quantity;
+          });
+          setCartItems(map);
+        }
+      } else {
+        const stored = await AsyncStorage.getItem("cart");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setCartItems(parsed[userId] || {});
+        }
       }
-    } else {
-      const stored = await AsyncStorage.getItem("cart");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setCartItems(parsed[userId] || {});
-      }
+    } catch (e) {
+      console.warn("Failed to reload cart on refresh", e);
     }
-  } catch (e) {
-    console.warn("Failed to reload cart on refresh", e);
-  }
-});
+  });
 
 
   const increment = async (id) => {
@@ -438,6 +447,41 @@ export default function Products({ route, navigation }) {
             <Text style={styles.cardDesc} numberOfLines={2}>
               {item.description}
             </Text>
+          )}
+          {Array.isArray(item.contains) && item.contains.length > 0 && (
+            <View style={styles.containsRow}>
+              {item.contains.map((c, index) => {
+                const rawKey = String(c).trim();
+                const key = rawKey.toLowerCase();
+
+                const ICON_MAP = {
+                  dairy: CONTAINS_ICONS.Dairy,
+                  gluten: CONTAINS_ICONS.Gluten,
+                  mild: CONTAINS_ICONS.Mild,
+                  nuts: CONTAINS_ICONS.Nuts,
+                  sesame: CONTAINS_ICONS.Sesame,
+                  vegan: CONTAINS_ICONS.Vegan,
+                  vegetarian: CONTAINS_ICONS.Vegetarian,
+                };
+
+                const iconSource = ICON_MAP[key];
+
+                if (iconSource) {
+                  return (
+                    <Image
+                      key={index}
+                      source={iconSource}
+                      style={styles.containsIcon}
+                    />
+                  );
+                }
+
+                // Fallback: Display text if icon is missing
+                return (
+                  <Text key={index} style={{ fontSize: 10, color: '#555', marginRight: 4 }}>{rawKey}</Text>
+                );
+              })}
+            </View>
           )}
 
           <View style={styles.priceRow}>
@@ -646,12 +690,25 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f5f5f5" },
 
   amountHighlight: {
-  color: "#ffea63",         // GOLD
-  fontWeight: "900",
-  textShadowColor: "rgba(0,0,0,0.3)",
-  textShadowOffset: { width: 0, height: 1 },
-  textShadowRadius: 3,
-},
+    color: "#ffea63",         // GOLD
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+
+  containsRow: {
+    flexDirection: "row",
+    marginTop: 6,
+    gap: 6,
+    flexWrap: "wrap",
+  },
+
+  containsIcon: {
+    width: 18,
+    height: 18,
+    resizeMode: "contain",
+  },
 
   banner: {
     width: "100%",

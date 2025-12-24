@@ -260,14 +260,14 @@ export default function Profile({ navigation }) {
 
         {/* MENU */}
         <View style={styles.menuCard}>
-          <MenuItem
+          {/* <MenuItem
             icon="card-outline"
             label="Payment History"
             onPress={() => {
               if (!userLocal) setAuthModalVisible(true);
               else navigation.navigate("PaymentHistory");
             }}
-          />
+          /> */}
           <MenuItem
             icon="person-outline"
             label="Edit Profile"
