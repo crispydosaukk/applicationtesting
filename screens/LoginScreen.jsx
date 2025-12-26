@@ -16,6 +16,8 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { loginUser } from "../services/authService";
+import messaging from "@react-native-firebase/messaging";
+import { saveFcmToken } from "../services/notificationService";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -41,11 +43,28 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const { user, token } = await loginUser(trimmed, password);
+
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("user", JSON.stringify(user));
 
+      /* =======================
+        🔔 STEP 6.3 – FCM TOKEN
+      ======================= */
+      const fcmToken = await messaging().getToken();
+      console.log("🔥 CUSTOMER FCM TOKEN:", fcmToken);
+
+      if (fcmToken && user?.id) {
+        await saveFcmToken({
+          userType: "customer",
+          userId: user.id,
+          token: fcmToken
+        });
+      }
+      /* ======================= */
+
       Alert.alert("Login Successful", `Welcome back ${user.full_name}`);
       navigation.replace("Resturent");
+
     } catch (e) {
       Alert.alert("Login Failed", e.message);
     } finally {

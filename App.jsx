@@ -1,11 +1,14 @@
 // App.jsx
 import React, { useEffect, useState } from "react";
+import { Alert, Platform } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
+import messaging from "@react-native-firebase/messaging";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { STRIPE_PUBLISHABLE_KEY } from "@env";
+
 import SplashScreen from "./screens/SplashScreen.jsx";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import Resturent from "./screens/Resturent.jsx";
@@ -30,6 +33,9 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   const [isOffline, setIsOffline] = useState(false);
 
+  // ===============================
+  // 🌐 NETWORK STATUS
+  // ===============================
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
       setIsOffline(!state.isConnected);
@@ -37,6 +43,35 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // ===============================
+  // 🔔 FIREBASE PUSH NOTIFICATIONS
+  // STEP 5.3 & 5.4
+  // ===============================
+  useEffect(() => {
+    const initFCM = async () => {
+      try {
+        const authStatus = await messaging().requestPermission();
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (enabled) {
+          const token = await messaging().getToken();
+          console.log("🔥 FCM TOKEN:", token);
+        } else {
+          Alert.alert("Notification permission not granted");
+        }
+      } catch (error) {
+        console.log("❌ FCM init error:", error);
+      }
+    };
+
+    initFCM();
+  }, []);
+
+  // ===============================
+  // ❌ OFFLINE SCREEN
+  // ===============================
   if (isOffline) {
     return (
       <SafeAreaProvider>
@@ -45,6 +80,9 @@ export default function App() {
     );
   }
 
+  // ===============================
+  // 🚀 MAIN APP
+  // ===============================
   return (
     <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
       <SafeAreaProvider>
