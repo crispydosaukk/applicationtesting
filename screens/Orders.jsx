@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useIsFocused } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 import AppHeader from "./AppHeader";
@@ -17,7 +16,7 @@ import { AuthRequiredInline } from "./AuthRequired";
 import BottomBar from "./BottomBar";
 import MenuModal from "./MenuModal";
 import { Modal, ScrollView, Image } from "react-native";
-
+import { useIsFocused, useFocusEffect } from "@react-navigation/native";
 import { getOrders } from "../services/orderService";
 import { getOrder } from "../services/orderService";
 import { getCart } from "../services/cartService";
@@ -33,6 +32,55 @@ export default function Orders({ navigation, route }) {
   const [orderDetails, setOrderDetails] = useState(null);
 
   const isFocused = useIsFocused();
+  const ORDER_STATUS = {
+  0: { label: "Order Placed", color: "#8a6d1f" },
+  1: { label: "Order Accepted", color: "#1565c0" },
+  2: { label: "Order Rejected", color: "#c62828" },
+  3: { label: "Ready for Pickup", color: "#5e35b1" },
+  4: { label: "Delivered", color: "#20663b" },
+  5: { label: "Cancelled", color: "#8a1f2a" }
+};
+
+ const getOrderUIState = (status, etaTime) => {
+  const s = Number(status);
+
+  // 🔴 FINAL STATES — no processing text allowed
+  if (s === 4) return { state: "DELIVERED" };
+  if (s === 2) return { state: "REJECTED" };
+  if (s === 5) return { state: "CANCELLED" };
+
+  // 🟢 READY
+  if (s === 3) {
+    return { state: "READY" };
+  }
+
+  // 🔵 ACCEPTED → show ETA countdown if exists
+  if (s === 1 && etaTime) {
+    const eta = new Date(etaTime.replace(" ", "T")).getTime();
+    const now = Date.now();
+
+    if (!isNaN(eta)) {
+      const diffMin = Math.ceil((eta - now) / 60000);
+      if (diffMin > 0) {
+        return { state: "COUNTDOWN", minutes: diffMin };
+      }
+    }
+  }
+
+  // 🟡 DEFAULT SAFE STATE
+  return { state: "PREPARING" };
+};
+
+useEffect(() => {
+  if (!isFocused) return;
+
+  const timer = setInterval(() => {
+    fetchOrders(true);
+  }, 60000);
+
+  return () => clearInterval(timer);
+}, [isFocused, fetchOrders]);
+
 
   // Load user
   useEffect(() => {
@@ -185,6 +233,26 @@ export default function Orders({ navigation, route }) {
     }
   }, [user, route, navigation]);
 
+  useFocusEffect(
+  React.useCallback(() => {
+    if (!global.lastOrderUpdate) return;
+
+    const { order_number, status } = global.lastOrderUpdate;
+
+    setOrders(prev =>
+      prev.map(o =>
+        (o.order_no === order_number || o.order_number === order_number)
+          ? { ...o, status }
+          : o
+      )
+    );
+
+    // clear after applying
+    global.lastOrderUpdate = null;
+  }, [])
+);
+
+
   useEffect(() => {
     if (isFocused && user) fetchOrders();
   }, [isFocused, user, fetchOrders]);
@@ -194,27 +262,19 @@ export default function Orders({ navigation, route }) {
   };
 
   const renderStatusChip = (status) => {
-    const s = (status || "").toString().toLowerCase();
-    let label = "Pending";
-    let bg = "#fff7e0";
-    let color = "#8a6d1f";
+  const s = Number(status);
+  const cfg = ORDER_STATUS[s] || { label: "Processing", color: "#555" };
 
-    if (s === "completed" || s === "delivered" || s === "1") {
-      label = "Completed";
-      bg = "#e5f7eb";
-      color = "#20663b";
-    } else if (s === "cancelled" || s === "canceled") {
-      label = "Cancelled";
-      bg = "#fbe4e6";
-      color = "#8a1f2a";
-    }
+  return (
+    <View style={[styles.statusChip, { backgroundColor: "#f5f5f5" }]}>
+      <Text style={[styles.statusText, { color: cfg.color }]}>
+        {cfg.label}
+      </Text>
+    </View>
+  );
+};
 
-    return (
-      <View style={[styles.statusChip, { backgroundColor: bg }]}>
-        <Text style={[styles.statusText, { color }]}>{label}</Text>
-      </View>
-    );
-  };
+
 
   const renderOrder = ({ item }) => {
     const orderId = item.order_id || item.id;
@@ -286,6 +346,59 @@ export default function Orders({ navigation, route }) {
             £{Number(total).toFixed(2)}
           </Text>
         </View>
+
+       {(() => {
+  const ui = getOrderUIState(item.status, item.delivery_estimate_time);
+
+  switch (ui.state) {
+    case "COUNTDOWN":
+      return (
+        <Text style={{ fontSize: 13, color: "#ff9800", fontWeight: "700", marginTop: 4 }}>
+          ⏱ Estimated ready in {ui.minutes} min{ui.minutes > 1 ? "s" : ""}
+        </Text>
+      );
+
+    case "PREPARING":
+      return (
+        <Text style={{ fontSize: 13, color: "#9e9e9e", fontWeight: "600", marginTop: 4 }}>
+          ⏳ Your order is being prepared
+        </Text>
+      );
+
+    case "READY":
+      return (
+        <Text style={{ fontSize: 13, color: "#4caf50", fontWeight: "800", marginTop: 4 }}>
+          ✅ Order is ready for pickup
+        </Text>
+      );
+
+    case "DELIVERED":
+      return (
+        <Text style={{ fontSize: 13, color: "#2e7d32", fontWeight: "800", marginTop: 4 }}>
+          📦 Order delivered successfully
+        </Text>
+      );
+
+    case "REJECTED":
+      return (
+        <Text style={{ fontSize: 13, color: "#c62828", fontWeight: "700", marginTop: 4 }}>
+          ❌ Order was rejected
+        </Text>
+      );
+
+    case "CANCELLED":
+      return (
+        <Text style={{ fontSize: 13, color: "#8a1f2a", fontWeight: "700", marginTop: 4 }}>
+          ⚠️ Order cancelled
+        </Text>
+      );
+
+    default:
+      return null;
+  }
+})()}
+
+
       </TouchableOpacity>
     );
   };
@@ -421,6 +534,61 @@ export default function Orders({ navigation, route }) {
                       </View>
                     ))
                   )}
+
+                 {(() => {
+  const ui = getOrderUIState(
+    orderDetails?.status,
+    orderDetails?.delivery_estimate_time
+  );
+
+  switch (ui.state) {
+    case "COUNTDOWN":
+      return (
+        <Text style={{ fontSize: 13, color: "#ff9800", fontWeight: "700" }}>
+          ⏱ Estimated ready in {ui.minutes} min{ui.minutes > 1 ? "s" : ""}
+        </Text>
+      );
+
+    case "PREPARING":
+      return (
+        <Text style={{ fontSize: 13, color: "#9e9e9e", fontWeight: "600" }}>
+          ⏳ Your order is being prepared
+        </Text>
+      );
+
+    case "READY":
+      return (
+        <Text style={{ fontSize: 14, fontWeight: "700", color: "#4caf50" }}>
+          ✅ Order is ready for pickup
+        </Text>
+      );
+
+    case "DELIVERED":
+      return (
+        <Text style={{ fontSize: 14, fontWeight: "800", color: "#2e7d32" }}>
+          📦 Order delivered successfully
+        </Text>
+      );
+
+    case "REJECTED":
+      return (
+        <Text style={{ fontSize: 14, fontWeight: "700", color: "#c62828" }}>
+          ❌ Order was rejected
+        </Text>
+      );
+
+    case "CANCELLED":
+      return (
+        <Text style={{ fontSize: 14, fontWeight: "700", color: "#8a1f2a" }}>
+          ⚠️ Order cancelled
+        </Text>
+      );
+
+    default:
+      return null;
+  }
+})()}
+
 
                   {/* Address */}
                   {orderDetails.delivery_address || orderDetails.address ? (

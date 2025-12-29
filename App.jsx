@@ -30,6 +30,11 @@ import HelpCenter from "./screens/HelpCenter.jsx";
 
 const Stack = createNativeStackNavigator();
 
+messaging().setBackgroundMessageHandler(async remoteMessage => {
+  console.log("📩 FCM BACKGROUND:", remoteMessage);
+});
+
+
 export default function App() {
   const [isOffline, setIsOffline] = useState(false);
 
@@ -68,6 +73,48 @@ export default function App() {
 
     initFCM();
   }, []);
+
+
+  // ===============================
+// 🔄 FCM TOKEN AUTO REFRESH
+// STEP 5.5 (ADD HERE)
+// ===============================
+useEffect(() => {
+  const unsubscribe = messaging().onTokenRefresh(async (token) => {
+    try {
+      console.log("🔁 FCM TOKEN REFRESHED:", token);
+
+      await api.post("/mobile/save-fcm-token", {
+        fcm_token: token,
+        user_type: "customer",
+        device_type: Platform.OS
+      });
+    } catch (err) {
+      console.log("❌ Token refresh save failed", err);
+    }
+  });
+
+  return unsubscribe;
+}, []);
+
+
+useEffect(() => {
+  // 🔔 Foreground notification listener
+  const unsubscribe = messaging().onMessage(async remoteMessage => {
+    console.log("📩 FCM FOREGROUND:", remoteMessage);
+
+    if (remoteMessage?.data?.order_number) {
+      // broadcast event inside app
+      global.lastOrderUpdate = {
+        order_number: remoteMessage.data.order_number,
+        status: Number(remoteMessage.data.status)
+      };
+    }
+  });
+
+  return unsubscribe;
+}, []);
+
 
   // ===============================
   // ❌ OFFLINE SCREEN
