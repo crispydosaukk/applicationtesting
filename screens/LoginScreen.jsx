@@ -51,7 +51,7 @@ export default function LoginScreen({ navigation }) {
         🔔 STEP 6.3 – FCM TOKEN
       ======================= */
       const fcmToken = await messaging().getToken();
-      console.log("🔥 CUSTOMER FCM TOKEN:", fcmToken);
+      // console.log("🔥 CUSTOMER FCM TOKEN:", fcmToken);
 
       if (fcmToken && user?.id) {
         await saveFcmToken({

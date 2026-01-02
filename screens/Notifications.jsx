@@ -89,7 +89,23 @@ export default function Notifications({ navigation }) {
       const res = response.data;
 
       if (res?.status === 1) {
-        setList(res.data || []);
+        const unique = [];
+        const seen = new Set();
+        (res.data || []).forEach(item => {
+          // Deduplicate by content to catch backend double-inserts (different IDs, same content)
+          // Key: OrderNumber + Title + Body (or just ID if content missing)
+          const key = [
+            item.order_number || 'NO_ORDER',
+            item.title || 'NO_TITLE',
+            item.body || 'NO_BODY'
+          ].join('|');
+
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(item);
+          }
+        });
+        setList(unique);
       }
     } catch (e) {
       console.log("Notification fetch error", e);

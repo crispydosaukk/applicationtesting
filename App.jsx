@@ -31,9 +31,10 @@ import Notifications from "./screens/Notifications.jsx";
 
 const Stack = createNativeStackNavigator();
 
-messaging().setBackgroundMessageHandler(async remoteMessage => {
-  console.log("📩 FCM BACKGROUND:", remoteMessage);
-});
+// messaging().setBackgroundMessageHandler(async remoteMessage => {
+//   // console.log("📩 FCM BACKGROUND:", remoteMessage);
+// });
+messaging().setBackgroundMessageHandler(async remoteMessage => { });
 
 
 export default function App() {
@@ -63,7 +64,7 @@ export default function App() {
 
         if (enabled) {
           const token = await messaging().getToken();
-          console.log("🔥 FCM TOKEN:", token);
+          // console.log("🔥 FCM TOKEN:", token);
         } else {
           Alert.alert("Notification permission not granted");
         }
@@ -77,44 +78,44 @@ export default function App() {
 
 
   // ===============================
-// 🔄 FCM TOKEN AUTO REFRESH
-// STEP 5.5 (ADD HERE)
-// ===============================
-useEffect(() => {
-  const unsubscribe = messaging().onTokenRefresh(async (token) => {
-    try {
-      console.log("🔁 FCM TOKEN REFRESHED:", token);
+  // 🔄 FCM TOKEN AUTO REFRESH
+  // STEP 5.5 (ADD HERE)
+  // ===============================
+  useEffect(() => {
+    const unsubscribe = messaging().onTokenRefresh(async (token) => {
+      try {
+        // console.log("🔁 FCM TOKEN REFRESHED:", token);
 
-      await api.post("/mobile/save-fcm-token", {
-        fcm_token: token,
-        user_type: "customer",
-        device_type: Platform.OS
-      });
-    } catch (err) {
-      console.log("❌ Token refresh save failed", err);
-    }
-  });
+        await api.post("/mobile/save-fcm-token", {
+          fcm_token: token,
+          user_type: "customer",
+          device_type: Platform.OS
+        });
+      } catch (err) {
+        console.log("❌ Token refresh save failed", err);
+      }
+    });
 
-  return unsubscribe;
-}, []);
+    return unsubscribe;
+  }, []);
 
 
-useEffect(() => {
-  // 🔔 Foreground notification listener
-  const unsubscribe = messaging().onMessage(async remoteMessage => {
-    console.log("📩 FCM FOREGROUND:", remoteMessage);
+  useEffect(() => {
+    // 🔔 Foreground notification listener
+    const unsubscribe = messaging().onMessage(async remoteMessage => {
+      // console.log("📩 FCM FOREGROUND:", remoteMessage);
 
-    if (remoteMessage?.data?.order_number) {
-      // broadcast event inside app
-      global.lastOrderUpdate = {
-        order_number: remoteMessage.data.order_number,
-        status: Number(remoteMessage.data.status)
-      };
-    }
-  });
+      if (remoteMessage?.data?.order_number) {
+        // broadcast event inside app
+        global.lastOrderUpdate = {
+          order_number: remoteMessage.data.order_number,
+          status: Number(remoteMessage.data.status)
+        };
+      }
+    });
 
-  return unsubscribe;
-}, []);
+    return unsubscribe;
+  }, []);
 
 
   // ===============================

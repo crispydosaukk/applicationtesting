@@ -32,8 +32,20 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
       const res = response.data; // Fix: Access .data from axios response
 
       if (res?.status === 1) {
-        const unread = res.data.filter(n => n.is_read === 0).length;
-        setUnreadCount(unread);
+        const uniqueUnread = new Set();
+        (res.data || []).forEach(item => {
+          const key = [
+            item.order_number || 'NO_ORDER',
+            item.title || 'NO_TITLE',
+            item.body || 'NO_BODY'
+          ].join('|');
+
+          // Only count if it's unread and we haven't seen this content before
+          if (item.is_read === 0) {
+            uniqueUnread.add(key);
+          }
+        });
+        setUnreadCount(uniqueUnread.size);
       }
     } catch (e) {
       console.log("Notification count error", e);
