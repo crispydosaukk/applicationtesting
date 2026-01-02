@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { getWalletSummary } from "../services/walletService";
 import { AuthRequiredModal } from "./AuthRequired";
+import { getNotifications } from "../services/notificationService";
+import messaging from "@react-native-firebase/messaging";
 
 const { width } = Dimensions.get("window");
 // Scale factor for responsiveness
@@ -17,6 +19,35 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
   const [walletBalance, setWalletBalance] = useState(null);
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    try {
+      const userId = user.id || user.customer_id;
+      const response = await getNotifications("customer", userId);
+      const res = response.data; // Fix: Access .data from axios response
+
+      if (res?.status === 1) {
+        const unread = res.data.filter(n => n.is_read === 0).length;
+        setUnreadCount(unread);
+      }
+    } catch (e) {
+      console.log("Notification count error", e);
+    }
+  }, [user]);
+
+  // LIVE LISTENER for header badge
+  useEffect(() => {
+    const unsubscribe = messaging().onMessage(async () => {
+      fetchUnreadCount();
+    });
+    return unsubscribe;
+  }, [fetchUnreadCount]);
+
 
   const fetchWallet = useCallback(async () => {
     if (!user) {
@@ -47,8 +78,17 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
   useFocusEffect(
     useCallback(() => {
       fetchWallet();
-    }, [fetchWallet])
+      fetchUnreadCount();
+    }, [fetchWallet, fetchUnreadCount])
   );
+
+  useEffect(() => {
+    if (global.lastOrderUpdate) {
+      fetchUnreadCount();
+      global.lastOrderUpdate = null;
+    }
+  });
+
 
   const username = user?.full_name ? user.full_name.split(" ")[0] : "Guest";
 
@@ -81,17 +121,22 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
           {/* RIGHT: Actions */}
           <View style={styles.rightActions}>
 
-            {/* Notification Icon */}
-            {/* marginLeft: 0 because it's the start of the right cluster */}
             <TouchableOpacity
               style={[styles.iconButton, { marginLeft: 0 }]}
-              onPress={() => { /* Placeholder for notification nav */ }}
+              onPress={() => {
+                if (!user) setAuthModalVisible(true);
+                else navigation.navigate("Notifications");
+              }}
             >
               <Ionicons name="notifications-outline" size={26 * scale} color="#1C1C1C" />
+
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
-            {/* Wallet Pill - Animated & Premium */}
-            {/* Added marginLeft: 12 to match iconButton spacing */}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {

@@ -13,6 +13,7 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { initAndSaveFcmToken } from "../utils/fcm";
 
 const { width, height } = Dimensions.get("window");
 
@@ -102,16 +103,23 @@ export default function SplashScreen({ navigation }) {
       useNativeDriver: false,
     }).start();
 
-    // 5. navigation after splash
     const timeout = setTimeout(async () => {
-      try {
-        const token = await AsyncStorage.getItem("token");
-        if (token) navigation.replace("Resturent");
-        else navigation.replace("Home");
-      } catch (e) {
-        navigation.replace("Login");
-      }
-    }, 3000);
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    if (token) {
+      // 🔔 SAVE FCM TOKEN (NON-BLOCKING)
+      initAndSaveFcmToken();   // 👈 IMPORTANT
+
+      navigation.replace("Resturent");
+    } else {
+      navigation.replace("Home");
+    }
+  } catch (e) {
+    navigation.replace("Login");
+  }
+}, 3000);
+
 
     return () => clearTimeout(timeout);
   }, []);

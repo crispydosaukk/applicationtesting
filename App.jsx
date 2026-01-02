@@ -27,6 +27,7 @@ import FAQ from "./screens/FAQ.jsx";
 import InviteFriends from "./screens/InviteFriends.jsx";
 import EditProfile from "./screens/EditProfile.jsx";
 import HelpCenter from "./screens/HelpCenter.jsx";
+import Notifications from "./screens/Notifications.jsx";
 
 const Stack = createNativeStackNavigator();
 
@@ -152,6 +153,7 @@ useEffect(() => {
             <Stack.Screen name="InviteFriends" component={InviteFriends} />
             <Stack.Screen name="EditProfile" component={EditProfile} />
             <Stack.Screen name="HelpCenter" component={HelpCenter} />
+            <Stack.Screen name="Notifications" component={Notifications} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
