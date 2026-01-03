@@ -212,7 +212,18 @@ export default function Profile({ navigation }) {
           <Ionicons name="wallet-outline" size={26} color="#28a745" />
           <View style={{ marginLeft: 12 }}>
             <Text style={styles.walletLabel}>Wallet Balance</Text>
-            <Text style={styles.walletAmount}>£{wallet?.wallet_balance}</Text>
+            <Text style={styles.walletAmount}>
+              £
+              {wallet
+                ? (
+                  Number(wallet.wallet_balance || 0) +
+                  (wallet.loyalty_expiry_list || []).reduce(
+                    (sum, item) => sum + Number(item.credit_value || 0),
+                    0
+                  )
+                ).toFixed(2)
+                : "0.00"}
+            </Text>
           </View>
         </View>
 
@@ -272,6 +283,16 @@ export default function Profile({ navigation }) {
             icon="person-outline"
             label="Edit Profile"
             onPress={() => navigation.navigate("EditProfile")}
+          />
+          <MenuItem
+            icon="document-text-outline"
+            label="Privacy Policy"
+            onPress={() => navigation.navigate("PrivacyPolicy")}
+          />
+          <MenuItem
+            icon="newspaper-outline"
+            label="Terms & Conditions"
+            onPress={() => navigation.navigate("TermsConditions")}
           />
           <MenuItem
             icon="log-out-outline"

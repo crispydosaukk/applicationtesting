@@ -33,53 +33,53 @@ export default function Orders({ navigation, route }) {
 
   const isFocused = useIsFocused();
   const ORDER_STATUS = {
-  0: { label: "Order Placed", color: "#8a6d1f" },
-  1: { label: "Order Accepted", color: "#1565c0" },
-  2: { label: "Order Rejected", color: "#c62828" },
-  3: { label: "Ready for Pickup", color: "#5e35b1" },
-  4: { label: "Delivered", color: "#20663b" },
-  5: { label: "Cancelled", color: "#8a1f2a" }
-};
+    0: { label: "Order Placed", color: "#8a6d1f" },
+    1: { label: "Order Accepted", color: "#1565c0" },
+    2: { label: "Order Rejected", color: "#c62828" },
+    3: { label: "Ready for Pickup", color: "#5e35b1" },
+    4: { label: "Delivered", color: "#20663b" },
+    5: { label: "Cancelled", color: "#8a1f2a" }
+  };
 
- const getOrderUIState = (status, etaTime) => {
-  const s = Number(status);
+  const getOrderUIState = (status, etaTime) => {
+    const s = Number(status);
 
-  // 🔴 FINAL STATES — no processing text allowed
-  if (s === 4) return { state: "DELIVERED" };
-  if (s === 2) return { state: "REJECTED" };
-  if (s === 5) return { state: "CANCELLED" };
+    // 🔴 FINAL STATES — no processing text allowed
+    if (s === 4) return { state: "DELIVERED" };
+    if (s === 2) return { state: "REJECTED" };
+    if (s === 5) return { state: "CANCELLED" };
 
-  // 🟢 READY
-  if (s === 3) {
-    return { state: "READY" };
-  }
+    // 🟢 READY
+    if (s === 3) {
+      return { state: "READY" };
+    }
 
-  // 🔵 ACCEPTED → show ETA countdown if exists
-  if (s === 1 && etaTime) {
-    const eta = new Date(etaTime.replace(" ", "T")).getTime();
-    const now = Date.now();
+    // 🔵 ACCEPTED → show ETA countdown if exists
+    if (s === 1 && etaTime) {
+      const eta = new Date(etaTime.replace(" ", "T")).getTime();
+      const now = Date.now();
 
-    if (!isNaN(eta)) {
-      const diffMin = Math.ceil((eta - now) / 60000);
-      if (diffMin > 0) {
-        return { state: "COUNTDOWN", minutes: diffMin };
+      if (!isNaN(eta)) {
+        const diffMin = Math.ceil((eta - now) / 60000);
+        if (diffMin > 0) {
+          return { state: "COUNTDOWN", minutes: diffMin };
+        }
       }
     }
-  }
 
-  // 🟡 DEFAULT SAFE STATE
-  return { state: "PREPARING" };
-};
+    // 🟡 DEFAULT SAFE STATE
+    return { state: "PREPARING" };
+  };
 
-useEffect(() => {
-  if (!isFocused) return;
+  useEffect(() => {
+    if (!isFocused) return;
 
-  const timer = setInterval(() => {
-    fetchOrders(true);
-  }, 60000);
+    const timer = setInterval(() => {
+      fetchOrders(true);
+    }, 60000);
 
-  return () => clearInterval(timer);
-}, [isFocused, fetchOrders]);
+    return () => clearInterval(timer);
+  }, [isFocused, fetchOrders]);
 
 
   // Load user
@@ -177,6 +177,11 @@ useEffect(() => {
         if (cached) {
           cachedArr = JSON.parse(cached) || [];
           if (Array.isArray(cachedArr) && cachedArr.length > 0) {
+            cachedArr.sort((a, b) => {
+              const dA = new Date(a.created_at || a.order_date || 0).getTime();
+              const dB = new Date(b.created_at || b.order_date || 0).getTime();
+              return dB - dA;
+            });
             setOrders(cachedArr);
             setLoading(false); // ✅ Show instantly
           }
@@ -201,6 +206,13 @@ useEffect(() => {
         // visible even if the server's fresh list doesn't include it yet. We assume the
         // most-recent locally cached order is at cachedArr[0]. If it's missing from
         // fresh, prepend it to preserve user feedback.
+        // SORTING: Latest first
+        fresh.sort((a, b) => {
+          const dA = new Date(a.created_at || a.order_date || 0).getTime();
+          const dB = new Date(b.created_at || b.order_date || 0).getTime();
+          return dB - dA;
+        });
+
         if (Array.isArray(cachedArr) && cachedArr.length > 0) {
           const head = cachedArr[0];
           const headId = head && (head.order_id || head.id);
@@ -234,23 +246,23 @@ useEffect(() => {
   }, [user, route, navigation]);
 
   useFocusEffect(
-  React.useCallback(() => {
-    if (!global.lastOrderUpdate) return;
+    React.useCallback(() => {
+      if (!global.lastOrderUpdate) return;
 
-    const { order_number, status } = global.lastOrderUpdate;
+      const { order_number, status } = global.lastOrderUpdate;
 
-    setOrders(prev =>
-      prev.map(o =>
-        (o.order_no === order_number || o.order_number === order_number)
-          ? { ...o, status }
-          : o
-      )
-    );
+      setOrders(prev =>
+        prev.map(o =>
+          (o.order_no === order_number || o.order_number === order_number)
+            ? { ...o, status }
+            : o
+        )
+      );
 
-    // clear after applying
-    global.lastOrderUpdate = null;
-  }, [])
-);
+      // clear after applying
+      global.lastOrderUpdate = null;
+    }, [])
+  );
 
 
   useEffect(() => {
@@ -262,17 +274,17 @@ useEffect(() => {
   };
 
   const renderStatusChip = (status) => {
-  const s = Number(status);
-  const cfg = ORDER_STATUS[s] || { label: "Processing", color: "#555" };
+    const s = Number(status);
+    const cfg = ORDER_STATUS[s] || { label: "Processing", color: "#555" };
 
-  return (
-    <View style={[styles.statusChip, { backgroundColor: "#f5f5f5" }]}>
-      <Text style={[styles.statusText, { color: cfg.color }]}>
-        {cfg.label}
-      </Text>
-    </View>
-  );
-};
+    return (
+      <View style={[styles.statusChip, { backgroundColor: "#f5f5f5" }]}>
+        <Text style={[styles.statusText, { color: cfg.color }]}>
+          {cfg.label}
+        </Text>
+      </View>
+    );
+  };
 
 
 
@@ -347,56 +359,56 @@ useEffect(() => {
           </Text>
         </View>
 
-       {(() => {
-  const ui = getOrderUIState(item.status, item.delivery_estimate_time);
+        {(() => {
+          const ui = getOrderUIState(item.status, item.delivery_estimate_time);
 
-  switch (ui.state) {
-    case "COUNTDOWN":
-      return (
-        <Text style={{ fontSize: 13, color: "#ff9800", fontWeight: "700", marginTop: 4 }}>
-          ⏱ Estimated ready in {ui.minutes} min{ui.minutes > 1 ? "s" : ""}
-        </Text>
-      );
+          switch (ui.state) {
+            case "COUNTDOWN":
+              return (
+                <Text style={{ fontSize: 13, color: "#ff9800", fontWeight: "700", marginTop: 4 }}>
+                  ⏱ Estimated ready in {ui.minutes} min{ui.minutes > 1 ? "s" : ""}
+                </Text>
+              );
 
-    case "PREPARING":
-      return (
-        <Text style={{ fontSize: 13, color: "#9e9e9e", fontWeight: "600", marginTop: 4 }}>
-          ⏳ Your order is being prepared
-        </Text>
-      );
+            case "PREPARING":
+              return (
+                <Text style={{ fontSize: 13, color: "#9e9e9e", fontWeight: "600", marginTop: 4 }}>
+                  ⏳ Your order is being prepared
+                </Text>
+              );
 
-    case "READY":
-      return (
-        <Text style={{ fontSize: 13, color: "#4caf50", fontWeight: "800", marginTop: 4 }}>
-          ✅ Order is ready for pickup
-        </Text>
-      );
+            case "READY":
+              return (
+                <Text style={{ fontSize: 13, color: "#4caf50", fontWeight: "800", marginTop: 4 }}>
+                  ✅ Order is ready for pickup
+                </Text>
+              );
 
-    case "DELIVERED":
-      return (
-        <Text style={{ fontSize: 13, color: "#2e7d32", fontWeight: "800", marginTop: 4 }}>
-          📦 Order delivered successfully
-        </Text>
-      );
+            case "DELIVERED":
+              return (
+                <Text style={{ fontSize: 13, color: "#2e7d32", fontWeight: "800", marginTop: 4 }}>
+                  📦 Order delivered successfully
+                </Text>
+              );
 
-    case "REJECTED":
-      return (
-        <Text style={{ fontSize: 13, color: "#c62828", fontWeight: "700", marginTop: 4 }}>
-          ❌ Order was rejected
-        </Text>
-      );
+            case "REJECTED":
+              return (
+                <Text style={{ fontSize: 13, color: "#c62828", fontWeight: "700", marginTop: 4 }}>
+                  ❌ Order was rejected
+                </Text>
+              );
 
-    case "CANCELLED":
-      return (
-        <Text style={{ fontSize: 13, color: "#8a1f2a", fontWeight: "700", marginTop: 4 }}>
-          ⚠️ Order cancelled
-        </Text>
-      );
+            case "CANCELLED":
+              return (
+                <Text style={{ fontSize: 13, color: "#8a1f2a", fontWeight: "700", marginTop: 4 }}>
+                  ⚠️ Order cancelled
+                </Text>
+              );
 
-    default:
-      return null;
-  }
-})()}
+            default:
+              return null;
+          }
+        })()}
 
 
       </TouchableOpacity>
@@ -535,59 +547,59 @@ useEffect(() => {
                     ))
                   )}
 
-                 {(() => {
-  const ui = getOrderUIState(
-    orderDetails?.status,
-    orderDetails?.delivery_estimate_time
-  );
+                  {(() => {
+                    const ui = getOrderUIState(
+                      orderDetails?.status,
+                      orderDetails?.delivery_estimate_time
+                    );
 
-  switch (ui.state) {
-    case "COUNTDOWN":
-      return (
-        <Text style={{ fontSize: 13, color: "#ff9800", fontWeight: "700" }}>
-          ⏱ Estimated ready in {ui.minutes} min{ui.minutes > 1 ? "s" : ""}
-        </Text>
-      );
+                    switch (ui.state) {
+                      case "COUNTDOWN":
+                        return (
+                          <Text style={{ fontSize: 13, color: "#ff9800", fontWeight: "700" }}>
+                            ⏱ Estimated ready in {ui.minutes} min{ui.minutes > 1 ? "s" : ""}
+                          </Text>
+                        );
 
-    case "PREPARING":
-      return (
-        <Text style={{ fontSize: 13, color: "#9e9e9e", fontWeight: "600" }}>
-          ⏳ Your order is being prepared
-        </Text>
-      );
+                      case "PREPARING":
+                        return (
+                          <Text style={{ fontSize: 13, color: "#9e9e9e", fontWeight: "600" }}>
+                            ⏳ Your order is being prepared
+                          </Text>
+                        );
 
-    case "READY":
-      return (
-        <Text style={{ fontSize: 14, fontWeight: "700", color: "#4caf50" }}>
-          ✅ Order is ready for pickup
-        </Text>
-      );
+                      case "READY":
+                        return (
+                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#4caf50" }}>
+                            ✅ Order is ready for pickup
+                          </Text>
+                        );
 
-    case "DELIVERED":
-      return (
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#2e7d32" }}>
-          📦 Order delivered successfully
-        </Text>
-      );
+                      case "DELIVERED":
+                        return (
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: "#2e7d32" }}>
+                            📦 Order delivered successfully
+                          </Text>
+                        );
 
-    case "REJECTED":
-      return (
-        <Text style={{ fontSize: 14, fontWeight: "700", color: "#c62828" }}>
-          ❌ Order was rejected
-        </Text>
-      );
+                      case "REJECTED":
+                        return (
+                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#c62828" }}>
+                            ❌ Order was rejected
+                          </Text>
+                        );
 
-    case "CANCELLED":
-      return (
-        <Text style={{ fontSize: 14, fontWeight: "700", color: "#8a1f2a" }}>
-          ⚠️ Order cancelled
-        </Text>
-      );
+                      case "CANCELLED":
+                        return (
+                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#8a1f2a" }}>
+                            ⚠️ Order cancelled
+                          </Text>
+                        );
 
-    default:
-      return null;
-  }
-})()}
+                      default:
+                        return null;
+                    }
+                  })()}
 
 
                   {/* Address */}

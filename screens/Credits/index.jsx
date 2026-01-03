@@ -280,21 +280,26 @@ export default function CreditsScreen({ navigation }) {
           }
         >
 
-          <Text style={styles.title}>Credits & Wallet</Text>
+          <Text style={styles.title}>Your Credits & Rewards</Text>
           <Text style={styles.subtitle}>
-            Track your wallet, loyalty credits & referral rewards.
+            Manage your total balance, loyalty points, and referral earnings here.
           </Text>
 
           <View style={styles.column}>
             <View style={[styles.card, styles.walletCard]}>
               <View style={styles.cardHeader}>
                 <Ionicons name="wallet-outline" size={24} color="#10b981" />
-                <Text style={styles.cardLabel}>Wallet Balance</Text>
+                <View>
+                  <Text style={styles.cardLabel}>Total Wallet Balance</Text>
+                  <Text style={{ fontSize: 10, color: '#666' }}>(Includes Referral & Signup Bonus)</Text>
+                </View>
               </View>
               <Text style={styles.cardValue}>
                 {walletBalance !== null ? `£${Number(walletBalance).toFixed(2)}` : "—"}
               </Text>
-              <Text style={styles.cardHint}>Use this amount at checkout for your orders.</Text>
+              <Text style={styles.cardHint}>
+                This balance acts as cash and can be used immediately for your orders. It includes any bonuses earned from signups or referrals.
+              </Text>
             </View>
 
             <View style={[styles.card, styles.creditsCard]}>
@@ -313,7 +318,7 @@ export default function CreditsScreen({ navigation }) {
               </View>
 
               <Text style={styles.cardHint}>
-                Use this amount at checkout
+                These are points earned from your orders. They can also be used at checkout but may have expiration dates.
               </Text>
 
               {/* ✅ NEW: Pending points indication */}

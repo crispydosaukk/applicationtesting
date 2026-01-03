@@ -47,6 +47,7 @@ export default function SignupScreen({ navigation }) {
   // 🔹 New: restaurant list state
   const [restaurants, setRestaurants] = useState([]);
   const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Only for picker initial position (18 yrs back)
   const getDefaultDobForPicker = () => {
@@ -93,7 +94,9 @@ export default function SignupScreen({ navigation }) {
     if (password.length < 6) return "Password must be 6+ characters.";
     if (password !== confirmPassword) return "Passwords do not match.";
     if (!preferredRestaurant) return "Select your preferred restaurant.";
+
     if (!dob) return "Please select your Date of Birth.";
+    if (!termsAccepted) return "You must accept the Terms & Conditions and Privacy Policy to sign up.";
     return null;
   };
 
@@ -303,10 +306,43 @@ export default function SignupScreen({ navigation }) {
             />
           </View>
 
+          {/* TERMS CHECKBOX */}
+          <View style={styles.termsContainer}>
+            <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkbox}>
+              <Ionicons
+                name={termsAccepted ? "checkbox" : "square-outline"}
+                size={24}
+                color={termsAccepted ? "#2e7d32" : "#7a927a"}
+              />
+            </TouchableOpacity>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.termsText}>
+                I agree to the{" "}
+                <Text
+                  style={styles.linkText}
+                  onPress={() => navigation.navigate("TermsConditions")}
+                >
+                  Terms & Conditions
+                </Text>{" "}
+                and{" "}
+                <Text
+                  style={styles.linkText}
+                  onPress={() => navigation.navigate("PrivacyPolicy")}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+            </View>
+          </View>
+
           {/* SIGN UP BUTTON */}
-          <TouchableOpacity style={styles.signupBtn} onPress={handleSignup}>
+          <TouchableOpacity
+            style={[styles.signupBtn, { opacity: termsAccepted ? 1 : 0.6 }]}
+            onPress={handleSignup}
+            disabled={!termsAccepted}
+          >
             <LinearGradient
-              colors={["#4caf50", "#2e7d32"]}
+              colors={termsAccepted ? ["#4caf50", "#2e7d32"] : ["#a5d6a7", "#81c784"]}
               style={styles.signupGradient}
             >
               <Ionicons
@@ -428,7 +464,29 @@ const styles = StyleSheet.create({
   loginLink: {
     color: "#2e7d32",
     fontWeight: "700",
+
     textDecorationLine: "underline",
     fontFamily: FONT_FAMILY,
+  },
+
+  termsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  checkbox: {
+    padding: 2,
+  },
+  termsText: {
+    fontSize: 13,
+    color: "#444",
+    fontFamily: FONT_FAMILY,
+    lineHeight: 18,
+  },
+  linkText: {
+    color: "#2e7d32",
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 });

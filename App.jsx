@@ -28,6 +28,8 @@ import InviteFriends from "./screens/InviteFriends.jsx";
 import EditProfile from "./screens/EditProfile.jsx";
 import HelpCenter from "./screens/HelpCenter.jsx";
 import Notifications from "./screens/Notifications.jsx";
+import PrivacyPolicyScreen from "./screens/PrivacyPolicyScreen.jsx";
+import TermsConditionsScreen from "./screens/TermsConditionsScreen.jsx";
 
 const Stack = createNativeStackNavigator();
 
@@ -155,6 +157,8 @@ export default function App() {
             <Stack.Screen name="EditProfile" component={EditProfile} />
             <Stack.Screen name="HelpCenter" component={HelpCenter} />
             <Stack.Screen name="Notifications" component={Notifications} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="TermsConditions" component={TermsConditionsScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
