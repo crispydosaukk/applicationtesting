@@ -12,7 +12,7 @@ const { width } = Dimensions.get("window");
 // Scale factor for responsiveness
 const scale = width / 375;
 
-export default function AppHeader({ user, onMenuPress, navigation, cartItems }) {
+export default function AppHeader({ user, onMenuPress, navigation, cartItems, transparent, statusColor, textColor, barStyle }) {
   const insets = useSafeAreaInsets();
   const totalItems = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
 
@@ -106,10 +106,17 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
 
   return (
     <>
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+      <StatusBar
+        backgroundColor={statusColor || (transparent ? "#FFF9E0" : "#FFFFFF")}
+        barStyle={barStyle || (statusColor ? "light-content" : "dark-content")}
+      />
 
       {/* Container with top padding for status bar */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+      <View style={[
+        styles.headerContainer,
+        { paddingTop: insets.top },
+        transparent && { backgroundColor: "transparent", elevation: 0, shadowOpacity: 0 }
+      ]}>
         <View style={styles.headerContent}>
 
           {/* LEFT: User Info Only */}
@@ -125,8 +132,8 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
               <Ionicons name="person" size={18 * scale} color="#FFFFFF" />
             </View>
             <View style={styles.textContainer}>
-              <Text style={styles.greetingText}>Hello,</Text>
-              <Text style={styles.usernameText} numberOfLines={1}>{username}</Text>
+              <Text style={[styles.greetingText, textColor && { color: textColor }]}>Hello,</Text>
+              <Text style={[styles.usernameText, textColor && { color: textColor }]} numberOfLines={1}>{username}</Text>
             </View>
           </TouchableOpacity>
 
@@ -140,11 +147,11 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
                 else navigation.navigate("Notifications");
               }}
             >
-              <Ionicons name="notifications-outline" size={26 * scale} color="#1C1C1C" />
+              <Ionicons name="notifications-outline" size={26 * scale} color={textColor || "#1C1C1C"} />
 
               {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                <View style={[styles.badge, textColor === '#FFFFFF' && { backgroundColor: '#FFD700' }]}>
+                  <Text style={[styles.badgeText, textColor === '#FFFFFF' && { color: '#000' }]}>{unreadCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -171,17 +178,17 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
               style={styles.iconButton}
               onPress={() => { if (!user) setAuthModalVisible(true); else navigation.navigate("CartSummary"); }}
             >
-              <Ionicons name="cart-outline" size={26 * scale} color="#1C1C1C" />
+              <Ionicons name="cart-outline" size={26 * scale} color={textColor || "#1C1C1C"} />
               {totalItems > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{totalItems}</Text>
+                <View style={[styles.badge, textColor === '#FFFFFF' && { backgroundColor: '#FFD700' }]}>
+                  <Text style={[styles.badgeText, textColor === '#FFFFFF' && { color: '#000' }]}>{totalItems}</Text>
                 </View>
               )}
             </TouchableOpacity>
 
             {/* Menu Icon */}
             <TouchableOpacity style={[styles.iconButton, { marginRight: 0 }]} onPress={onMenuPress}>
-              <Ionicons name="menu-outline" size={30 * scale} color="#1C1C1C" />
+              <Ionicons name="menu-outline" size={30 * scale} color={textColor || "#1C1C1C"} />
             </TouchableOpacity>
           </View>
         </View>
@@ -200,36 +207,17 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems }) 
 }
 
 const PremiumAnimatedBadge = ({ balance, loading }) => {
-  const [opacity] = useState(new Animated.Value(0.8));
-
-  useEffect(() => {
-    if (loading) return;
-    const animate = () => {
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.5,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]).start(() => animate()); // Loop
-    };
-    animate();
-  }, [loading]);
-
   return (
-    <Animated.View style={[styles.premiumBadge, { opacity }]}>
-      <Ionicons name="wallet" size={14 * scale} color="#FFFFFF" style={{ marginRight: 5 }} />
+    <View style={styles.premiumBadge}>
+      <View style={styles.goldTextRow}>
+        <Text style={styles.goldSmallText}>WALLET</Text>
+      </View>
       {loading ? (
-        <ActivityIndicator size="small" color="#FFFFFF" />
+        <ActivityIndicator size="small" color="#D4AF37" />
       ) : (
         <Text style={styles.premiumBadgeText}>£{balance.toFixed(2)}</Text>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -261,7 +249,7 @@ const styles = StyleSheet.create({
     width: 36 * scale,
     height: 36 * scale,
     borderRadius: 18 * scale,
-    backgroundColor: "#E23744", // Accent Color (Zomato Red)
+    backgroundColor: "#C62828", // Match HomeScreen theme
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
@@ -270,12 +258,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   greetingText: {
+    fontFamily: "PoppinsMedium",
     fontSize: 11 * scale,
-    color: "#888888",
+    color: "#1C1C1C", // Set to black as requested
     marginBottom: 0,
     fontWeight: "500",
   },
   usernameText: {
+    fontFamily: "PoppinsSemiBold",
     fontSize: 15 * scale,
     fontWeight: "700",
     color: "#1C1C1C",
@@ -298,22 +288,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   premiumBadge: {
-    flexDirection: "row",
+    paddingVertical: 4 * scale,
+    paddingHorizontal: 12 * scale,
+    borderRadius: 100, // Pill shape
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#D4AF37", // Gold Color
     alignItems: "center",
-    backgroundColor: "#0b7a2a", // Brand Green
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    shadowColor: "#0b7a2a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    justifyContent: "center",
+    shadowColor: "#D4AF37",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  goldTextRow: {
+    marginBottom: -2 * scale,
+  },
+  goldSmallText: {
+    fontSize: 8 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#D4AF37",
+    letterSpacing: 0.5,
   },
   premiumBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 13 * scale,
-    fontWeight: "700",
+    color: "#1C1C1C",
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsSemiBold",
+    fontWeight: "800",
   },
 
   iconButton: {

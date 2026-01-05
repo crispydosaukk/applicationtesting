@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,8 +20,7 @@ import { RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import useRefresh from "../../hooks/useRefresh";
 import { fetchProducts } from "../../services/productService";
-import { addToCart } from "../../services/cartService";
-import { getCart } from "../../services/cartService";
+import { addToCart, getCart, removeFromCart } from "../../services/cartService";
 import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
@@ -354,7 +354,71 @@ export default function Products({ route, navigation }) {
   };
 
   // Add item locally and open popup for that single item
-  const addAndOpenPopup = (id) => {
+  const addAndOpenPopup = async (id) => {
+    try {
+      // 1. Check if ANY other restaurant has items in the cart (LocalStorage)
+      const stored = await AsyncStorage.getItem("cart");
+      const parsed = stored ? JSON.parse(stored) : {};
+
+      // Filter out current restaurant and check if others have quantity > 0
+      const otherRestaurants = Object.keys(parsed).filter(rid => rid != userId);
+      const hasConflict = otherRestaurants.some(rid => {
+        const items = parsed[rid];
+        return Object.values(items).some(qty => qty > 0);
+      });
+
+      if (hasConflict) {
+        Alert.alert(
+          "Replace Cart Items?",
+          "Your cart contains items from another restaurant. Do you want to discard them and start a new order with this restaurant?",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Replace",
+              style: "destructive",
+              onPress: async () => {
+                // Show a small loader or just proceed
+                const uid = user?.id ?? user?.customer_id;
+
+                if (uid) {
+                  setLoading(true); // temporary show loader while clearing
+                  try {
+                    const res = await getCart(uid);
+                    if (res?.status === 1 && Array.isArray(res.data)) {
+                      // Remove everything from server
+                      await Promise.all(
+                        res.data.map(item => removeFromCart(item.cart_id || item.id))
+                      );
+                    }
+                  } catch (err) {
+                    console.log("Error clearing server cart", err);
+                  }
+                }
+
+                // Clear everything locally
+                await AsyncStorage.removeItem("cart");
+                setCartItems({});
+                setLoading(false);
+
+                // Add the NEW item
+                performAddItem(id);
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      // No conflict, proceed normally
+      performAddItem(id);
+
+    } catch (e) {
+      console.warn("Cart validation error", e);
+      performAddItem(id); // fallback
+    }
+  };
+
+  const performAddItem = (id) => {
     // mark pending so it won't sync until popup confirmation
     setCartItems((p) => ({ ...p, [id]: (p[id] || 0) + 1 }));
     setPending((s) => ({ ...s, [id]: true }));

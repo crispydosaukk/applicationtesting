@@ -14,6 +14,9 @@ import {
 import Ionicons from "react-native-vector-icons/Ionicons";
 import LinearGradient from "react-native-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import { Alert } from "react-native";
 
 const { width, height } = Dimensions.get("window");
 const isVerySmallScreen = height <= 640;
@@ -22,6 +25,37 @@ const FONT_FAMILY = Platform.select({ ios: "System", android: "System" });
 
 export default function HomeScreen({ navigation }) {
   const swingAnim = useRef(new Animated.Value(0)).current;
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkAuth = async () => {
+        const token = await AsyncStorage.getItem("token");
+        setIsLoggedIn(!!token);
+      };
+      checkAuth();
+    }, [])
+  );
+
+  const handleLogout = async () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          await AsyncStorage.multiRemove([
+            "token",
+            "user",
+            "profile_cache",
+            "wallet_summary_cache",
+          ]);
+          setIsLoggedIn(false);
+          Alert.alert("Success", "You have been signed out.");
+        },
+      },
+    ]);
+  };
 
   useEffect(() => {
     Animated.loop(
@@ -125,13 +159,13 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <>
-      <StatusBar backgroundColor="#ffdfdf" barStyle="dark-content" />
+      <StatusBar backgroundColor="#F7CB45" barStyle="dark-content" />
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: "#ffdfdf" }}
+        style={{ flex: 1, backgroundColor: "#F7CB45" }}
         edges={["top"]}
       >
         <LinearGradient
-          colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
+          colors={["#F7CB45", "#F7CB45"]}
           style={styles.container}
         >
           <View style={[styles.mainContent, { paddingVertical: verticalPadding }]}>
@@ -217,32 +251,32 @@ export default function HomeScreen({ navigation }) {
                   style={styles.primaryBtn}
                   activeOpacity={0.9}
                 >
-                  <LinearGradient
-                    colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
-                    style={styles.btnGradient}
-                  >
-                    <Ionicons
-                      name="restaurant-outline"
-                      size={20}
-                      color="#2D1B0F"
-                      style={styles.btnIcon}
-                    />
-                    <Text style={styles.primaryBtnText}>Explore</Text>
-                  </LinearGradient>
+                  <Ionicons
+                    name="restaurant-outline"
+                    size={20}
+                    color="#1c1c1c"
+                    style={styles.btnIcon}
+                  />
+                  <Text style={styles.primaryBtnText}>Explore</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.secondaryBtn}
-                  onPress={() => navigation.navigate("Login")}
+                  onPress={() => {
+                    if (isLoggedIn) handleLogout();
+                    else navigation.navigate("Login");
+                  }}
                   activeOpacity={0.9}
                 >
                   <Ionicons
-                    name="log-in-outline"
+                    name={isLoggedIn ? "log-out-outline" : "log-in-outline"}
                     size={20}
-                    color="#2D1B0F"
+                    color="#1c1c1c"
                     style={styles.btnIcon}
                   />
-                  <Text style={styles.secondaryBtnText}>Sign In</Text>
+                  <Text style={styles.secondaryBtnText}>
+                    {isLoggedIn ? "Sign Out" : "Sign In"}
+                  </Text>
                 </TouchableOpacity>
 
                 <Text style={styles.bottomLine}>
@@ -266,8 +300,9 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   offerAmount: {
+    fontFamily: "PoppinsSemiBold",
     fontWeight: "900",
-    color: "#fff700",   // bright highlight (change if needed)
+    color: "#fff700",
     textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -283,7 +318,7 @@ const styles = StyleSheet.create({
 
   topSection: {
     alignItems: "center",
-    marginTop: -18,
+    marginTop: -40, // Shifted further up
   },
 
   // small margin so buttons sit just under subtitle
@@ -303,16 +338,14 @@ const styles = StyleSheet.create({
   },
   mainTitleBlack: {
     fontSize: 22,
-    fontWeight: "800",
-    color: "#2D1B0F",
-    fontFamily: FONT_FAMILY,
+    fontFamily: "PoppinsSemiBold",
+    color: "#1c1c1c",
   },
   mainTitleOrange: {
     fontSize: 24,
-    fontWeight: "900",
-    color: "#FF8A00",
-    marginTop: -2,
-    fontFamily: FONT_FAMILY,
+    fontFamily: "PoppinsSemiBold",
+    color: "#C62828",
+    marginTop: -4,
   },
   imageWrapper: {
     marginTop: 4,
@@ -328,9 +361,8 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 6,
     fontSize: 14,
-    color: "#2D1B0F",
-    fontWeight: "500",
-    fontFamily: FONT_FAMILY,
+    color: "#1c1c1c",
+    fontFamily: "PoppinsSemiBold",
   },
   offerPill: {
 
@@ -344,34 +376,28 @@ const styles = StyleSheet.create({
   offerText: {
     color: "#fff",
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: "PoppinsSemiBold",
     marginLeft: 8,
-    fontFamily: FONT_FAMILY,
   },
   buttonArea: {
     width: "100%",
     alignItems: "center",
   },
   primaryBtn: {
+    flexDirection: "row",
     width: width * 0.75,
     borderRadius: 14,
-    overflow: "hidden",
     borderWidth: 2,
-    borderColor: "#2D1B0F",
-    marginBottom: 10,
-  },
-  btnGradient: {
-    flexDirection: "row",
+    borderColor: "#1c1c1c",
+    paddingVertical: 14,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 14,
-    borderRadius: 14,
+    marginBottom: 10,
   },
   primaryBtnText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#000",
-    fontFamily: FONT_FAMILY,
+    fontFamily: "PoppinsSemiBold",
+    color: "#1c1c1c",
   },
   secondaryBtn: {
     flexDirection: "row",
@@ -386,23 +412,22 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#2D1B0F",
-    fontFamily: FONT_FAMILY,
+    fontFamily: "PoppinsSemiBold",
+    color: "#1c1c1c",
   },
   btnIcon: {
     marginRight: 8,
   },
   bottomLine: {
     fontSize: 14,
-    color: "#2D1B0F",
+    color: "#1c1c1c",
     marginTop: 2,
-    fontFamily: FONT_FAMILY,
+    fontFamily: "PoppinsSemiBold",
   },
   linkText: {
-    fontWeight: "700",
+    fontFamily: "PoppinsSemiBold",
     textDecorationLine: "underline",
-    fontFamily: FONT_FAMILY,
+    color: "#C62828",
   },
   rope: {
     width: 2,

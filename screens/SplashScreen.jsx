@@ -1,93 +1,87 @@
+
 // SplashScreen.js
 import React, { useEffect, useRef } from "react";
 import {
   View,
-  Image,
+  Text,
   StyleSheet,
   Animated,
-  Easing,
   StatusBar,
   Dimensions,
-  Text,
+  Easing,
 } from "react-native";
-import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { initAndSaveFcmToken } from "../utils/fcm";
 
-const { width, height } = Dimensions.get("window");
-
-// All sizes relative to width so it’s responsive
-const HALO_SIZE = width * 0.5;                // circle behind dosa
-const HERO_HEIGHT = HALO_SIZE * 1.3;          // area for circle + dosa + logo
-
-const DOSA_W = width * 0.55;
-const DOSA_H = DOSA_W * 0.55;
-const LOGO_W = width * 0.78;
-const LOGO_H = LOGO_W * 0.3;
+const { width } = Dimensions.get("window");
 
 export default function SplashScreen({ navigation }) {
-  const mainTranslateY = useRef(new Animated.Value(40)).current;
-  const mainScale = useRef(new Animated.Value(0.9)).current;
+  // Main animations
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const loaderWidth = useRef(new Animated.Value(0)).current;
 
-  const haloScale = useRef(new Animated.Value(0)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoTranslateY = useRef(new Animated.Value(15)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  const progress = useRef(new Animated.Value(0)).current;
+  // underline + text animation
+  const lineAnim = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const textTranslateY = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
-    // 1. hero block + halo animate in
     Animated.parallel([
-      Animated.timing(mainTranslateY, {
-        toValue: 0,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 45,
         useNativeDriver: true,
       }),
-      Animated.timing(mainScale, {
+      Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(haloScale, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
+        duration: 700,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // 2. logo fade + slide
-    Animated.parallel([
-      Animated.timing(logoOpacity, {
-        toValue: 1,
-        delay: 450,
-        duration: 700,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(logoTranslateY, {
-        toValue: 0,
-        delay: 450,
-        duration: 700,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
+    Animated.sequence([
+      Animated.delay(450),
+      Animated.parallel([
+        Animated.timing(lineAnim, {
+          toValue: 1,
+          duration: 650,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }),
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textTranslateY, {
+          toValue: 0,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+      ]),
     ]).start();
 
-    // 3. dosa gentle float
+    Animated.timing(loaderWidth, {
+      toValue: 1,
+      duration: 2400,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: false,
+    }).start();
+
     Animated.loop(
       Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
+        Animated.timing(pulseAnim, {
+          toValue: 1.03,
           duration: 1600,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
+        Animated.timing(pulseAnim, {
+          toValue: 1,
           duration: 1600,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
@@ -95,201 +89,172 @@ export default function SplashScreen({ navigation }) {
       ])
     ).start();
 
-    // 4. progress bar
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 2600,
-      easing: Easing.inOut(Easing.ease),
-      useNativeDriver: false,
-    }).start();
-
     const timeout = setTimeout(async () => {
-  try {
-    const token = await AsyncStorage.getItem("token");
-
-    if (token) {
-      // 🔔 SAVE FCM TOKEN (NON-BLOCKING)
-      initAndSaveFcmToken();   // 👈 IMPORTANT
-
-      navigation.replace("Resturent");
-    } else {
-      navigation.replace("Home");
-    }
-  } catch (e) {
-    navigation.replace("Login");
-  }
-}, 3000);
-
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const user = await AsyncStorage.getItem("user");
+        if (token && user) {
+          initAndSaveFcmToken();
+          navigation.replace("Resturent");
+        } else {
+          navigation.replace("Home");
+        }
+      } catch {
+        navigation.replace("Login");
+      }
+    }, 2800);
 
     return () => clearTimeout(timeout);
   }, []);
 
-  const floatTranslate = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -6],
-  });
-
-  const progressWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
-  });
-
   return (
-    <>
-      <StatusBar backgroundColor="#ffdfdf" barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar backgroundColor="#F7CB45" barStyle="dark-content" />
 
-      <LinearGradient
-        colors={["#ffdfdf", "#ffeceb", "#e9ffee", "#d7f8d7"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.container}
-      >
-        {/* top/left/right safe; bottom full-bleed */}
-        <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-          <View style={styles.content}>
-            {/* CENTER HERO BLOCK */}
+      <SafeAreaView style={styles.safeArea}>
+        {/* CENTER CONTENT (Logo) - Moved to absolute to ensure perfect centering */}
+        <View style={styles.center} pointerEvents="none">
+          <Animated.View
+            style={{
+              opacity: opacityAnim,
+              alignItems: "center",
+              transform: [{ scale: Animated.multiply(scaleAnim, pulseAnim) }],
+            }}
+          >
+            {/* TEXT LOGO */}
             <Animated.View
-              style={[
-                styles.centerBlock,
-                {
-                  transform: [
-                    { translateY: mainTranslateY },
-                    { scale: mainScale },
-                  ],
-                },
-              ]}
+              style={{
+                flexDirection: "row",
+                opacity: textOpacity,
+                transform: [{ translateY: textTranslateY }],
+              }}
             >
-              <View style={styles.heroWrapper}>
-                {/* circle exactly behind dosa */}
-                <Animated.View
-                  style={[
-                    styles.halo,
-                    { transform: [{ scale: haloScale }] },
-                  ]}
-                />
-
-                {/* dosa */}
-                <Animated.View
-                  style={[
-                    styles.dosaWrapper,
-                    { transform: [{ translateY: floatTranslate }] },
-                  ]}
-                >
-                  <Image
-                    source={require("../assets/topDosa.png")}
-                    resizeMode="contain"
-                    style={styles.dosa}
-                  />
-                </Animated.View>
-
-                {/* logo below circle */}
-                <Animated.Image
-                  source={require("../assets/logo.png")}
-                  resizeMode="contain"
-                  style={[
-                    styles.logo,
-                    {
-                      opacity: logoOpacity,
-                      transform: [{ translateY: logoTranslateY }],
-                    },
-                  ]}
-                />
-              </View>
+              <Text style={styles.crispy}>Crispy</Text>
+              <Text style={styles.dosa}>Dosa</Text>
             </Animated.View>
 
-            {/* FOOTER */}
-            <View style={styles.footer}>
-              <View style={styles.progressTrack}>
-                <Animated.View
-                  style={[styles.progressFill, { width: progressWidth }]}
-                />
-              </View>
-              <Text style={styles.footerText}>Preparing your experience…</Text>
-            </View>
+            {/* 🆕 ANIMATED LINE BELOW TEXT */}
+            <Animated.View
+              style={[
+                styles.underline,
+                {
+                  width: lineAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, width * 0.42],
+                  }),
+                },
+              ]}
+            />
+
+            {/* TAGLINE */}
+            <Text style={styles.tagline}>Pure Veg. Freshly Made.</Text>
+          </Animated.View>
+        </View>
+
+        {/* Spacer to keep bottom content at the bottom */}
+        <View style={{ flex: 1 }} />
+
+        {/* BOTTOM COMPANY TEXT */}
+        <Animated.View style={[styles.bottomInfo, { opacity: textOpacity }]}>
+          <Text style={styles.eternal}>WHERE TRADITION MEETS TASTE</Text>
+        </Animated.View>
+
+        {/* LOADER */}
+        <View style={styles.footer}>
+          <View style={styles.loaderTrack}>
+            <Animated.View
+              style={[
+                styles.loaderFill,
+                {
+                  width: loaderWidth.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0%", "100%"],
+                  }),
+                },
+              ]}
+            />
           </View>
-        </SafeAreaView>
-      </LinearGradient>
-    </>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safe: { flex: 1 },
-
-  content: {
+  container: {
     flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingBottom: height * 0.06,
+    backgroundColor: "#F7CB45",
   },
-
-  centerBlock: {
+  safeArea: {
     flex: 1,
-    width: "100%",
+  },
+  center: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
     alignItems: "center",
-    justifyContent: "center", // hero stays centered on all screens
+    zIndex: 1,
+    paddingBottom: 60, // Nudge the logo up slightly
   },
 
-  heroWrapper: {
-    width: "100%",
-    height: HERO_HEIGHT,
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-
-  // soft white circle behind dosa only
-  halo: {
-    position: "absolute",
-    width: HALO_SIZE,
-    height: HALO_SIZE,
-    borderRadius: HALO_SIZE / 2,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    shadowColor: "rgba(0,0,0,0.15)",
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    // placed so the dosa sits nicely inside the lower half of the circle
-    top: HERO_HEIGHT * 0.05,
-    alignSelf: "center",
-  },
-
-  dosaWrapper: {
-    marginBottom: 10, // distance from circle to logo
+  // 🔑 UPDATED COLOR FOR CRISPY
+  crispy: {
+    fontFamily: "PoppinsSemiBold",
+    fontSize: 50,
+    color: "#C62828", // 🔴 dark red / orange tone
+    letterSpacing: -1.5,
   },
 
   dosa: {
-    width: DOSA_W,
-    height: DOSA_H,
+    fontFamily: "PoppinsSemiBold",
+    fontSize: 50,
+    color: "#3E863F",
+    marginLeft: 0,
+    letterSpacing: -1.5,
   },
 
-  logo: {
-    width: LOGO_W,
-    height: LOGO_H,
-  },
-
-  footer: {
-    width: "100%",
-    alignItems: "center",
-  },
-
-  progressTrack: {
-    width: "60%",
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.55)",
-    overflow: "hidden",
+  underline: {
+    height: 3,
+    backgroundColor: "#1C1C1C",
+    borderRadius: 6,
+    marginTop: 0,
     marginBottom: 10,
   },
 
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#2faa3f",
+  tagline: {
+    fontFamily: "PoppinsSemiBold",
+    fontSize: 18,
+    color: "#1C1C1C",
+    letterSpacing: -0.2,
+    marginTop: 2,
   },
 
-  footerText: {
-    fontSize: 12,
-    color: "#48605a",
+  bottomInfo: {
+    alignItems: "center",
+    marginBottom: 20, // Reduced to move text closer to loader
+  },
+
+  eternal: {
+    fontFamily: "PoppinsSemiBold",
+    fontSize: 11,
+    color: "#1C1C1C",
+    letterSpacing: 4,
+  },
+
+  footer: {
+    paddingBottom: 110, // Increased to move below content up
+    alignItems: "center",
+  },
+
+  loaderTrack: {
+    width: 52,
+    height: 3,
+    backgroundColor: "rgba(28,28,28,0.15)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+
+  loaderFill: {
+    height: "100%",
+    backgroundColor: "#1C1C1C",
   },
 });

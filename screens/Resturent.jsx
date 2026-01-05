@@ -10,9 +10,12 @@ import {
   Image,
   Dimensions,
   Platform,
+  StatusBar,
+  Animated,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import LinearGradient from "react-native-linear-gradient";
 import { useIsFocused } from "@react-navigation/native";
 import { RefreshControl } from "react-native";
 import useRefresh from "../hooks/useRefresh";
@@ -36,40 +39,53 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside }) {
     <TouchableOpacity
       style={cardStyles.card}
       onPress={onPress}
-      activeOpacity={0.85}
+      activeOpacity={0.9}
     >
-      <Image
-        source={photo ? { uri: photo } : RestaurantImg}
-        style={cardStyles.image}
-      />
-      <View style={cardStyles.info}>
-        <Text style={cardStyles.name} numberOfLines={1}>
-          {name}
-        </Text>
-
-        <View style={cardStyles.vegBadge}>
-          <Ionicons name="leaf-outline" size={14 * scale} color="#16a34a" />
-          <Text style={cardStyles.vegText}>Pure Veg</Text>
+      <View style={cardStyles.cardBody}>
+        <View style={cardStyles.imageContainer}>
+          <Image
+            source={photo ? { uri: photo } : RestaurantImg}
+            style={cardStyles.image}
+          />
         </View>
 
-        <Text style={cardStyles.address} numberOfLines={2}>
-          {address}
-        </Text>
+        <View style={cardStyles.info}>
+          <View style={cardStyles.headerRow}>
+            <Text style={cardStyles.name} numberOfLines={1}>
+              {name}
+            </Text>
+            <Ionicons name="chevron-forward" size={18 * scale} color="#CCC" />
+          </View>
 
-        <View style={cardStyles.serviceRow}>
-          {instore && (
-            <View style={cardStyles.serviceChip}>
-              <Ionicons name="storefront-outline" size={14 * scale} color="#555" />
-              <Text style={cardStyles.serviceChipText}>In-store</Text>
-            </View>
-          )}
+          <View style={cardStyles.vegBadge}>
+            <Ionicons name="leaf" size={12 * scale} color="#16a34a" />
+            <Text style={cardStyles.vegText}>Pure Veg</Text>
+          </View>
 
-          {kerbside && (
-            <View style={cardStyles.serviceChip}>
-              <Ionicons name="car-outline" size={14 * scale} color="#555" />
-              <Text style={cardStyles.serviceChipText}>Kerbside</Text>
+          <View style={cardStyles.addressRow}>
+            <Ionicons name="location-sharp" size={14 * scale} color="#E23744" style={{ marginTop: 2 }} />
+            <Text style={cardStyles.address} numberOfLines={2}>
+              {address}
+            </Text>
+          </View>
+
+          <View style={cardStyles.footerRow}>
+            <View style={cardStyles.serviceRow}>
+              {instore && (
+                <View style={cardStyles.serviceChip}>
+                  <Ionicons name="storefront" size={11 * scale} color="#666" />
+                  <Text style={cardStyles.serviceChipText}>Dine-in</Text>
+                </View>
+              )}
+
+              {kerbside && (
+                <View style={cardStyles.serviceChip}>
+                  <Ionicons name="car" size={12 * scale} color="#666" />
+                  <Text style={cardStyles.serviceChipText}>Pickup</Text>
+                </View>
+              )}
             </View>
-          )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -87,10 +103,36 @@ export default function Resturent({ navigation }) {
   const scrollRef = useRef(null);
   const isFocused = useIsFocused();
 
-  const sliderImages = [
-    require("../assets/loyalty.png"),
-    require("../assets/referal.png"),
-    require("../assets/welcome.png"),
+  const scrollX = useRef(new Animated.Value(0)).current;
+
+  const offers = [
+    {
+      title: "SIGNUP BONUS",
+      subtitle: "EARN £0.25 COMPLETELY FREE",
+      desc: "Register now and get instant credit in your wallet.",
+      icon: "gift-outline",
+      colors: ["#FF416C", "#FF4B2B"], // Red
+      textColor: "#FFFFFF",
+      badgeColor: "rgba(255,255,255,0.25)",
+    },
+    {
+      title: "LOYALTY REWARDS",
+      subtitle: "EARN £0.25 ON EVERY ORDER",
+      desc: "Order your favorite food and get cashback every time.",
+      icon: "ribbon-outline",
+      colors: ["#1D976C", "#93F9B9"], // Green
+      textColor: "#004D40", // Dark green for better visibility
+      badgeColor: "rgba(0,77,64,0.15)",
+    },
+    {
+      title: "REFER & EARN",
+      subtitle: "EARN £0.25 PER FRIEND",
+      desc: "Invite your friends and earn rewards when they join.",
+      icon: "people-outline",
+      colors: ["#F2994A", "#F2C94C"], // Gold
+      textColor: "#5D4037", // Dark brown for contrast
+      badgeColor: "rgba(93,64,55,0.15)",
+    },
   ];
 
   // Load User
@@ -143,10 +185,10 @@ export default function Resturent({ navigation }) {
   useEffect(() => {
     const timer = setInterval(() => {
       let next = activeIndex + 1;
-      if (next >= sliderImages.length) next = 0;
+      if (next >= offers.length) next = 0;
       scrollRef.current?.scrollTo({ x: next * width, animated: true });
       setActiveIndex(next);
-    }, 3000);
+    }, 4000);
 
     return () => clearInterval(timer);
   }, [activeIndex]);
@@ -155,13 +197,10 @@ export default function Resturent({ navigation }) {
     r.name.toLowerCase().includes(search.toLowerCase())
   );
 
-
   const { refreshing, onRefresh } = useRefresh(async () => {
-    // reload restaurants
     const list = await fetchRestaurants();
     setRestaurants(list);
 
-    // reload user cart
     if (user) {
       const customerId = user.id ?? user.customer_id;
       const res = await getCart(customerId);
@@ -179,91 +218,167 @@ export default function Resturent({ navigation }) {
     }
   });
 
-
   return (
     <View style={styles.root}>
-      {/* header (handles top inset itself, like CartSummary) */}
-      <AppHeader
-        user={user}
-        navigation={navigation}
-        cartItems={cartItems}
-        onMenuPress={() => setMenuVisible(true)}
+      <StatusBar
+        backgroundColor={offers[activeIndex].colors[0]}
+        barStyle={offers[activeIndex].textColor === "#FFFFFF" ? "light-content" : "dark-content"}
       />
 
-      {/* Search Bar */}
-      <View style={styles.searchWrapper}>
-        <View style={styles.searchBox}>
-          <Ionicons
-            name="search"
-            size={18 * scale}
-            color="#666"
-            style={{ marginRight: 8 * scale }}
-          />
-          <TextInput
-            placeholder="Search restaurants..."
-            placeholderTextColor="#999"
-            value={search}
-            onChangeText={setSearch}
-            style={styles.searchInput}
-          />
+      {/* Top Zomato-style Unified Section - Fully Dynamic Immersive Gradient */}
+      <View style={styles.topSection}>
+        {/* Dynamic Background Layers - Smooth cross-fade spread across the whole section */}
+        <View style={StyleSheet.absoluteFill}>
+          {offers.map((offer, i) => {
+            const opacity = scrollX.interpolate({
+              inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+              outputRange: [0, 1, 0],
+              extrapolate: 'clamp',
+            });
+            return (
+              <Animated.View
+                key={`bg-${i}`}
+                style={[StyleSheet.absoluteFill, { opacity }]}
+              >
+                <LinearGradient
+                  colors={offer.colors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
+            );
+          })}
         </View>
-      </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 80 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+        <AppHeader
+          user={user}
+          navigation={navigation}
+          cartItems={cartItems}
+          onMenuPress={() => setMenuVisible(true)}
+          transparent
+          statusColor={offers[activeIndex].colors[0]}
+          textColor={offers[activeIndex].textColor}
+          barStyle={offers[activeIndex].textColor === "#FFFFFF" ? "light-content" : "dark-content"}
+        />
 
-        {/* Slider */}
-        <View style={{ marginTop: 8 }}>
-          <ScrollView
+        {/* Search Bar */}
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchBox}>
+            <View style={styles.searchLeft}>
+              <Ionicons
+                name="search"
+                size={20 * scale}
+                color="#E23744"
+              />
+              <TextInput
+                placeholder="Search restaurants, cuisines..."
+                placeholderTextColor="#999"
+                value={search}
+                onChangeText={setSearch}
+                style={styles.searchInput}
+              />
+            </View>
+            <View style={styles.searchDivider} />
+            <TouchableOpacity style={styles.micButton}>
+              <Ionicons name="mic-outline" size={22 * scale} color="#E23744" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Premium Offer Slider - Integrated for Unified Look */}
+        <View style={styles.sliderContainer}>
+          <Animated.ScrollView
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             ref={scrollRef}
-            onScroll={(e) =>
-              setActiveIndex(
-                Math.round(e.nativeEvent.contentOffset.x / width)
-              )
-            }
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+              {
+                useNativeDriver: false,
+                listener: (e) => {
+                  setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+                }
+              }
+            )}
             scrollEventThrottle={16}
           >
-            {sliderImages.map((img, i) => (
-              <View key={i} style={{ width }}>
-                <Image source={img} style={styles.sliderImage} />
+            {offers.map((offer, i) => (
+              <View key={i} style={styles.sliderPage}>
+                <View style={[styles.offerCardWrapper, { backgroundColor: 'transparent' }]}>
+                  <View style={styles.offerCardContent}>
+                    <View style={styles.offerTextCol}>
+                      <Text style={[styles.offerBadge, { backgroundColor: offer.badgeColor, color: offer.textColor }]}>
+                        {offer.title}
+                      </Text>
+                      <Text style={[styles.offerMainTitle, { color: offer.textColor }]}>
+                        {offer.subtitle}
+                      </Text>
+                      <Text style={[styles.offerDesc, { color: offer.textColor, opacity: 0.8 }]}>
+                        {offer.desc}
+                      </Text>
+                    </View>
+                    <View style={[styles.offerIconCircle, { borderColor: offer.textColor, backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                      <Ionicons name={offer.icon} size={40 * scale} color={offer.textColor} />
+                    </View>
+                  </View>
+                  {/* Decorative Elements */}
+                  <View style={[styles.decorCircle1, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+                  <View style={[styles.decorCircle2, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
+                </View>
               </View>
             ))}
-          </ScrollView>
+          </Animated.ScrollView>
 
           {/* dots */}
           <View style={styles.dotContainer}>
-            {sliderImages.map((_, i) => (
+            {offers.map((_, i) => (
               <View
                 key={i}
                 style={[
                   styles.dot,
                   {
-                    width: activeIndex === i ? 20 : 7,
-                    opacity: activeIndex === i ? 1 : 0.35,
+                    width: activeIndex === i ? 18 : 6,
+                    backgroundColor: activeIndex === i ? "#FFF" : "rgba(255,255,255,0.4)",
                   },
                 ]}
               />
             ))}
           </View>
         </View>
+      </View>
 
-        {/* Info Banners */}
-        <View style={styles.infoBannerRow}>
-          <Image source={AllergyAlert} style={styles.infoBannerImg} />
-          <Image source={Rating5} style={styles.infoBannerImg} />
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Premium Section Headers */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Safety & Hygiene</Text>
+          <Text style={styles.sectionSubtitle}>We prioritize your health and well-being</Text>
         </View>
 
-        {/* Restaurant List */}
-        <View style={{ marginTop: 8 }}>
+        {/* Info Banners in Premium Containers */}
+        <View style={styles.infoBannerRow}>
+          <View style={styles.infoCard}>
+            <Image source={AllergyAlert} style={styles.infoBannerImg} />
+          </View>
+          <View style={styles.infoCard}>
+            <Image source={Rating5} style={styles.infoBannerImg} />
+          </View>
+        </View>
+
+        {/* Restaurant Section */}
+        <View style={[styles.sectionHeader, { marginTop: 15 }]}>
+          <Text style={styles.sectionTitle}>Find a Crispy Dosa branch near you</Text>
+        </View>
+
+        <View style={{ marginTop: 5, paddingBottom: 20 }}>
           {filteredRestaurants.map((r, i) => (
             <RestaurantCard
               key={i}
@@ -296,129 +411,312 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
-
+  topSection: {
+    paddingBottom: 0, // Slider fills to the bottom
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    zIndex: 10,
+    overflow: "hidden", // Clip the full-width slider to the rounded corners
+  },
   searchWrapper: {
-    paddingHorizontal: 10,
-    paddingVertical: 4, // less vertical padding
-    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
+    marginTop: 10,
   },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 12 : 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
     borderWidth: 1,
-    borderColor: "#e3e3e3",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderColor: "#F0F0F0",
+  },
+  searchLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
   },
   searchInput: {
     flex: 1,
     fontSize: 14 * scale,
     color: "#222",
-    fontFamily: FONT_FAMILY,
+    fontFamily: "PoppinsMedium",
+    marginLeft: 10,
   },
-
-  sliderImage: {
-    width: width * 0.92,
+  searchDivider: {
+    width: 1,
+    height: "100%",
+    backgroundColor: "#E5E5E5",
+    marginHorizontal: 10,
+  },
+  micButton: {
+    padding: 2,
+  },
+  sliderContainer: {
+    marginTop: 15,
+    position: 'relative',
+  },
+  sliderPage: {
+    width: width,
+    alignItems: "center",
+  },
+  offerCardWrapper: {
+    width: width, // Full width spread
+    height: 160 * scale,
+    overflow: "hidden",
+    paddingHorizontal: 24 * scale,
+    paddingVertical: 20 * scale,
+    justifyContent: "center",
+    position: 'relative',
+  },
+  offerCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 2,
+  },
+  offerTextCol: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  offerBadge: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    color: "#FFF",
+    fontSize: 10 * scale,
+    fontFamily: "PoppinsSemiBold",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  offerMainTitle: {
+    fontSize: 22 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#FFF",
+    lineHeight: 28 * scale,
+  },
+  offerDesc: {
+    fontSize: 12 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 6,
+  },
+  offerIconCircle: {
+    width: 66 * scale,
+    height: 66 * scale,
+    borderRadius: 33 * scale,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  decorCircle1: {
+    position: 'absolute',
+    width: 150 * scale,
     height: 150 * scale,
-    alignSelf: "center",
-    borderRadius: 5,
-    resizeMode: "cover",
+    borderRadius: 75 * scale,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    top: -40,
+    right: -40,
+  },
+  decorCircle2: {
+    position: 'absolute',
+    width: 80 * scale,
+    height: 80 * scale,
+    borderRadius: 40 * scale,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -15,
+    left: -15,
   },
   dotContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 6,
+    position: 'absolute',
+    bottom: 12,
+    width: '100%',
   },
   dot: {
-    height: 7,
-    borderRadius: 5,
-    backgroundColor: "#444",
-    marginHorizontal: 4,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 3,
   },
-
   infoBannerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginHorizontal: 15,
-    marginTop: 12,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  infoCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 8,
+    width: (width - 44) / 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
   },
   infoBannerImg: {
-    width: (width - 40) / 2,
-    height: 100 * scale,
-    borderRadius: 8,
+    width: '100%',
+    height: 90 * scale,
+    borderRadius: 6,
     resizeMode: "contain",
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 5,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#1C1C1C",
+  },
+  sectionSubtitle: {
+    fontSize: 12 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#888",
+    marginTop: -2,
+  },
+  viewAllText: {
+    fontSize: 13 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#E23744",
   },
 });
 
 const cardStyles = StyleSheet.create({
   card: {
-    flexDirection: "row",
     backgroundColor: "#ffffff",
-    marginHorizontal: 15,
-    marginVertical: 6,
-    padding: 12,
-    borderRadius: 8,
-    elevation: 2,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F8F8F8',
+  },
+  cardBody: {
+    flexDirection: "row",
+    padding: 14,
+  },
+  imageContainer: {
+    position: 'relative',
   },
   image: {
-    width: width * 0.22,
-    height: width * 0.22,
+    width: 100 * scale,
+    height: 120 * scale,
+    borderRadius: 8,
+  },
+  premiumBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 6,
+  },
+  premiumText: {
+    color: '#FFD700',
+    fontSize: 8 * scale,
+    fontFamily: 'PoppinsSemiBold',
+    marginLeft: 3,
   },
   info: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   name: {
-    fontSize: 15 * scale,
-    fontWeight: "700",
-    color: "#222",
-    fontFamily: FONT_FAMILY,
+    fontSize: 17 * scale,
+    color: "#1C1C1C",
+    fontFamily: "PoppinsSemiBold",
+    flex: 1,
+    marginRight: 10,
   },
   vegBadge: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 5,
-    backgroundColor: "#e8f8ee",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+    marginTop: 4,
   },
   vegText: {
-    marginLeft: 5,
+    marginLeft: 4,
     color: "#16a34a",
-    fontSize: 12 * scale,
-    fontWeight: "700",
-    fontFamily: FONT_FAMILY,
+    fontSize: 11 * scale,
+    fontFamily: "PoppinsMedium",
+  },
+  addressRow: {
+    flexDirection: 'row',
+    marginTop: 8,
   },
   address: {
-    fontSize: 13 * scale,
-    color: "#555",
-    marginTop: 6,
-    lineHeight: 18,
-    fontFamily: FONT_FAMILY,
+    fontSize: 12 * scale,
+    color: "#666",
+    marginLeft: 5,
+    lineHeight: 18 * scale,
+    fontFamily: "PoppinsMedium",
+    flex: 1,
+  },
+  footerRow: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 10,
   },
   serviceRow: {
     flexDirection: "row",
-    marginTop: 8,
   },
   serviceChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f3f3f3",
-    paddingVertical: 4,
+    backgroundColor: "#F9F9F9",
+    paddingVertical: 5,
     paddingHorizontal: 10,
-    borderRadius: 4,
-    marginRight: 10,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#EEE',
   },
   serviceChipText: {
     marginLeft: 5,
-    fontSize: 12 * scale,
-    color: "#333",
-    fontFamily: FONT_FAMILY,
+    fontSize: 11 * scale,
+    color: "#444",
+    fontFamily: "PoppinsMedium",
   },
 });

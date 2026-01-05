@@ -190,21 +190,23 @@ export default function Categories({ route, navigation }) {
 
   const renderCategory = ({ item }) => (
     <TouchableOpacity
-      style={styles.categoryCard}
-      activeOpacity={0.9}
+      style={cardStyles.categoryCard}
+      activeOpacity={0.8}
       onPress={() =>
         navigation.navigate("Products", { userId, categoryId: item.id })
       }
     >
-      <Image
-        source={
-          item?.image
-            ? { uri: item.image }
-            : require("../../assets/restaurant.png")
-        }
-        style={styles.categoryImage}
-      />
-      <Text style={styles.categoryText} numberOfLines={1}>
+      <View style={cardStyles.imageContainer}>
+        <Image
+          source={
+            item?.image
+              ? { uri: item.image }
+              : require("../../assets/restaurant.png")
+          }
+          style={cardStyles.categoryImage}
+        />
+      </View>
+      <Text style={cardStyles.categoryText} numberOfLines={1}>
         {item?.name}
       </Text>
     </TouchableOpacity>
@@ -236,90 +238,96 @@ export default function Categories({ route, navigation }) {
   return (
     // 🔧 only left/right safe insets so we don't double-pad top/bottom
     <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
-      <AppHeader
-        user={user}
-        navigation={navigation}
-        onMenuPress={() => setMenuVisible(true)}
-        cartItems={cartItems}
-      />
+      <View style={styles.brandSection}>
+        <LinearGradient
+          colors={["#FF2B5C", "#FF6B8B"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <AppHeader
+          user={user}
+          navigation={navigation}
+          onMenuPress={() => setMenuVisible(true)}
+          cartItems={cartItems}
+          transparent
+          textColor="#FFFFFF"
+          barStyle="light-content"
+          statusColor="#FF2B5C"
+        />
+
+        {/* INTEGRATED OFFER STRIP */}
+        <Animated.View style={[styles.offerWrapper, { opacity: fadeAnim }]}>
+          <View style={styles.offerInner}>
+            <Ionicons name="gift" size={16 * scale} color="#fffa75" />
+            {highlightAmount(animatedTexts[textIndex])}
+          </View>
+        </Animated.View>
+
+        {/* EXECUTIVE RESTAURANT CARD (The Boutique Experience) */}
+        {restaurant && (
+          <View style={styles.infoCardWrapper}>
+            <View style={styles.executiveCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.imageContainer}>
+                  <Image
+                    source={
+                      restaurant?.restaurant_photo
+                        ? { uri: restaurant.restaurant_photo }
+                        : require("../../assets/restaurant.png")
+                    }
+                    style={styles.boutiqueImage}
+                  />
+                  <View style={styles.vegFloatingTag}>
+                    <Ionicons name="leaf" size={10} color="#16a34a" />
+                    <Text style={styles.vegBadgeText}>PURE VEG</Text>
+                  </View>
+                </View>
+
+                <View style={styles.executiveInfo}>
+                  <Text style={styles.boutiqueName}>{restaurant.restaurant_name}</Text>
+
+                  <View style={styles.infoRow}>
+                    <View style={styles.locIconBtn}>
+                      <Ionicons name="location" size={14} color="#FF2B5C" />
+                    </View>
+                    <Text style={styles.locText} numberOfLines={2}>
+                      {restaurant.restaurant_address}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.cardFooter}>
+                <View style={styles.footerCol}>
+                  <Text style={styles.footerLabel}>CONTACT</Text>
+                  <Text style={styles.footerVal}>{restaurant.restaurant_phonenumber}</Text>
+                </View>
+                <View style={styles.footerDivider} />
+                <View style={styles.footerCol}>
+                  <Text style={styles.footerLabel}>TIME</Text>
+                  <Text style={styles.footerVal}>{timeLabel}</Text>
+                </View>
+                <TouchableOpacity style={styles.detailsCirc} onPress={openTimingsModal}>
+                  <Ionicons name="chevron-forward" size={18} color="#FF2B5C" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 48 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        style={styles.mainScroll}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
 
-        {/* OFFER STRIP */}
-        <View style={styles.offerWrapper}>
-          <Ionicons name="gift-outline" size={18 * scale} color="#ffffff" />
-          <Animated.View style={{ opacity: fadeAnim, flex: 1, marginLeft: 10 }}>
-            {highlightAmount(animatedTexts[textIndex])}
-          </Animated.View>
-        </View>
 
-        {/* RESTAURANT CARD */}
-        {restaurant && (
-          <View style={styles.restaurantCard}>
-            <Image
-              source={
-                restaurant?.restaurant_photo
-                  ? { uri: restaurant.restaurant_photo }
-                  : require("../../assets/restaurant.png")
-              }
-              style={styles.restaurantImage}
-            />
-            <LinearGradient
-              colors={["rgba(0,0,0,0.05)", "rgba(0,0,0,0.55)"]}   // 👈 pehle "transparent", "rgba(0,0,0,0.85)"
-              style={styles.overlay}
-            />
-            <View style={styles.overlayContent}>
-              <View style={styles.glassPanel}>
-                <Text style={styles.restaurantTitle}>
-                  {restaurant.restaurant_name}
-                </Text>
-
-                {/* ADDRESS – 2 lines max */}
-                <View style={styles.overlayRow}>
-                  <Ionicons
-                    name="location-outline"
-                    size={16}
-                    color="#fff"
-                  />
-                  <Text
-                    style={styles.addressText}
-                    numberOfLines={2}
-                  >
-                    {restaurant.restaurant_address}
-                  </Text>
-                </View>
-
-                {/* PHONE */}
-                <View style={styles.overlayRow}>
-                  <Ionicons name="call-outline" size={16} color="#fff" />
-                  <Text style={styles.overlayText}>
-                    {restaurant.restaurant_phonenumber}
-                  </Text>
-                </View>
-
-                {/* COLLECTION TIME */}
-                <View style={styles.overlayRow}>
-                  <Ionicons name="time-outline" size={16} color="#fff" />
-                  <View style={{ marginLeft: 8, flex: 1 }}>
-                    <Text style={styles.collectionHeading}>
-                      Collection Time
-                    </Text>
-                    <Text style={styles.overlayText}>{timeLabel}</Text>
-                  </View>
-                  <TouchableOpacity onPress={openTimingsModal}>
-                    <Text style={styles.viewMore}>View More</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* SEARCH BOX */}
         <View style={styles.searchBox}>
@@ -397,196 +405,291 @@ export default function Categories({ route, navigation }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F8F8F8",
+  },
+  mainScroll: {
+    marginTop: 0,
   },
   offerAmount: {
-    color: "#fffa75",        // premium light-gold
+    color: "#FFFF00",
     fontWeight: "900",
-    textShadowColor: "rgba(0,0,0,0.35)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
 
+  // IMMERSIVE BRAND SECTION
+  brandSection: {
+    paddingBottom: 0,
+    borderBottomLeftRadius: 45,
+    borderBottomRightRadius: 45,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    zIndex: 10,
+  },
   offerWrapper: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  offerInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2faa3f",
-    marginHorizontal: 18,
-    marginTop: 10, // slightly tighter
-    paddingHorizontal: 14,
+    backgroundColor: "rgba(0,0,0,0.15)",
     paddingVertical: 10,
-    borderRadius: 5,
-    elevation: 3,
+    paddingHorizontal: 15,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   offerText: {
-    fontSize: 13 * scale,
-    fontWeight: "700",
+    fontSize: 12 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#FFFFFF",
     marginLeft: 10,
-    color: "#f5fff5",
-    width: width * 0.72,
   },
 
-  restaurantCard: {
-    marginHorizontal: 18,
-    marginTop: 12,
-    borderRadius: 10,
-    overflow: "hidden",
-    elevation: 4,
-    backgroundColor: "#ffffff",
+  // EXECUTIVE BOUTIQUE CARD
+  infoCardWrapper: {
+    paddingHorizontal: 16,
+    marginTop: 15,
   },
-  restaurantImage: {
-    width: "100%",
-    height: 220,
-    resizeMode: "cover",
+  executiveCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    padding: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.15,
+    shadowRadius: 25,
+    elevation: 20,
   },
-  overlay: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: "100%",
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  overlayContent: {
-    position: "absolute",
-    bottom: 12,
-    left: 12,
-    right: 12,
+  imageContainer: {
+    position: 'relative',
   },
-  glassPanel: {
-    backgroundColor: "rgba(0,0,0,0.45)",   // 👈 pehle 0.65 tha
+  boutiqueImage: {
+    width: 95 * scale,
+    height: 95 * scale,
+    borderRadius: 22,
+    backgroundColor: "#F0F0F0",
+    borderWidth: 2,
+    borderColor: "#FFF",
+  },
+  vegFloatingTag: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 8,
-    padding: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  restaurantTitle: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 4,
+  vegBadgeText: {
+    fontSize: 8 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#16a34a",
+    marginLeft: 3,
   },
-  overlayRow: {
+  executiveInfo: {
+    flex: 1,
+    marginLeft: 18,
+  },
+  boutiqueName: {
+    fontSize: 20 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#1C1C1C",
+    marginBottom: 6,
+  },
+  infoRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginTop: 6,
   },
-  addressText: {
-    color: "#ffffff",
+  locIconBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,43,92,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  locText: {
+    fontSize: 12 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#666",
     marginLeft: 8,
-    fontSize: 13,
-    flexShrink: 1,
+    flex: 1,
     lineHeight: 18,
   },
-  overlayText: {
-    color: "#ffffff",
-    marginLeft: 8,
-    fontSize: 13,
-    flexShrink: 1,
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F5F5F5",
   },
-  collectionHeading: {
-    color: "#b8ffdf",
-    fontSize: 11,
-    fontWeight: "700",
+  footerCol: {
+    flex: 1,
+  },
+  footerLabel: {
+    fontSize: 9 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#AAA",
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
-  viewMore: {
-    color: "#16f58d",
-    fontSize: 12,
-    marginLeft: 10,
-    fontWeight: "700",
-    alignSelf: "center",
+  footerVal: {
+    fontSize: 11 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#333",
+  },
+  footerDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: "#EEE",
+    marginHorizontal: 15,
+  },
+  detailsCirc: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,43,92,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
+  // SEARCH BOX
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    marginHorizontal: 18,
-    marginTop: 14,
-    paddingHorizontal: 14,
-    height: 46,
-    borderRadius: 10,
-    elevation: 3,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingHorizontal: 18,
+    height: 56,
+    borderRadius: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
   },
   searchInput: {
-    marginLeft: 10,
-    fontSize: 14,
+    marginLeft: 12,
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
     flex: 1,
-    color: "#222222",
+    color: "#1C1C1C",
   },
 
   grid: {
-    paddingHorizontal: 10,
-    paddingTop: 14,
-    paddingBottom: 16, // reduced so bottom looks clean
-  },
-  categoryCard: {
-    width: (width - 52) / 2,
-    backgroundColor: "#ffffff",
-    borderRadius: 5,
-    padding: 12,
-    margin: 8,
-    alignItems: "center",
-    elevation: 3,
-  },
-  categoryImage: {
-    width: "100%",
-    height: (width - 52) / 2 - 26,
-    borderRadius: 5,
-    resizeMode: "contain",   // ⭐ prevents cropping
-    backgroundColor: "#fff", // ⭐ avoids empty gaps behind image
-  },
-
-  categoryText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#222222",
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
 
   modalWrapper: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalBox: {
     width: "85%",
     backgroundColor: "#ffffff",
-    borderRadius: 5,
-    padding: 18,
-    elevation: 8,
-    maxHeight: "80%",
+    borderRadius: 24,
+    padding: 24,
+    elevation: 20,
+    maxHeight: "70%",
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 20 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#1C1C1C",
     textAlign: "center",
-    marginBottom: 12,
+    marginBottom: 20,
   },
   modalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderColor: "#eeeeee",
+    borderColor: "#F0F0F0",
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#444",
   },
   timeText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333333",
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#1C1C1C",
   },
   closeBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    backgroundColor: "#e6fff2",
-    borderRadius: 5,
+    marginTop: 20,
+    paddingVertical: 14,
+    backgroundColor: "#FF2B5C",
+    borderRadius: 14,
   },
   closeText: {
     textAlign: "center",
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#007d54",
+    fontSize: 15 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFFFFF",
+  },
+});
+
+const cardStyles = StyleSheet.create({
+  categoryCard: {
+    width: (width - 48) / 2,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 12,
+    margin: 8,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#F8F8F8",
+  },
+  imageContainer: {
+    width: "100%",
+    height: 110 * scale,
+    borderRadius: 16,
+    backgroundColor: "#F9F9F9",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryImage: {
+    width: "85%",
+    height: "85%",
+    resizeMode: "contain",
+  },
+  categoryText: {
+    marginTop: 10,
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsSemiBold",
+    color: "#1C1C1C",
+    textAlign: "center",
   },
 });

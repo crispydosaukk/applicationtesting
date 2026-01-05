@@ -9,28 +9,30 @@ import {
   Modal,
   Animated,
   Dimensions,
+  Platform,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { logoutUser } from "../utils/authHelpers";
+import LinearGradient from "react-native-linear-gradient";
 
-const { width } = Dimensions.get("window");
-const SIDEBAR_WIDTH = width * 0.5; // Half screen width
+const { width, height } = Dimensions.get("window");
+const SIDEBAR_WIDTH = width * 0.75; // 75% screen width for a premium look
+const scale = width / 400;
 
 export default function MenuModal({ visible, setVisible, user, navigation }) {
   const slideAnim = React.useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
 
   React.useEffect(() => {
     if (visible) {
-      Animated.spring(slideAnim, {
+      Animated.timing(slideAnim, {
         toValue: 0,
+        duration: 350,
         useNativeDriver: true,
-        tension: 65,
-        friction: 11,
       }).start();
     } else {
       Animated.timing(slideAnim, {
         toValue: SIDEBAR_WIDTH,
-        duration: 250,
+        duration: 300,
         useNativeDriver: true,
       }).start();
     }
@@ -51,10 +53,10 @@ export default function MenuModal({ visible, setVisible, user, navigation }) {
   };
 
   const menuItems = [
-    { id: "home", label: "Home", icon: "home-outline", screen: "Home" },
-    { id: "faq", label: "FAQ", icon: "help-circle-outline", screen: "FAQ" },
-    { id: "invite", label: "Invite Friends", icon: "people-outline", screen: "InviteFriends" },
-    { id: "personal", label: "Personal", icon: "person-outline", screen: "Profile" },
+    { id: "home", label: "Home", icon: "grid-outline", screen: "Home", color: "#FF2B5C" },
+    { id: "faq", label: "FAQ Support", icon: "help-buoy-outline", screen: "FAQ", color: "#3B82F6" },
+    { id: "invite", label: "Refer & Earn", icon: "gift-outline", screen: "InviteFriends", color: "#10B981" },
+    { id: "personal", label: "My Profile", icon: "person-outline", screen: "Profile", color: "#8B5CF6" },
   ];
 
   return (
@@ -62,16 +64,17 @@ export default function MenuModal({ visible, setVisible, user, navigation }) {
       visible={visible}
       transparent
       animationType="fade"
+      onShow={() => { }} // Optional: trigger extra things on open
       onRequestClose={() => setVisible(false)}
     >
       <View style={styles.modalContainer}>
-        {/* Dark overlay - tap to close */}
+        {/* Cinematic Backdrop Overlay */}
         <Pressable
           style={styles.overlay}
           onPress={() => setVisible(false)}
         />
 
-        {/* Sidebar */}
+        {/* Premium Sidebar */}
         <Animated.View
           style={[
             styles.sidebar,
@@ -80,66 +83,92 @@ export default function MenuModal({ visible, setVisible, user, navigation }) {
             },
           ]}
         >
-          {/* Header */}
-          <View style={styles.sidebarHeader}>
-            <Text style={styles.sidebarTitle}>Menu</Text>
-            <TouchableOpacity
-              onPress={() => setVisible(false)}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={28} color="#333" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Menu Items */}
-          <View style={styles.menuList}>
-            {menuItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.menuItem}
-                onPress={() => handleNavigation(item.screen)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIconWrapper}>
-                  <Ionicons name={item.icon} size={24} color="#0b7a2a" />
-                </View>
-                <Text style={styles.menuItemText}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={20} color="#999" />
+          {/* IMMERSIVE BRAND HEADER */}
+          <LinearGradient
+            colors={["#FF2B5C", "#FF6B8B"]}
+            style={styles.sidebarHeader}
+          >
+            <View style={styles.headerTop}>
+              <View style={styles.userIconCircle}>
+                <Ionicons name="person" size={28} color="#FF2B5C" />
+              </View>
+              <TouchableOpacity onPress={() => setVisible(false)} style={styles.closeIconBtn}>
+                <Ionicons name="close" size={28} color="#FFFFFF" />
               </TouchableOpacity>
-            ))}
+            </View>
+            <View style={styles.headerInfo}>
+              <Text style={styles.greetingText}>Hello,</Text>
+              <Text style={styles.userNameText} numberOfLines={1}>
+                {user?.full_name ? user.full_name.split(" ")[0] : "Guest"}
+              </Text>
+            </View>
+          </LinearGradient>
 
-            {/* Divider */}
+          {/* REFINED MENU LIST */}
+          <View style={styles.menuList}>
+            <View style={styles.listSection}>
+              <Text style={styles.sectionTitle}>Main Navigation</Text>
+              {menuItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.menuItem}
+                  onPress={() => handleNavigation(item.screen)}
+                  activeOpacity={0.6}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: item.color + "15" }]}>
+                    <Ionicons name={item.icon} size={22} color={item.color} />
+                  </View>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <View style={styles.chevronBox}>
+                    <Ionicons name="chevron-forward" size={16} color="#DDD" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <View style={styles.divider} />
 
-            {/* Logout/Sign In */}
-            {user ? (
-              <TouchableOpacity
-                style={[styles.menuItem, styles.logoutItem]}
-                onPress={handleLogout}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.menuIconWrapper, styles.logoutIconWrapper]}>
-                  <Ionicons name="log-out-outline" size={24} color="#ff3b30" />
-                </View>
-                <Text style={[styles.menuItemText, styles.logoutText]}>Logout</Text>
-                <Ionicons name="chevron-forward" size={20} color="#ff3b30" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setVisible(false);
-                  setTimeout(() => navigation.replace("Login"), 200);
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuIconWrapper}>
-                  <Ionicons name="log-in-outline" size={24} color="#0b7a2a" />
-                </View>
-                <Text style={styles.menuItemText}>Sign In</Text>
-                <Ionicons name="chevron-forward" size={20} color="#999" />
-              </TouchableOpacity>
-            )}
+            {/* AUTH SECTION */}
+            <View style={styles.listSection}>
+              {user ? (
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.logoutItem]}
+                  onPress={handleLogout}
+                  activeOpacity={0.6}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: "#EF444415" }]}>
+                    <Ionicons name="log-out-outline" size={22} color="#EF4444" />
+                  </View>
+                  <Text style={[styles.menuLabel, { color: "#EF4444" }]}>Sign Out</Text>
+                  <View style={styles.chevronBox}>
+                    <Ionicons name="chevron-forward" size={16} color="#FFDADA" />
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setVisible(false);
+                    setTimeout(() => navigation.replace("Login"), 200);
+                  }}
+                  activeOpacity={0.6}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: "#FF2B5C15" }]}>
+                    <Ionicons name="log-in-outline" size={22} color="#FF2B5C" />
+                  </View>
+                  <Text style={styles.menuLabel}>Sign In</Text>
+                  <View style={styles.chevronBox}>
+                    <Ionicons name="chevron-forward" size={16} color="#DDD" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* SIDEBAR FOOTER */}
+          <View style={styles.sidebarFooter}>
+            <Text style={styles.footerBrand}>CRISPY DOSA</Text>
+            <Text style={styles.footerVersion}>v 1.0.4 Premium</Text>
           </View>
         </Animated.View>
       </View>
@@ -153,7 +182,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
   },
   sidebar: {
     position: "absolute",
@@ -161,71 +190,121 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: SIDEBAR_WIDTH,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#FFFFFF",
     shadowColor: "#000",
-    shadowOffset: { width: -2, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 16,
+    shadowOffset: { width: -5, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 20,
   },
   sidebarHeader: {
+    paddingTop: Platform.OS === "ios" ? 50 : 40,
+    paddingHorizontal: 25,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 35,
+  },
+  headerTop: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingTop: 60,
-    backgroundColor: "#f8f8f8",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    alignItems: "center",
   },
-  sidebarTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#222",
+  userIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  closeBtn: {
-    padding: 4,
+  closeIconBtn: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  headerInfo: {
+    marginTop: 20,
+  },
+  greetingText: {
+    fontSize: 16,
+    fontFamily: "PoppinsMedium",
+    color: "rgba(255,255,255,0.9)",
+  },
+  userNameText: {
+    fontSize: 22,
+    fontFamily: "PoppinsBold",
+    color: "#FFFFFF",
+    marginTop: 2,
   },
   menuList: {
     flex: 1,
-    paddingTop: 10,
+    paddingTop: 20,
+  },
+  listSection: {
+    paddingHorizontal: 15,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontFamily: "PoppinsBold",
+    color: "#AAA",
+    marginLeft: 10,
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    marginBottom: 4,
   },
-  menuIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#e8f5e9",
+  menuIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 15,
   },
-  menuItemText: {
+  menuLabel: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontFamily: "PoppinsSemiBold",
     color: "#333",
   },
+  chevronBox: {
+    padding: 4,
+  },
   divider: {
-    height: 8,
-    backgroundColor: "#f8f8f8",
-    marginVertical: 8,
+    height: 1,
+    backgroundColor: "#F0F0F0",
+    marginVertical: 15,
+    marginHorizontal: 25,
   },
   logoutItem: {
+    marginTop: 5,
+  },
+  sidebarFooter: {
+    paddingVertical: 20,
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#F8F8F8",
+  },
+  footerBrand: {
+    fontSize: 14,
+    fontFamily: "PoppinsBold",
+    color: "#DDD",
+    letterSpacing: 2,
+  },
+  footerVersion: {
+    fontSize: 10,
+    fontFamily: "PoppinsMedium",
+    color: "#EEE",
     marginTop: 4,
-  },
-  logoutIconWrapper: {
-    backgroundColor: "#ffebee",
-  },
-  logoutText: {
-    color: "#ff3b30",
   },
 });
