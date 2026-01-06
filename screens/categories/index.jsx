@@ -52,12 +52,17 @@ export default function Categories({ route, navigation }) {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [textIndex, setTextIndex] = useState(0);
+  const offers = [
+    { colors: ["#FF416C", "#FF4B2B"], textColor: "#FFFFFF", icon: "flash" },
+    { colors: ["#1D976C", "#93F9B9"], textColor: "#004D40", icon: "leaf" },
+    { colors: ["#F2994A", "#F2C94C"], textColor: "#5D4037", icon: "wallet" },
+  ];
+  const [activeIndex, setActiveIndex] = useState(0);
   const animatedTexts = [
     "EARN £0.25 ON EVERY ORDER",
     "REFER & EARN £0.25",
     "£0.25 WELCOME BONUS",
   ];
-
   const formatTime = (t) => (!t ? "" : t.slice(0, 5));
 
   // offer text animation
@@ -70,14 +75,18 @@ export default function Categories({ route, navigation }) {
           duration: 500,
           useNativeDriver: true,
         }),
-        Animated.delay(1500),
+        Animated.delay(2000),
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 500,
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setTextIndex((p) => (p + 1) % animatedTexts.length);
+        setTextIndex((p) => {
+          const next = (p + 1) % animatedTexts.length;
+          setActiveIndex(next % offers.length);
+          return next;
+        });
         animate();
       });
     };
@@ -158,6 +167,18 @@ export default function Categories({ route, navigation }) {
     (c?.name || "").toLowerCase().includes(searchText.toLowerCase())
   );
 
+  const [voiceListening, setVoiceListening] = useState(false);
+
+  const startVoiceSearch = () => {
+    setVoiceListening(true);
+    setTimeout(() => {
+      setVoiceListening(false);
+      const keywords = ["Dosa", "Idli", "Chaats", "Drinks"];
+      const random = keywords[Math.floor(Math.random() * keywords.length)];
+      setSearchText(random);
+    }, 2500);
+  };
+
   const { refreshing, onRefresh } = useRefresh(async () => {
     // Reload restaurant
     const d = await fetchRestaurantDetails(userId);
@@ -191,7 +212,7 @@ export default function Categories({ route, navigation }) {
   const renderCategory = ({ item }) => (
     <TouchableOpacity
       style={cardStyles.categoryCard}
-      activeOpacity={0.8}
+      activeOpacity={0.9}
       onPress={() =>
         navigation.navigate("Products", { userId, categoryId: item.id })
       }
@@ -206,9 +227,14 @@ export default function Categories({ route, navigation }) {
           style={cardStyles.categoryImage}
         />
       </View>
-      <Text style={cardStyles.categoryText} numberOfLines={1}>
-        {item?.name}
-      </Text>
+      <View style={cardStyles.textContainer}>
+        <Text style={cardStyles.categoryText} numberOfLines={1}>
+          {item?.name}
+        </Text>
+        <View style={cardStyles.actionBadge}>
+          <Ionicons name="chevron-forward" size={12} color="#E23744" />
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
@@ -257,12 +283,24 @@ export default function Categories({ route, navigation }) {
           statusColor="#FF2B5C"
         />
 
-        {/* INTEGRATED OFFER STRIP */}
-        <Animated.View style={[styles.offerWrapper, { opacity: fadeAnim }]}>
-          <View style={styles.offerInner}>
-            <Ionicons name="gift" size={16 * scale} color="#fffa75" />
-            {highlightAmount(animatedTexts[textIndex])}
-          </View>
+        {/* DYNAMIC COLOR OFFER PILL */}
+        <Animated.View style={[styles.premiumOfferWrap, { opacity: fadeAnim }]}>
+          <LinearGradient
+            colors={offers[activeIndex]?.colors || ["#FF2B5C", "#FF6B8B"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.premiumOfferInner}
+          >
+            <View style={styles.offerIconBadge}>
+              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={16 * scale} color={offers[activeIndex]?.textColor || "#FFF"} />
+            </View>
+            <View style={styles.offerTextContainer}>
+              <Text style={[styles.offerText, { color: offers[activeIndex]?.textColor || '#FFF' }]} numberOfLines={1}>
+                {animatedTexts[textIndex]}
+              </Text>
+            </View>
+            <View style={[styles.glowingDot, { backgroundColor: offers[activeIndex]?.textColor || '#FFF' }]} />
+          </LinearGradient>
         </Animated.View>
 
         {/* EXECUTIVE RESTAURANT CARD (The Boutique Experience) */}
@@ -296,18 +334,37 @@ export default function Categories({ route, navigation }) {
                       {restaurant.restaurant_address}
                     </Text>
                   </View>
+
+                  <View style={styles.serviceRow}>
+                    {restaurant.instore && (
+                      <View style={styles.serviceChip}>
+                        <Ionicons name="storefront" size={11 * scale} color="#666" />
+                        <Text style={styles.serviceChipText}>In-store</Text>
+                      </View>
+                    )}
+                    {restaurant.kerbside && (
+                      <View style={styles.serviceChip}>
+                        <Ionicons name="car" size={12 * scale} color="#666" />
+                        <Text style={styles.serviceChipText}>Kerbside</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
 
               <View style={styles.cardFooter}>
                 <View style={styles.footerCol}>
-                  <Text style={styles.footerLabel}>CONTACT</Text>
-                  <Text style={styles.footerVal}>{restaurant.restaurant_phonenumber}</Text>
+                  <View style={styles.footerIconRow}>
+                    <Ionicons name="call" size={14 * scale} color="#FF2B5C" />
+                    <Text style={styles.footerValLarge}>{restaurant.restaurant_phonenumber}</Text>
+                  </View>
                 </View>
                 <View style={styles.footerDivider} />
                 <View style={styles.footerCol}>
-                  <Text style={styles.footerLabel}>TIME</Text>
-                  <Text style={styles.footerVal}>{timeLabel}</Text>
+                  <View style={styles.footerIconRow}>
+                    <Ionicons name="time" size={14 * scale} color="#FF2B5C" />
+                    <Text style={styles.footerValLarge}>{timeLabel}</Text>
+                  </View>
                 </View>
                 <TouchableOpacity style={styles.detailsCirc} onPress={openTimingsModal}>
                   <Ionicons name="chevron-forward" size={18} color="#FF2B5C" />
@@ -339,7 +396,27 @@ export default function Categories({ route, navigation }) {
             value={searchText}
             onChangeText={setSearchText}
           />
+          <TouchableOpacity onPress={startVoiceSearch}>
+            <Ionicons name="mic-outline" size={20} color="#FF2B5C" />
+          </TouchableOpacity>
         </View>
+
+        {/* Voice Overlay */}
+        {voiceListening && (
+          <View style={styles.voiceOverlay}>
+            <LinearGradient
+              colors={["rgba(255,43,92,0.95)", "rgba(255,43,92,0.8)"]}
+              style={styles.voiceOverlayInner}
+            >
+              <Ionicons name="mic" size={60 * scale} color="#FFF" />
+              <Text style={styles.voiceText}>Listening...</Text>
+              <Text style={styles.voiceSubtext}>Try saying "Dhosa" or "Snacks"</Text>
+              <TouchableOpacity style={styles.voiceClose} onPress={() => setVoiceListening(false)}>
+                <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        )}
 
         {/* CATEGORY GRID */}
         {loading ? (
@@ -398,7 +475,7 @@ export default function Categories({ route, navigation }) {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -428,26 +505,47 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     zIndex: 10,
   },
-  offerWrapper: {
+  premiumOfferWrap: {
     marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 15,
+    marginTop: 12,
+    borderRadius: 50,
     overflow: 'hidden',
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
   },
-  offerInner: {
+  premiumOfferInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.15)",
     paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 16,
+  },
+  offerIconBadge: {
+    width: 32 * scale,
+    height: 32 * scale,
+    borderRadius: 16 * scale,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offerTextContainer: {
+    flex: 1,
+    marginLeft: 15,
   },
   offerText: {
-    fontSize: 12 * scale,
-    fontFamily: "PoppinsSemiBold",
-    color: "#FFFFFF",
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    letterSpacing: 0.5,
+  },
+  glowingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E23744",
     marginLeft: 10,
   },
 
@@ -474,8 +572,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   boutiqueImage: {
-    width: 95 * scale,
-    height: 95 * scale,
+    width: 110 * scale,
+    height: 110 * scale,
     borderRadius: 22,
     backgroundColor: "#F0F0F0",
     borderWidth: 2,
@@ -483,8 +581,8 @@ const styles = StyleSheet.create({
   },
   vegFloatingTag: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    bottom: 6,
+    left: 6,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
@@ -533,6 +631,26 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  serviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 8,
+  },
+  serviceChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  serviceChipText: {
+    fontSize: 10 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#666",
+  },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
@@ -555,6 +673,16 @@ const styles = StyleSheet.create({
     fontSize: 11 * scale,
     fontFamily: "PoppinsSemiBold",
     color: "#333",
+  },
+  footerValLarge: {
+    fontSize: 13.5 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#1C1C1C",
+    marginLeft: 6,
+  },
+  footerIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   footerDivider: {
     width: 1,
@@ -653,43 +781,86 @@ const styles = StyleSheet.create({
     fontFamily: "PoppinsBold",
     color: "#FFFFFF",
   },
+  voiceOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voiceOverlayInner: {
+    width: '100%',
+    height: '100%',
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voiceText: {
+    fontSize: 24 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
+    marginTop: 20,
+  },
+  voiceSubtext: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 10,
+  },
+  voiceClose: {
+    position: 'absolute',
+    bottom: 50,
+  },
 });
 
 const cardStyles = StyleSheet.create({
   categoryCard: {
-    width: (width - 48) / 2,
+    width: (width - 44) / 2, // Slightly more width for the cards
     backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: 12,
-    margin: 8,
-    alignItems: "center",
+    borderRadius: 10, // User requested 8 or 10
+    margin: 6, // Slightly smaller margin
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 }, // Softer shadow
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowRadius: 10,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: "#F8F8F8",
+    borderColor: "#F0F0F0",
+    overflow: 'hidden',
   },
   imageContainer: {
     width: "100%",
-    height: 110 * scale,
-    borderRadius: 16,
-    backgroundColor: "#F9F9F9",
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
+    height: 100 * scale, // Reduced height (from 125)
+    backgroundColor: "#FFFFFF", // Clean white background
+    padding: 8, // Add padding to ensure image doesn't touch edges
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryImage: {
-    width: "85%",
-    height: "85%",
+    width: "100%",
+    height: "100%",
     resizeMode: "contain",
   },
+  textContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 10, // More compact
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F9F9F9',
+  },
   categoryText: {
-    marginTop: 10,
-    fontSize: 14 * scale,
-    fontFamily: "PoppinsSemiBold",
+    fontSize: 13 * scale,
+    fontFamily: "PoppinsBold",
     color: "#1C1C1C",
-    textAlign: "center",
+    flex: 1,
+  },
+  actionBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(226,55,68,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

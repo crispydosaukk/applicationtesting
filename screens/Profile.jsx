@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,32 +9,41 @@ import {
   Dimensions,
   Share,
   Alert,
+  Animated,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Clipboard from "@react-native-clipboard/clipboard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { RefreshControl } from "react-native";
+import LinearGradient from "react-native-linear-gradient";
+import { useIsFocused } from "@react-navigation/native";
 import BottomBar from "./BottomBar.jsx";
 import AppHeader from "./AppHeader";
 import { AuthRequiredInline, AuthRequiredModal } from "./AuthRequired";
 import { fetchProfile } from "../services/profileService";
 import { getWalletSummary } from "../services/walletService";
-
+import { getCart } from "../services/cartService";
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
 
 export default function Profile({ navigation }) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const [profile, setProfile] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cartItemsMap, setCartItemsMap] = useState({});
 
-  // local user to determine if authenticated
   const [userLocal, setUserLocal] = useState(null);
   const [authModalVisible, setAuthModalVisible] = useState(false);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     const init = async () => {
@@ -44,34 +53,26 @@ export default function Profile({ navigation }) {
         setUserLocal(parsed);
 
         if (!parsed) {
-          // not signed in — avoid API calls and stop loading
           setLoading(false);
           return;
         }
 
-        // 1️⃣ Try Cache First (Instant Load)
-        try {
-          const [cachedProfile, cachedWallet] = await Promise.all([
-            AsyncStorage.getItem("profile_cache"),
-            AsyncStorage.getItem("wallet_summary_cache"),
-          ]);
+        // Cache first
+        const [cachedProfile, cachedWallet] = await Promise.all([
+          AsyncStorage.getItem("profile_cache"),
+          AsyncStorage.getItem("wallet_summary_cache"),
+        ]);
 
-          if (cachedProfile && cachedWallet) {
-            setProfile(JSON.parse(cachedProfile));
-            setWallet(JSON.parse(cachedWallet));
-            setLoading(false); // ✅ Show UI immediately
-          } else {
-            setLoading(false); // Show empty/partial UI rather than stuck spinner
-          }
-        } catch (e) {
-          console.log("Cache load error (Profile):", e);
+        if (cachedProfile && cachedWallet) {
+          setProfile(JSON.parse(cachedProfile));
+          setWallet(JSON.parse(cachedWallet));
           setLoading(false);
+          startAnimations();
         }
 
-        // 2️⃣ Fetch Fresh Data (Background Update)
+        // Fetch fresh
         const [profileData, walletData] = await Promise.all([fetchProfile(), getWalletSummary()]);
 
-        // Update Caches
         if (profileData) {
           setProfile(profileData);
           AsyncStorage.setItem("profile_cache", JSON.stringify(profileData));
@@ -80,355 +81,306 @@ export default function Profile({ navigation }) {
           setWallet(walletData);
           AsyncStorage.setItem("wallet_summary_cache", JSON.stringify(walletData));
         }
+        setLoading(false);
+        startAnimations();
       } catch (err) {
         console.log("Profile error", err);
+        setLoading(false);
       }
     };
 
     init();
   }, []);
 
+  useEffect(() => {
+    if (!userLocal || !isFocused) return;
+    (async () => {
+      const cid = userLocal.id ?? userLocal.customer_id;
+      const res = await getCart(cid);
+      if (res?.status === 1 && Array.isArray(res.data)) {
+        const map = {};
+        res.data.forEach(item => {
+          if (item.product_quantity > 0) map[item.product_id] = item.product_quantity;
+        });
+        setCartItemsMap(map);
+      }
+    })();
+  }, [userLocal, isFocused]);
+
+  const startAnimations = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+    ]).start();
+  };
 
   const copyReferralCode = () => {
     if (!profile?.referral_code) {
       Alert.alert("No referral code", "Please sign in to access your referral code.");
       return;
     }
-
     Clipboard.setString(profile.referral_code);
-    Alert.alert("Copied", "Referral code copied to clipboard");
+    Alert.alert("Copied", "Referral code copied to clipboard ✨");
   };
 
   const shareReferral = async () => {
     if (!profile?.referral_code) {
-      Alert.alert("No referral code", "Please sign in to access and share your referral code.");
+      Alert.alert("No referral code", "Please sign in to share your code.");
       return;
     }
-
     try {
       await Share.share({
-        message: `Use my referral code *${profile.referral_code}* and get rewards on your first order 🚀`,
+        message: `Join Crispy Dosa using my code *${profile.referral_code}* and enjoy premium rewards! 🍛🔥`,
       });
     } catch (err) {
       console.log("Share error", err);
     }
   };
 
-
-
   const onRefresh = async () => {
-    if (!userLocal) {
-      setRefreshing(false);
-      return;
-    }
-
+    if (!userLocal) return;
     try {
       setRefreshing(true);
-
-      const [profileData, walletData] = await Promise.all([
-        fetchProfile(),
-        getWalletSummary(),
-      ]);
-
+      const [profileData, walletData] = await Promise.all([fetchProfile(), getWalletSummary()]);
       setProfile(profileData);
       setWallet(walletData);
-    } catch (err) {
-      console.log("Profile refresh error", err);
+
+      const cid = userLocal.id ?? userLocal.customer_id;
+      const res = await getCart(cid);
+      if (res?.status === 1 && Array.isArray(res.data)) {
+        const map = {};
+        res.data.forEach(item => {
+          if (item.product_quantity > 0) map[item.product_id] = item.product_quantity;
+        });
+        setCartItemsMap(map);
+      }
     } finally {
       setRefreshing(false);
     }
   };
 
-
   const logout = async () => {
-    await AsyncStorage.removeItem("token");
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "Login" }],
-    });
+    Alert.alert("Logout", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Yes, Logout",
+        style: "destructive",
+        onPress: async () => {
+          await AsyncStorage.multiRemove(["token", "user", "profile_cache", "wallet_summary_cache"]);
+          navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        }
+      }
+    ]);
   };
 
-  if (loading) {
+  if (loading && !profile) {
     return (
-      <View style={styles.center}>
-        <Text>Loading profile...</Text>
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={styles.loaderText}>Elevating your profile...</Text>
       </View>
     );
   }
 
-  // If not signed in, show the inline prompt (with header + bottom bar) immediately
   if (!userLocal) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#f6f7fb" }}>
-        <AppHeader
-          user={null}
-          navigation={navigation}
-          cartItems={{}}
-          onMenuPress={() => setAuthModalVisible(true)}
-        />
-
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
-          <AuthRequiredInline onSignIn={() => navigation.replace("Login")} description={"Sign in to view your profile, orders and rewards."} />
-
-          <AuthRequiredModal
-            visible={authModalVisible}
-            onClose={() => setAuthModalVisible(false)}
-            onSignIn={() => { setAuthModalVisible(false); navigation.replace("Login"); }}
-          />
+      <View style={{ flex: 1, backgroundColor: "#FFF" }}>
+        <AppHeader user={null} navigation={navigation} cartItems={{}} onMenuPress={() => setAuthModalVisible(true)} />
+        <View style={styles.authContainer}>
+          <AuthRequiredInline onSignIn={() => navigation.replace("Login")} description={"Sign in to access your business profile and rewards."} />
         </View>
-
         <BottomBar navigation={navigation} />
       </View>
     );
   }
 
+  const totalWallet = wallet
+    ? (Number(wallet.wallet_balance || 0) + (wallet.loyalty_expiry_list || []).reduce((sum, i) => sum + Number(i.credit_value || 0), 0)).toFixed(2)
+    : "0.00";
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#f6f7fb" }}>
+    <View style={styles.root}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 120 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20, paddingTop: insets.top }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#16a34a" />}
       >
-
-        {/* HEADER */}
-        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-          <View style={styles.profileRow}>
-            <View style={styles.avatar}>
-              <Ionicons name="person-outline" size={34} color="#28a745" />
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          {/* PREMIUM HEADER CARD */}
+          <LinearGradient colors={["#1D976C", "#93F9B9"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.profileHeader}>
+            <View style={styles.headerContent}>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatarInner}>
+                  <Ionicons name="person" size={40} color="#16a34a" />
+                </View>
+                <View style={styles.editBadge}>
+                  <Ionicons name="camera" size={12} color="#FFF" />
+                </View>
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{profile?.full_name || "Crispy User"}</Text>
+                <Text style={styles.userPhone}>{profile?.country_code} {profile?.mobile_number}</Text>
+                <View style={styles.businessBadge}>
+                  <Ionicons name="checkmark-circle" size={14} color="#FFF" />
+                  <Text style={styles.badgeText}>Verified Business Account</Text>
+                </View>
+              </View>
             </View>
 
-            <View style={{ marginLeft: 14 }}>
-              <Text style={styles.name}>{profile?.full_name || "—"}</Text>
-              <Text style={styles.phone}>
-                {profile?.country_code || ""} {profile?.mobile_number || ""}
-              </Text>
+            {/* QUICK STATS OVERLAY */}
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statVal}>£{totalWallet}</Text>
+                <Text style={styles.statLabel}>Total Balance</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Text style={styles.statVal}>{wallet?.loyalty_expiry_list?.length || 0}</Text>
+                <Text style={styles.statLabel}>Rewards</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Text style={styles.statVal}>0</Text>
+                <Text style={styles.statLabel}>Orders</Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* REFERRAL BUSINESS CARD */}
+          <View style={styles.section}>
+            <LinearGradient colors={["#FFF", "#F8FAFC"]} style={styles.referralCard}>
+              <View style={styles.refLeft}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                  <Ionicons name="people-circle" size={26} color="#16a34a" />
+                  <Text style={[styles.refTitle, { marginLeft: 8 }]}>Refer a Friend</Text>
+                </View>
+                <Text style={styles.refDesc}>(Invite friends and earn instantly)</Text>
+                <View style={styles.codeRow}>
+                  <Text style={styles.refCodeLabel}>MY CODE:</Text>
+                  <Text style={styles.refCodeText}>{profile?.referral_code || "ALPHA"}</Text>
+                </View>
+              </View>
+              <View style={styles.refActions}>
+                <TouchableOpacity style={styles.iconBtn} onPress={copyReferralCode}>
+                  <Ionicons name="copy" size={20} color="#16a34a" />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.iconBtn, { backgroundColor: '#16a34a' }]} onPress={shareReferral}>
+                  <Ionicons name="share-social" size={20} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* MAIN MENU SECTIONS */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>ACCOUNT MANAGEMENT</Text>
+            <View style={styles.menuGroup}>
+              <MenuItem icon="receipt" label="My Orders" sub="View history & tracking" color="#F97316" onPress={() => navigation.navigate("Orders")} />
+              <MenuItem icon="wallet" label="Credits & Wallet" sub="Balance & statement" color="#0EA5E9" onPress={() => navigation.navigate("Credits")} />
+              <MenuItem icon="person-circle" label="Edit Profile" sub="Update personal info" color="#8B5CF6" onPress={() => navigation.navigate("EditProfile")} />
             </View>
           </View>
-        </View>
 
-        {/* WALLET */}
-        <View style={styles.walletCard}>
-          <Ionicons name="wallet-outline" size={26} color="#28a745" />
-          <View style={{ marginLeft: 12 }}>
-            <Text style={styles.walletLabel}>Wallet Balance</Text>
-            <Text style={styles.walletAmount}>
-              £
-              {wallet
-                ? (
-                  Number(wallet.wallet_balance || 0) +
-                  (wallet.loyalty_expiry_list || []).reduce(
-                    (sum, item) => sum + Number(item.credit_value || 0),
-                    0
-                  )
-                ).toFixed(2)
-                : "0.00"}
-            </Text>
-          </View>
-        </View>
-
-        {/* REFERRAL */}
-        <View style={styles.referralCard}>
-          <View>
-            <Text style={styles.refTitle}>Your Referral Code</Text>
-            <Text style={styles.refCode}>{profile?.referral_code || "—"}</Text>
-            <Text style={styles.refSub}>
-              Invite friends & earn credits
-            </Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>RESOURCES & LEGAL</Text>
+            <View style={styles.menuGroup}>
+              <MenuItem icon="help-buoy" label="Support Center" sub="FAQs & live chat" color="#10B981" onPress={() => navigation.navigate("HelpCenter")} />
+              <MenuItem icon="shield-checkmark" label="Privacy Policy" sub="How we use your data" color="#64748B" onPress={() => navigation.navigate("PrivacyPolicy")} />
+              <MenuItem icon="document-text" label="Terms of Service" sub="App usage guidelines" color="#64748B" onPress={() => navigation.navigate("TermsConditions")} />
+            </View>
           </View>
 
-          <View style={{ gap: 8 }}>
-            <TouchableOpacity style={styles.copyBtn} onPress={copyReferralCode}>
-              <Ionicons name="copy-outline" size={18} color="#28a745" />
-              <Text style={styles.copyText}>Copy</Text>
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+            <LinearGradient colors={["#FEF2F2", "#FFF"]} style={styles.logoutInner}>
+              <Ionicons name="log-out" size={22} color="#EF4444" />
+              <Text style={styles.logoutText}>Sign Out Account</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-            <TouchableOpacity style={styles.shareBtn} onPress={shareReferral}>
-              <Ionicons name="logo-whatsapp" size={18} color="#fff" />
-              <Text style={styles.shareText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          <Text style={styles.versionText}>Crispy Dosa Business v2.0.1</Text>
 
-        {/* QUICK ACTIONS */}
-        <View style={styles.quickRow}>
-          <QuickItem
-            icon="receipt-outline"
-            label="Orders"
-            onPress={() => navigation.navigate("Orders")}
-          />
-          <QuickItem
-            icon="wallet-outline"
-            label="Credits"
-            onPress={() => navigation.navigate("Credits")}
-          />
-          <QuickItem
-            icon="headset-outline"
-            label="Support"
-            onPress={() => navigation.navigate("HelpCenter")}
-          />
-        </View>
-
-        {/* MENU */}
-        <View style={styles.menuCard}>
-          {/* <MenuItem
-            icon="card-outline"
-            label="Payment History"
-            onPress={() => {
-              if (!userLocal) setAuthModalVisible(true);
-              else navigation.navigate("PaymentHistory");
-            }}
-          /> */}
-          <MenuItem
-            icon="person-outline"
-            label="Edit Profile"
-            onPress={() => navigation.navigate("EditProfile")}
-          />
-          <MenuItem
-            icon="document-text-outline"
-            label="Privacy Policy"
-            onPress={() => navigation.navigate("PrivacyPolicy")}
-          />
-          <MenuItem
-            icon="newspaper-outline"
-            label="Terms & Conditions"
-            onPress={() => navigation.navigate("TermsConditions")}
-          />
-          <MenuItem
-            icon="log-out-outline"
-            label="Logout"
-            danger
-            onPress={logout}
-          />
-        </View>
+        </Animated.View>
       </ScrollView>
 
       <BottomBar navigation={navigation} />
+      <AuthRequiredModal visible={authModalVisible} onClose={() => setAuthModalVisible(false)} onSignIn={() => { setAuthModalVisible(false); navigation.replace("Login"); }} />
     </View>
   );
 }
 
-/* ---------- SMALL COMPONENTS ---------- */
-
-const QuickItem = ({ icon, label, onPress }) => (
-  <TouchableOpacity style={styles.quickItem} onPress={onPress}>
-    <Ionicons name={icon} size={22} color="#28a745" />
-    <Text style={styles.quickText}>{label}</Text>
+const MenuItem = ({ icon, label, sub, color, onPress }) => (
+  <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
+    <View style={[styles.menuIconBg, { backgroundColor: color + '15' }]}>
+      <Ionicons name={icon} size={22} color={color} />
+    </View>
+    <View style={styles.menuTextContent}>
+      <Text style={styles.menuLabel}>{label}</Text>
+      <Text style={styles.menuSub}>{sub}</Text>
+    </View>
+    <View style={styles.chevron}>
+      <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+    </View>
   </TouchableOpacity>
 );
-
-const MenuItem = ({ icon, label, danger, onPress }) => (
-  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <Ionicons
-      name={icon}
-      size={22}
-      color={danger ? "#e53935" : "#333"}
-    />
-    <Text style={[styles.menuText, danger && { color: "#e53935" }]}>
-      {label}
-    </Text>
-    {!danger && (
-      <Ionicons name="chevron-forward" size={18} color="#aaa" />
-    )}
-  </TouchableOpacity>
-);
-
-/* ---------- STYLES ---------- */
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  root: { flex: 1, backgroundColor: "#F8FAFC" },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+  loaderText: { marginTop: 15, fontFamily: 'PoppinsMedium', color: '#16a34a' },
+  authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
 
-  header: {
-    backgroundColor: "#28a745",
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+  profileHeader: {
+    padding: 25,
+    paddingTop: 30,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
+    elevation: 20,
+    shadowColor: '#16a34a',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
   },
-  profileRow: { flexDirection: "row", alignItems: "center" },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#ffffff",
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 5,
-  },
+  headerContent: { flexDirection: 'row', alignItems: 'center' },
+  avatarContainer: { position: 'relative' },
+  avatarInner: { width: 85, height: 85, borderRadius: 45, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' },
+  editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#EA580C', padding: 6, borderRadius: 12, borderWidth: 2, borderColor: '#FFF' },
 
-  name: { fontSize: 18 * scale, fontWeight: "700", color: "#fff" },
-  phone: { fontSize: 13 * scale, color: "#eaffef" },
+  userInfo: { marginLeft: 20, flex: 1 },
+  userName: { fontSize: 24 * scale, fontFamily: "PoppinsBold", color: "#FFF", fontWeight: '900' },
+  userPhone: { fontSize: 14 * scale, fontFamily: "PoppinsMedium", color: "rgba(255,255,255,0.8)", marginTop: -2 },
+  businessBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 8, alignSelf: 'flex-start' },
+  badgeText: { fontSize: 10 * scale, fontFamily: "PoppinsBold", color: "#FFF", marginLeft: 5, letterSpacing: 0.5 },
 
-  walletCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    margin: 16,
-    padding: 16,
-    borderRadius: 16,
-    elevation: 4,
-  },
-  walletLabel: { fontSize: 12, color: "#777" },
-  walletAmount: { fontSize: 20, fontWeight: "800", color: "#000" },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 35, backgroundColor: 'rgba(0,0,0,0.1)', padding: 15, borderRadius: 20 },
+  statBox: { flex: 1, alignItems: 'center' },
+  statVal: { fontSize: 18 * scale, fontFamily: "PoppinsBold", color: "#FFF" },
+  statLabel: { fontSize: 10 * scale, fontFamily: "PoppinsMedium", color: "rgba(255,255,255,0.7)", textTransform: 'uppercase' },
+  statDivider: { width: 1, height: '60%', backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center' },
 
-  referralCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    elevation: 4,
-  },
-  refTitle: { fontSize: 12, color: "#777" },
-  refCode: { fontSize: 20, fontWeight: "800" },
-  refSub: { fontSize: 11, color: "#888" },
+  section: { paddingHorizontal: 20, marginTop: 25 },
+  sectionLabel: { fontSize: 12 * scale, fontFamily: "PoppinsBold", color: "#64748B", letterSpacing: 1.5, marginBottom: 15, marginLeft: 5 },
 
-  copyBtn: {
-    flexDirection: "row",
-    backgroundColor: "#eaf8ef",
-    padding: 6,
-    borderRadius: 20,
-    alignItems: "center",
-  },
-  copyText: { marginLeft: 6, color: "#28a745", fontSize: 12 },
+  referralCard: { padding: 20, borderRadius: 22, flexDirection: 'row', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.05, borderWidth: 1, borderColor: '#FFF' },
+  refLeft: { flex: 1 },
+  refTitle: { fontSize: 18 * scale, fontFamily: "PoppinsBold", color: "#1C1C1C" },
+  refDesc: { fontSize: 12 * scale, fontFamily: "PoppinsMedium", color: "#64748B", marginTop: 2 },
+  codeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  refCodeLabel: { fontSize: 10 * scale, fontFamily: "PoppinsBold", color: "#94A3B8" },
+  refCodeText: { fontSize: 16 * scale, fontFamily: "PoppinsBold", color: "#16a34a", marginLeft: 8, letterSpacing: 2 },
 
-  shareBtn: {
-    flexDirection: "row",
-    backgroundColor: "#25D366",
-    padding: 6,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  shareText: { marginLeft: 6, color: "#fff", fontSize: 12 },
+  refActions: { gap: 10 },
+  iconBtn: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#DCFCE7' },
 
-  quickRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 22,
-  },
-  quickItem: {
-    backgroundColor: "#fff",
-    width: width * 0.28,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
-    elevation: 4,
-  },
-  quickText: { marginTop: 6, fontSize: 12, fontWeight: "600" },
+  menuGroup: { backgroundColor: '#FFF', borderRadius: 22, padding: 10, elevation: 4, shadowColor: '#000', shadowOpacity: 0.03, borderWidth: 1, borderColor: '#F1F5F9' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 15 },
+  menuIconBg: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  menuTextContent: { flex: 1, marginLeft: 15 },
+  menuLabel: { fontSize: 15 * scale, fontFamily: "PoppinsBold", color: "#1E293B" },
+  menuSub: { fontSize: 12 * scale, fontFamily: "PoppinsMedium", color: "#94A3B8", marginTop: 1 },
+  chevron: { opacity: 0.5 },
 
-  menuCard: {
-    backgroundColor: "#fff",
-    margin: 16,
-    borderRadius: 16,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 0.5,
-    borderColor: "#eee",
-  },
-  menuText: { flex: 1, marginLeft: 14, fontSize: 14 },
+  logoutBtn: { marginHorizontal: 20, marginTop: 30, borderRadius: 20, overflow: 'hidden', elevation: 2 },
+  logoutInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderDash: [5, 5], borderWidth: 1, borderColor: '#FEE2E2' },
+  logoutText: { fontSize: 16 * scale, fontFamily: "PoppinsBold", color: "#EF4444", marginLeft: 10 },
+
+  versionText: { textAlign: 'center', marginTop: 30, fontSize: 12 * scale, fontFamily: "PoppinsMedium", color: "#CBD5E1" }
 });

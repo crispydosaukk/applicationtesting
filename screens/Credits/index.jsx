@@ -286,22 +286,6 @@ export default function CreditsScreen({ navigation }) {
           </Text>
 
           <View style={styles.column}>
-            <View style={[styles.card, styles.walletCard]}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="wallet-outline" size={24} color="#10b981" />
-                <View>
-                  <Text style={styles.cardLabel}>Total Wallet Balance</Text>
-                  <Text style={{ fontSize: 10, color: '#666' }}>(Includes Referral & Signup Bonus)</Text>
-                </View>
-              </View>
-              <Text style={styles.cardValue}>
-                {walletBalance !== null ? `£${Number(walletBalance).toFixed(2)}` : "—"}
-              </Text>
-              <Text style={styles.cardHint}>
-                This balance acts as cash and can be used immediately for your orders. It includes any bonuses earned from signups or referrals.
-              </Text>
-            </View>
-
             <View style={[styles.card, styles.creditsCard]}>
               <View style={styles.cardHeader}>
                 <Ionicons name="gift-outline" size={24} color="#3b82f6" />
@@ -311,10 +295,7 @@ export default function CreditsScreen({ navigation }) {
               <View style={styles.creditsRow}>
                 <Text style={styles.cardValue}>
                   £{totalLoyaltyValue.toFixed(2)}
-                </Text>{/*
-                  <Text style={styles.pointsSubText}>
-                     ({loyaltyPoints} credits)
-                  </Text>*/}
+                </Text>
               </View>
 
               <Text style={styles.cardHint}>
@@ -423,6 +404,22 @@ export default function CreditsScreen({ navigation }) {
                   )}
                 </View>
               )}
+            </View>
+
+            <View style={[styles.card, styles.walletCard]}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="wallet-outline" size={24} color="#10b981" />
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+                  <Text style={[styles.cardLabel, { marginLeft: 10 }]}>Referral and Signup Amount</Text>
+                  <Text style={{ fontSize: 10, color: '#666', marginLeft: 8 }}>(Friend Invites & Joining)</Text>
+                </View>
+              </View>
+              <Text style={styles.cardValue}>
+                {walletBalance !== null ? `£${Number(walletBalance).toFixed(2)}` : "—"}
+              </Text>
+              <Text style={styles.cardHint}>
+                This balance consists of rewards earned by inviting your friends or as a welcome bonus. It can be used instantly to pay for your orders.
+              </Text>
             </View>
           </View>
 

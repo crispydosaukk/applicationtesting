@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   StatusBar,
+  ScrollView,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -138,232 +139,237 @@ export default function SignupScreen({ navigation }) {
       >
         <LinearGradient
           colors={["#eaffea", "#ffffff"]}
-          style={[styles.container, { paddingHorizontal: 24 }]}
+          style={styles.container}
         >
-          {/* LOGO */}
-          <Image source={require("../assets/logo.png")} style={styles.logo} />
-
-          {/* FULL NAME */}
-          <View style={styles.inputRow}>
-            <Ionicons name="person-outline" size={20} color="#1b5e20" />
-            <TextInput
-              placeholder="Last Name"
-              placeholderTextColor="#7a927a"
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
-
-          {/* EMAIL */}
-          <View style={styles.inputRow}>
-            <Ionicons name="mail-outline" size={20} color="#1b5e20" />
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor="#7a927a"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
-          {/* PHONE */}
-          <View style={styles.inputRow}>
-            <CountryPicker
-              countryCode={countryCode}
-              withFlag
-              withCallingCode
-              onSelect={(c) => {
-                setCountryCode(c.cca2);
-                setCallingCode(c.callingCode[0]);
-              }}
-            />
-            <Text style={styles.countryCode}>+{callingCode}</Text>
-            <TextInput
-              placeholder="Phone Number"
-              placeholderTextColor="#7a927a"
-              keyboardType="number-pad"
-              style={[styles.input, { flex: 1 }]}
-              value={phone}
-              onChangeText={setPhone}
-            />
-          </View>
-
-          {/* PASSWORD */}
-          <View style={styles.inputRow}>
-            <Ionicons name="lock-closed-outline" size={20} color="#1b5e20" />
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#7a927a"
-              secureTextEntry
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-
-          {/* CONFIRM PASSWORD */}
-          <View style={styles.inputRow}>
-            <Ionicons name="lock-closed-outline" size={20} color="#1b5e20" />
-            <TextInput
-              placeholder="Confirm Password"
-              placeholderTextColor="#7a927a"
-              secureTextEntry
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-          </View>
-
-          {/* 🔹 PREFERRED RESTAURANT (DYNAMIC) */}
-          <View style={styles.pickerBox}>
-            <Picker
-              selectedValue={preferredRestaurant}
-              onValueChange={setPreferredRestaurant}
-              style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
-              itemStyle={{ color: "#1b5e20" }}              // 🔥 Text visible everywhere
-            >
-
-              <Picker.Item label="Preferred Restaurant" value="" />
-
-              {restaurantsLoading && (
-                <Picker.Item label="Loading restaurants..." value="" />
-              )}
-
-              {!restaurantsLoading && restaurants.length === 0 && (
-                <Picker.Item
-                  label="No restaurants available"
-                  value=""
-                />
-              )}
-
-              {!restaurantsLoading &&
-                restaurants.map((r) => (
-                  <Picker.Item
-                    key={r.id}
-                    label={r.name}
-                    value={r.name} // keep behaviour same as old static names
-                  />
-                ))}
-            </Picker>
-          </View>
-
-          {/* DATE OF BIRTH */}
-          <TouchableOpacity
-            style={styles.dateRow}
-            onPress={() => setShowDobPicker(true)}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
           >
-            <Text
-              style={[
-                styles.dateText,
-                !dob && { color: "#7a927a" }, // placeholder style
-              ]}
-            >
-              {dob ? dob.toDateString() : "Date of Birth"}
-            </Text>
-            <Ionicons name="calendar-outline" size={20} color="#1b5e20" />
-          </TouchableOpacity>
+            {/* LOGO */}
+            <Image source={require("../assets/logo.png")} style={styles.logo} />
 
-          {showDobPicker && (
-            <DateTimePicker
-              mode="date"
-              display="default"
-              value={dob || getDefaultDobForPicker()}
-              maximumDate={new Date()}
-              onChange={(e, selectedDate) => {
-                setShowDobPicker(false);
-                if (selectedDate) setDob(selectedDate);
-              }}
-            />
-          )}
-
-          {/* GENDER */}
-          <View style={styles.pickerBox}>
-            <Picker
-              selectedValue={gender}
-              onValueChange={setGender}
-              style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
-              itemStyle={{ color: "#1b5e20" }}              // 🔥 Placeholder visible
-            >
-              <Picker.Item label="Gender (Optional)" value="" />
-              <Picker.Item label="Male" value="male" />
-              <Picker.Item label="Female" value="female" />
-              <Picker.Item label="Other" value="other" />
-            </Picker>
-          </View>
-
-          {/* REFERRAL CODE */}
-          <View style={styles.inputRow}>
-            <Ionicons name="gift-outline" size={20} color="#1b5e20" />
-            <TextInput
-              placeholder="Referral Code (Optional)"
-              placeholderTextColor="#7a927a"
-              style={styles.input}
-              value={referralCode}
-              onChangeText={setReferralCode}
-            />
-          </View>
-
-          {/* TERMS CHECKBOX */}
-          <View style={styles.termsContainer}>
-            <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkbox}>
-              <Ionicons
-                name={termsAccepted ? "checkbox" : "square-outline"}
-                size={24}
-                color={termsAccepted ? "#2e7d32" : "#7a927a"}
+            {/* FULL NAME */}
+            <View style={styles.inputRow}>
+              <Ionicons name="person-outline" size={20} color="#1b5e20" />
+              <TextInput
+                placeholder="Last Name"
+                placeholderTextColor="#7a927a"
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
               />
-            </TouchableOpacity>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.termsText}>
-                I agree to the{" "}
-                <Text
-                  style={styles.linkText}
-                  onPress={() => navigation.navigate("TermsConditions")}
-                >
-                  Terms & Conditions
-                </Text>{" "}
-                and{" "}
-                <Text
-                  style={styles.linkText}
-                  onPress={() => navigation.navigate("PrivacyPolicy")}
-                >
-                  Privacy Policy
-                </Text>
-              </Text>
             </View>
-          </View>
 
-          {/* SIGN UP BUTTON */}
-          <TouchableOpacity
-            style={[styles.signupBtn, { opacity: termsAccepted ? 1 : 0.6 }]}
-            onPress={handleSignup}
-            disabled={!termsAccepted}
-          >
-            <LinearGradient
-              colors={termsAccepted ? ["#4caf50", "#2e7d32"] : ["#a5d6a7", "#81c784"]}
-              style={styles.signupGradient}
-            >
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={22}
-                color="#fff"
-                style={{ marginRight: 8 }}
+            {/* EMAIL */}
+            <View style={styles.inputRow}>
+              <Ionicons name="mail-outline" size={20} color="#1b5e20" />
+              <TextInput
+                placeholder="Email"
+                placeholderTextColor="#7a927a"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
               />
-              <Text style={styles.signupText}>Sign Up</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            </View>
 
-          <Text style={styles.footer}>
-            Already have an account?{" "}
-            <Text
-              style={styles.loginLink}
-              onPress={() => navigation.navigate("Login")}
+            {/* PHONE */}
+            <View style={styles.inputRow}>
+              <CountryPicker
+                countryCode={countryCode}
+                withFlag
+                withCallingCode
+                onSelect={(c) => {
+                  setCountryCode(c.cca2);
+                  setCallingCode(c.callingCode[0]);
+                }}
+              />
+              <Text style={styles.countryCode}>+{callingCode}</Text>
+              <TextInput
+                placeholder="Phone Number"
+                placeholderTextColor="#7a927a"
+                keyboardType="number-pad"
+                style={[styles.input, { flex: 1 }]}
+                value={phone}
+                onChangeText={setPhone}
+              />
+            </View>
+
+            {/* PASSWORD */}
+            <View style={styles.inputRow}>
+              <Ionicons name="lock-closed-outline" size={20} color="#1b5e20" />
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#7a927a"
+                secureTextEntry
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+              />
+            </View>
+
+            {/* CONFIRM PASSWORD */}
+            <View style={styles.inputRow}>
+              <Ionicons name="lock-closed-outline" size={20} color="#1b5e20" />
+              <TextInput
+                placeholder="Confirm Password"
+                placeholderTextColor="#7a927a"
+                secureTextEntry
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
+
+            {/* 🔹 PREFERRED RESTAURANT (DYNAMIC) */}
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={preferredRestaurant}
+                onValueChange={setPreferredRestaurant}
+                style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
+                itemStyle={{ color: "#1b5e20" }}              // 🔥 Text visible everywhere
+              >
+
+                <Picker.Item label="Preferred Restaurant" value="" />
+
+                {restaurantsLoading && (
+                  <Picker.Item label="Loading restaurants..." value="" />
+                )}
+
+                {!restaurantsLoading && restaurants.length === 0 && (
+                  <Picker.Item
+                    label="No restaurants available"
+                    value=""
+                  />
+                )}
+
+                {!restaurantsLoading &&
+                  restaurants.map((r) => (
+                    <Picker.Item
+                      key={r.id}
+                      label={r.name}
+                      value={r.name} // keep behaviour same as old static names
+                    />
+                  ))}
+              </Picker>
+            </View>
+
+            {/* DATE OF BIRTH */}
+            <TouchableOpacity
+              style={styles.dateRow}
+              onPress={() => setShowDobPicker(true)}
             >
-              Login
+              <Text
+                style={[
+                  styles.dateText,
+                  !dob && { color: "#7a927a" }, // placeholder style
+                ]}
+              >
+                {dob ? dob.toDateString() : "Date of Birth"}
+              </Text>
+              <Ionicons name="calendar-outline" size={20} color="#1b5e20" />
+            </TouchableOpacity>
+
+            {showDobPicker && (
+              <DateTimePicker
+                mode="date"
+                display="default"
+                value={dob || getDefaultDobForPicker()}
+                maximumDate={new Date()}
+                onChange={(e, selectedDate) => {
+                  setShowDobPicker(false);
+                  if (selectedDate) setDob(selectedDate);
+                }}
+              />
+            )}
+
+            {/* GENDER */}
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={gender}
+                onValueChange={setGender}
+                style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
+                itemStyle={{ color: "#1b5e20" }}              // 🔥 Placeholder visible
+              >
+                <Picker.Item label="Gender (Optional)" value="" />
+                <Picker.Item label="Male" value="male" />
+                <Picker.Item label="Female" value="female" />
+                <Picker.Item label="Other" value="other" />
+              </Picker>
+            </View>
+
+            {/* REFERRAL CODE */}
+            <View style={styles.inputRow}>
+              <Ionicons name="gift-outline" size={20} color="#1b5e20" />
+              <TextInput
+                placeholder="Referral Code (Optional)"
+                placeholderTextColor="#7a927a"
+                style={styles.input}
+                value={referralCode}
+                onChangeText={setReferralCode}
+              />
+            </View>
+
+            {/* TERMS CHECKBOX */}
+            <View style={styles.termsContainer}>
+              <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkbox}>
+                <Ionicons
+                  name={termsAccepted ? "checkbox" : "square-outline"}
+                  size={24}
+                  color={termsAccepted ? "#2e7d32" : "#7a927a"}
+                />
+              </TouchableOpacity>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.termsText}>
+                  I agree to the{" "}
+                  <Text
+                    style={styles.linkText}
+                    onPress={() => navigation.navigate("TermsConditions")}
+                  >
+                    Terms & Conditions
+                  </Text>{" "}
+                  and{" "}
+                  <Text
+                    style={styles.linkText}
+                    onPress={() => navigation.navigate("PrivacyPolicy")}
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
+              </View>
+            </View>
+
+            {/* SIGN UP BUTTON */}
+            <TouchableOpacity
+              style={[styles.signupBtn, { opacity: termsAccepted ? 1 : 0.6 }]}
+              onPress={handleSignup}
+              disabled={!termsAccepted}
+            >
+              <LinearGradient
+                colors={termsAccepted ? ["#4caf50", "#2e7d32"] : ["#a5d6a7", "#81c784"]}
+                style={styles.signupGradient}
+              >
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={22}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.signupText}>Sign Up</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <Text style={styles.footer}>
+              Already have an account?{" "}
+              <Text
+                style={styles.loginLink}
+                onPress={() => navigation.navigate("Login")}
+              >
+                Login
+              </Text>
             </Text>
-          </Text>
+          </ScrollView>
         </LinearGradient>
       </SafeAreaView>
     </>
@@ -377,25 +383,26 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    width: 160,
-    height: 72,
+    width: 140,
+    height: 55,
     resizeMode: "contain",
     alignSelf: "center",
-    marginBottom: 10, // smaller gap so more space for form
+    marginTop: 0,
+    marginBottom: 0,
   },
 
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    marginBottom: 4,
+    paddingVertical: 6,
+    marginBottom: 2,
     borderBottomWidth: 1.1,
     borderColor: "#cde8d0",
   },
 
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     marginLeft: 8,
     color: "#1b5e20",
     fontFamily: FONT_FAMILY,
@@ -406,21 +413,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1b5e20",
     fontFamily: FONT_FAMILY,
-    fontSize: 14,
+    fontSize: 13,
   },
 
   pickerBox: {
     borderBottomWidth: 1.1,
     borderColor: "#cde8d0",
-    marginBottom: 4,
-    paddingVertical: Platform.OS === "ios" ? 4 : 0,
+    marginBottom: 2,
+    paddingVertical: Platform.OS === "ios" ? 2 : 0,
   },
 
   dateRow: {
     borderBottomWidth: 1.1,
     borderColor: "#cde8d0",
-    paddingVertical: 8,
-    marginBottom: 4,
+    paddingVertical: 6,
+    marginBottom: 2,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",

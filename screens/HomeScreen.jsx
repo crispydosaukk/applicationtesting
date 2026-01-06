@@ -27,6 +27,23 @@ export default function HomeScreen({ navigation }) {
   const swingAnim = useRef(new Animated.Value(0)).current;
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // Animation values for smooth cross-fade
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const [msgIndex, setMsgIndex] = useState(0);
+
+  const messages = [
+    "Earn £0.25 on every order",
+    "Loyalty credits earn £0.25",
+    "Earn £0.25 welcome gift",
+  ];
+
+  const offers = [
+    { colors: ["#FF416C", "#FF4B2B"], textColor: "#FFFFFF" },
+    { colors: ["#1D976C", "#93F9B9"], textColor: "#004D40" },
+    { colors: ["#F2994A", "#F2C94C"], textColor: "#5D4037" },
+  ];
+
   useFocusEffect(
     React.useCallback(() => {
       const checkAuth = async () => {
@@ -79,59 +96,44 @@ export default function HomeScreen({ navigation }) {
     outputRange: ["-6deg", "6deg"],
   });
 
-  const messages = [
-    "Earn £0.25 on every order",
-    "Loyalty credits earn £0.25",
-    "Earn £0.25 welcome gift",
-  ];
-
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const [msgIndex, setMsgIndex] = useState(0);
-
-  const startOfferAnimation = () => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          bounciness: 6,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(1800),
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: -20,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start(() => {
-      setMsgIndex((p) => (p + 1) % messages.length);
-      slideAnim.setValue(20);
-      scaleAnim.setValue(0.95);
-    });
-  };
-
+  // Smooth Cross-Fade Animation logic
   useEffect(() => {
-    startOfferAnimation();
-  }, [msgIndex]);
+    const timer = setInterval(() => {
+      // 1. Fade OUT
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: -10,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // 2. Change Text
+        setMsgIndex((p) => (p + 1) % messages.length);
+        slideAnim.setValue(10); // Prepare from bottom
+
+        // 3. Fade IN
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const logoWidth = isVerySmallScreen
     ? width * 0.5
@@ -148,10 +150,11 @@ export default function HomeScreen({ navigation }) {
 
   const highlightOffer = (text) => {
     const parts = text.split("£0.25");
+    const activeOffer = offers[msgIndex % offers.length];
     return (
-      <Text style={styles.offerText}>
+      <Text style={[styles.offerText, { color: activeOffer.textColor }]}>
         {parts[0].toUpperCase()}
-        <Text style={styles.offerAmount}>£0.25</Text>
+        <Text style={[styles.offerAmount, { color: activeOffer.textColor === '#FFFFFF' ? '#fff700' : activeOffer.textColor }]}>£0.25</Text>
         {parts[1]?.toUpperCase()}
       </Text>
     );
@@ -182,22 +185,6 @@ export default function HomeScreen({ navigation }) {
                   },
                 ]}
               />
-              {/* <View style={{ width: "100%", alignItems: "center", marginVertical: 6, }}>
-                <Animated.View
-                  style={[
-                    styles.offerPill,
-                    {
-                      opacity: opacityAnim,
-                      transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-                    },
-                  ]}
-                >
-                    <Ionicons name="gift-outline" size={18} color="#fff" />
-                    <Text style={styles.offerText}>
-                      {highlightOffer(messages[msgIndex])}
-                    </Text>
-                </Animated.View>
-              </View> */}
 
               <View style={styles.mainTitleWrap}>
                 <Text style={styles.mainTitleBlack}>UK’S FINEST PURE</Text>
@@ -229,17 +216,23 @@ export default function HomeScreen({ navigation }) {
             <View style={{ width: "100%", alignItems: "center", marginTop: 8 }}>
               <Animated.View
                 style={[
-                  styles.offerPill,
                   {
-                    opacity: opacityAnim,
-                    transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }],
                   },
                 ]}
               >
-                <Ionicons name="gift-outline" size={18} color="#fff" />
-                <Text style={styles.offerText}>
-                  {highlightOffer(messages[msgIndex])}
-                </Text>
+                <LinearGradient
+                  colors={offers[msgIndex % offers.length].colors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.offerPill}
+                >
+                  <Ionicons name="gift-outline" size={18} color={offers[msgIndex % offers.length].textColor} />
+                  <Text style={styles.offerText}>
+                    {highlightOffer(messages[msgIndex])}
+                  </Text>
+                </LinearGradient>
               </Animated.View>
             </View>
 
@@ -302,33 +295,23 @@ const styles = StyleSheet.create({
   offerAmount: {
     fontFamily: "PoppinsSemiBold",
     fontWeight: "900",
-    color: "#fff700",
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
-
-  // ⬇️ mainContent no more space-between (this was causing big gap)
   mainContent: {
     flex: 1,
     paddingHorizontal: 24,
     alignItems: "center",
     justifyContent: "flex-start",
   },
-
   topSection: {
     alignItems: "center",
-    marginTop: -40, // Shifted further up
+    marginTop: -40,
   },
-
-  // small margin so buttons sit just under subtitle
   bottomSection: {
     width: "100%",
     paddingTop: 6,
     paddingBottom: 10,
     marginTop: 12,
   },
-
   brandLogoImage: {
     resizeMode: "contain",
   },
@@ -365,16 +348,16 @@ const styles = StyleSheet.create({
     fontFamily: "PoppinsSemiBold",
   },
   offerPill: {
-
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#28a745",
+    // 🔧 REMOVED ELEVATION AND SHADOW THAT CAUSED ARTIFACTS
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   offerText: {
-    color: "#fff",
     fontSize: 13,
     fontFamily: "PoppinsSemiBold",
     marginLeft: 8,
@@ -432,7 +415,7 @@ const styles = StyleSheet.create({
   rope: {
     width: 2,
     height: 28,
-    backgroundColor: "#45b255ff",
+    backgroundColor: "#1D976C",
     marginBottom: 6,
   },
 });

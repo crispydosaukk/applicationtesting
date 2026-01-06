@@ -24,6 +24,7 @@ import { addToCart, getCart, removeFromCart } from "../../services/cartService";
 import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
+import LinearGradient from "react-native-linear-gradient";
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
@@ -63,6 +64,12 @@ export default function Products({ route, navigation }) {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [textIndex, setTextIndex] = useState(0);
+  const offers = [
+    { colors: ["#FF416C", "#FF4B2B"], textColor: "#FFFFFF", icon: "flash" },
+    { colors: ["#1D976C", "#93F9B9"], textColor: "#004D40", icon: "leaf" },
+    { colors: ["#F2994A", "#F2C94C"], textColor: "#5D4037", icon: "wallet" },
+  ];
+  const [activeIndex, setActiveIndex] = useState(0);
   const animatedTexts = [
     "EARN £0.25 ON EVERY ORDER",
     "REFER & EARN £0.25",
@@ -93,14 +100,18 @@ export default function Products({ route, navigation }) {
           duration: 400,
           useNativeDriver: true,
         }),
-        Animated.delay(1500),
+        Animated.delay(2000),
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 400,
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setTextIndex((p) => (p + 1) % animatedTexts.length);
+        setTextIndex((p) => {
+          const next = (p + 1) % animatedTexts.length;
+          setActiveIndex(next % offers.length);
+          return next;
+        });
         run();
       });
     };
@@ -236,6 +247,17 @@ export default function Products({ route, navigation }) {
     }
   }, [searchText, products]);
 
+  const [voiceListening, setVoiceListening] = useState(false);
+  const startVoiceSearch = () => {
+    setVoiceListening(true);
+    setTimeout(() => {
+      setVoiceListening(false);
+      const keywords = ["Curry", "Dosa", "Rice", "Nan"];
+      const random = keywords[Math.floor(Math.random() * keywords.length)];
+      setSearchText(random);
+    }, 2500);
+  };
+
   const { refreshing, onRefresh } = useRefresh(async () => {
     // Reload products
     const data = await fetchProducts(userId, categoryId);
@@ -355,6 +377,10 @@ export default function Products({ route, navigation }) {
 
   // Add item locally and open popup for that single item
   const addAndOpenPopup = async (id) => {
+    if (!user) {
+      navigation.navigate("Login");
+      return;
+    }
     try {
       // 1. Check if ANY other restaurant has items in the cart (LocalStorage)
       const stored = await AsyncStorage.getItem("cart");
@@ -422,10 +448,55 @@ export default function Products({ route, navigation }) {
     // mark pending so it won't sync until popup confirmation
     setCartItems((p) => ({ ...p, [id]: (p[id] || 0) + 1 }));
     setPending((s) => ({ ...s, [id]: true }));
-    setPopupTargetIds([id]);
-    setPopupIndex(0);
-    setNoteInput(notes[id] || "");
-    setPopupVisible(true);
+
+    // Add scale animation trigger here
+    triggerAddAnimation();
+    triggerFlyAnimation(() => {
+      setPopupTargetIds([id]);
+      setPopupIndex(0);
+      setNoteInput(notes[id] || "");
+      setPopupVisible(true);
+    });
+  };
+
+  const cartScale = useRef(new Animated.Value(1)).current;
+  const flyAnim = useRef(new Animated.Value(0)).current;
+  const flyY = useRef(new Animated.Value(0)).current;
+
+  const triggerAddAnimation = () => {
+    Animated.sequence([
+      Animated.timing(cartScale, {
+        toValue: 1.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.spring(cartScale, {
+        toValue: 1,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const triggerFlyAnimation = (callback) => {
+    flyAnim.setValue(1);
+    flyY.setValue(0);
+    Animated.parallel([
+      Animated.timing(flyAnim, {
+        toValue: 0,
+        duration: 1000, // Even slower as requested
+        useNativeDriver: true,
+      }),
+      Animated.timing(flyY, {
+        toValue: 400,
+        duration: 1000,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      flyAnim.setValue(0);
+      flyY.setValue(0);
+      if (callback) callback();
+    });
   };
 
   const handleNextPopup = async () => {
@@ -596,81 +667,141 @@ export default function Products({ route, navigation }) {
 
   return (
     <View style={styles.safe}>
-      <AppHeader
-        user={user}
-        navigation={navigation}
-        cartItems={cartItems}
-        onMenuPress={() => setMenuVisible(true)}
-      />
-
-      {/* Offer banner */}
-      {bannerVisible ? (
-        <Animated.View style={[styles.banner, { height: bannerHeight }]}>
-          <View style={styles.bannerLeft}>
-            <Ionicons name="gift-outline" size={18 * scale} color="#ffffff" />
-            <Animated.View style={{ opacity: fadeAnim }}>
-              {highlightAmount(animatedTexts[textIndex])}
-            </Animated.View>
-          </View>
-
-          <TouchableOpacity onPress={collapseBanner}>
-            <Ionicons name="close-circle" size={22 * scale} color="#ffffff" />
-          </TouchableOpacity>
-        </Animated.View>
-      ) : (
-        <TouchableOpacity style={styles.bannerChip} onPress={expandBanner}>
-          <Ionicons name="gift-outline" size={18 * scale} color="#ffffff" />
-          <Animated.Text
-            style={[styles.bannerChipText, { opacity: fadeAnim }]}
-          >
-            Click here for offers
-          </Animated.Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Search */}
-      <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={18 * scale} color="#777777" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search dishes..."
-          value={searchText}
-          onChangeText={setSearchText}
-          placeholderTextColor="#aaaaaa"
+      <View style={styles.brandSection}>
+        <LinearGradient
+          colors={["#FF2B5C", "#FF6B8B"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
         />
+
+        <AppHeader
+          user={user}
+          navigation={navigation}
+          onMenuPress={() => setMenuVisible(true)}
+          cartItems={cartItems}
+          transparent
+          textColor="#FFFFFF"
+          barStyle="light-content"
+          statusColor="#FF2B5C"
+        />
+
+        {/* DYNAMIC COLOR OFFER PILL */}
+        <Animated.View style={[styles.premiumOfferWrap, { opacity: fadeAnim }]}>
+          <LinearGradient
+            colors={offers[activeIndex]?.colors || ["#FF2B5C", "#FF6B8B"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.premiumOfferInner}
+          >
+            <View style={styles.offerIconBadge}>
+              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={16 * scale} color={offers[activeIndex]?.textColor || "#FFF"} />
+            </View>
+            <View style={styles.offerTextContainer}>
+              <Text style={[styles.offerText, { color: offers[activeIndex]?.textColor || '#FFF' }]} numberOfLines={1}>
+                {animatedTexts[textIndex]}
+              </Text>
+            </View>
+            <View style={[styles.glowingDot, { backgroundColor: offers[activeIndex]?.textColor || '#FFF' }]} />
+          </LinearGradient>
+        </Animated.View>
+
+        {/* SEARCH BOX */}
+        <View style={styles.searchBoxPremium}>
+          <Ionicons name="search-outline" size={18 * scale} color="#777" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search our delicious menu..."
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholderTextColor="#aaaaaa"
+          />
+          <TouchableOpacity onPress={startVoiceSearch}>
+            <Ionicons name="mic-outline" size={20 * scale} color="#FF2B5C" />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Voice Overlay */}
+      {voiceListening && (
+        <View style={styles.voiceOverlay}>
+          <LinearGradient
+            colors={["rgba(255,43,92,0.95)", "rgba(255,43,92,0.8)"]}
+            style={styles.voiceOverlayInner}
+          >
+            <Ionicons name="mic" size={60 * scale} color="#FFF" />
+            <Text style={styles.voiceText}>Listening...</Text>
+            <Text style={styles.voiceSubtext}>Try saying "Dhosa" or "Paneer"</Text>
+            <TouchableOpacity style={styles.voiceClose} onPress={() => setVoiceListening(false)}>
+              <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      )}
 
       {/* List */}
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 24 }} />
       ) : (
-        <FlatList
-          data={filteredProducts}
-          renderItem={renderItem}
-          keyExtractor={(i) => i.id.toString()}
-          contentContainerStyle={{ paddingBottom: 180 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
-
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={filteredProducts}
+            renderItem={renderItem}
+            keyExtractor={(i) => i.id.toString()}
+            ListHeaderComponent={() => (
+              <View style={styles.listHeaderComp}>
+                <Text style={styles.listHeaderTitle}>Discover Our Menu</Text>
+                <View style={styles.listHeaderLine} />
+              </View>
+            )}
+            contentContainerStyle={{ paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
+        </View>
       )}
 
-      {/* Professional sticky 'Go to Cart' button */}
+      {/* FLYING ANIMATION OBJECT */}
+      <Animated.View style={[
+        styles.flyingItem,
+        {
+          opacity: flyAnim,
+          transform: [{ translateY: flyY }, { scale: flyAnim }]
+        }
+      ]}>
+        <Ionicons name="fast-food" size={30} color="#FF2B5C" />
+      </Animated.View>
+
+      {/* Professional Glassmorphic sticky 'Go to Cart' button */}
       {selectedIds.length > 0 && (
-        <View
-          style={[
-            styles.checkoutWrap,
-            { bottom: 66 + insets.bottom + 8 },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.checkoutBtn}
-            onPress={() => navigation.navigate("CartSummary", { cartItems, notes, user })}
+        <View style={styles.glassStickyBottom}>
+          <LinearGradient
+            colors={["rgba(248,248,248,0)", "rgba(248,248,248,0.9)", "#f8f8f8"]}
+            style={styles.bottomGradient}
+          />
+          <Animated.View
+            style={[
+              styles.checkoutWrap,
+              { transform: [{ scale: cartScale }] },
+            ]}
           >
-            <Ionicons name="cart-outline" size={20 * scale} color="#ffffff" />
-            <Text style={styles.checkoutText}>{`Go to Cart${totalItemsInCart > 0 ? ` (${totalItemsInCart})` : ""}`}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.checkoutBtn}
+              onPress={() => navigation.navigate("CartSummary", { cartItems, notes, user })}
+            >
+              <LinearGradient
+                colors={["#16a34a", "#15803d"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.checkoutGradient}
+              >
+                <Ionicons name="cart-outline" size={20 * scale} color="#ffffff" />
+                <Text style={styles.checkoutText}>{`View Cart (${totalItemsInCart})`}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       )}
 
@@ -751,7 +882,79 @@ export default function Products({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f5f5f5" },
+  // IMMERSIVE BRAND SECTION
+  brandSection: {
+    paddingBottom: 20,
+    borderBottomLeftRadius: 45,
+    borderBottomRightRadius: 45,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    zIndex: 10,
+  },
+  premiumOfferWrap: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 50,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  premiumOfferInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  offerIconBadge: {
+    width: 32 * scale,
+    height: 32 * scale,
+    borderRadius: 16 * scale,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offerTextContainer: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  offerText: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    letterSpacing: 0.5,
+  },
+  glowingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E23744",
+    marginLeft: 10,
+  },
+  searchBoxPremium: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
+    marginTop: 20,
+    paddingHorizontal: 18,
+    height: 56,
+    borderRadius: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+
+  safe: { flex: 1, backgroundColor: "#f8f8f8" },
 
   amountHighlight: {
     color: "#ffea63",         // GOLD
@@ -830,88 +1033,151 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     marginHorizontal: 16,
     marginVertical: 8,
-    borderRadius: 5,
+    borderRadius: 10,
     padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F8F8F8',
   },
   cardImg: {
-    width: 110,
-    height: 110,
-    borderRadius: 5,
-    resizeMode: "contain",
+    width: 100 * scale,
+    height: 100 * scale,
     backgroundColor: "#fff",
+    borderRadius: 15,
+    resizeMode: "contain",
   },
-
-  cardBody: { flex: 1, marginLeft: 12 },
+  cardBody: {
+    flex: 1,
+    marginLeft: 15,
+    justifyContent: 'center',
+  },
   cardTitle: {
-    fontSize: 15.5 * scale,
-    fontWeight: "700",
-    color: "#222222",
+    fontSize: 16 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#1C1C1C",
   },
   cardDesc: {
-    fontSize: 13 * scale,
-    color: "#666666",
-    marginTop: 4,
+    fontSize: 11 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#777",
+    marginTop: 2,
   },
-
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 8,
   },
   price: {
-    fontSize: 16 * scale,
-    fontWeight: "700",
-    color: "#28a745",
+    fontSize: 17 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FF2B5C",
   },
-
-  qtyRow: { flexDirection: "row", alignItems: "center" },
+  qtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8F8F8",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#EEE",
+    padding: 4,
+  },
   qtyBtn: {
-    backgroundColor: "#eeeeee",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    width: 32 * scale,
+    height: 32 * scale,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   qtyText: {
-    fontSize: 15 * scale,
-    fontWeight: "700",
-    marginHorizontal: 8,
+    paddingHorizontal: 15,
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#1C1C1C",
   },
   addBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#28a745",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 5,
+    backgroundColor: "#FF2B5C",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    elevation: 4,
   },
   addText: {
     color: "#ffffff",
     fontSize: 13 * scale,
-    fontWeight: "700",
-    marginLeft: 4,
+    fontFamily: "PoppinsBold",
+    marginLeft: 6,
   },
-
   checkoutWrap: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
+    width: width - 32,
+    alignSelf: 'center',
+    zIndex: 100,
   },
   checkoutBtn: {
-    backgroundColor: "#28a745",
-    paddingVertical: 13,
-    borderRadius: 5,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  checkoutGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 16,
   },
   checkoutText: {
     color: "#ffffff",
-    fontSize: 15 * scale,
-    fontWeight: "700",
-    marginLeft: 8,
+    fontSize: 16 * scale,
+    fontFamily: "PoppinsBold",
+    marginLeft: 10,
+  },
+  glassStickyBottom: {
+    position: 'absolute',
+    bottom: 60, // Sits above bottom bar
+    left: 0,
+    right: 0,
+    paddingBottom: 15,
+    zIndex: 1000,
+  },
+  bottomGradient: {
+    ...StyleSheet.absoluteFillObject,
+    height: 100,
+    top: -40,
+  },
+  listHeaderComp: {
+    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listHeaderTitle: {
+    fontSize: 20 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#1C1C1C",
+    letterSpacing: -0.5,
+    fontWeight: '900',
+    marginRight: 15,
+  },
+  listHeaderLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 1,
   },
 
   /* POPUP */
@@ -1008,5 +1274,39 @@ const styles = StyleSheet.create({
     fontSize: 13.5 * scale,
     fontWeight: "700",
     color: "#ffffff",
+  },
+  voiceOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voiceOverlayInner: {
+    width: '100%',
+    height: '100%',
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voiceText: {
+    fontSize: 24 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
+    marginTop: 20,
+  },
+  voiceSubtext: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 10,
+  },
+  voiceClose: {
+    position: 'absolute',
+    bottom: 50,
+  },
+  flyingItem: {
+    position: 'absolute',
+    top: 300,
+    left: width / 2 - 15,
+    zIndex: 9999,
   },
 });

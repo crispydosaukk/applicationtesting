@@ -51,7 +51,7 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside }) {
 
         <View style={cardStyles.info}>
           <View style={cardStyles.headerRow}>
-            <Text style={cardStyles.name} numberOfLines={1}>
+            <Text style={cardStyles.name}>
               {name}
             </Text>
             <Ionicons name="chevron-forward" size={18 * scale} color="#CCC" />
@@ -69,22 +69,20 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside }) {
             </Text>
           </View>
 
-          <View style={cardStyles.footerRow}>
-            <View style={cardStyles.serviceRow}>
-              {instore && (
-                <View style={cardStyles.serviceChip}>
-                  <Ionicons name="storefront" size={11 * scale} color="#666" />
-                  <Text style={cardStyles.serviceChipText}>Dine-in</Text>
-                </View>
-              )}
+          <View style={cardStyles.serviceRow}>
+            {instore && (
+              <View style={cardStyles.serviceChip}>
+                <Ionicons name="storefront" size={11 * scale} color="#666" />
+                <Text style={cardStyles.serviceChipText}>In-store</Text>
+              </View>
+            )}
 
-              {kerbside && (
-                <View style={cardStyles.serviceChip}>
-                  <Ionicons name="car" size={12 * scale} color="#666" />
-                  <Text style={cardStyles.serviceChipText}>Pickup</Text>
-                </View>
-              )}
-            </View>
+            {kerbside && (
+              <View style={cardStyles.serviceChip}>
+                <Ionicons name="car" size={12 * scale} color="#666" />
+                <Text style={cardStyles.serviceChipText}>Kerbside</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -197,6 +195,20 @@ export default function Resturent({ navigation }) {
     r.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const [voiceListening, setVoiceListening] = useState(false);
+
+  const startVoiceSearch = () => {
+    setVoiceListening(true);
+    // Simulate voice recognition
+    setTimeout(() => {
+      setVoiceListening(false);
+      // Pick a random keyword from list to show it works
+      const keywords = ["Milton", "London", "Dosa", "Crispy"];
+      const random = keywords[Math.floor(Math.random() * keywords.length)];
+      setSearch(random);
+    }, 2500);
+  };
+
   const { refreshing, onRefresh } = useRefresh(async () => {
     const list = await fetchRestaurants();
     setRestaurants(list);
@@ -280,11 +292,28 @@ export default function Resturent({ navigation }) {
               />
             </View>
             <View style={styles.searchDivider} />
-            <TouchableOpacity style={styles.micButton}>
+            <TouchableOpacity style={styles.micButton} onPress={startVoiceSearch}>
               <Ionicons name="mic-outline" size={22 * scale} color="#E23744" />
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Voice Listening Overlay */}
+        {voiceListening && (
+          <View style={styles.voiceOverlay}>
+            <LinearGradient
+              colors={["rgba(226,55,68,0.95)", "rgba(226,55,68,0.8)"]}
+              style={styles.voiceOverlayInner}
+            >
+              <Ionicons name="mic" size={60 * scale} color="#FFF" />
+              <Text style={styles.voiceText}>Listening...</Text>
+              <Text style={styles.voiceSubtext}>Try saying "Milton Keynes" or "Crispy Dosa"</Text>
+              <TouchableOpacity style={styles.voiceClose} onPress={() => setVoiceListening(false)}>
+                <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        )}
 
         {/* Premium Offer Slider - Integrated for Unified Look */}
         <View style={styles.sliderContainer}>
@@ -357,28 +386,22 @@ export default function Resturent({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Premium Section Headers */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Safety & Hygiene</Text>
-          <Text style={styles.sectionSubtitle}>We prioritize your health and well-being</Text>
-        </View>
-
-        {/* Info Banners in Premium Containers */}
-        <View style={styles.infoBannerRow}>
-          <View style={styles.infoCard}>
-            <Image source={AllergyAlert} style={styles.infoBannerImg} />
+        <View style={styles.contentWrap}>
+          {/* Info Banners in Premium Containers */}
+          <View style={styles.infoBannerRow}>
+            <View style={styles.infoCard}>
+              <Image source={AllergyAlert} style={styles.infoBannerImg} />
+            </View>
+            <View style={styles.infoCard}>
+              <Image source={Rating5} style={styles.infoBannerImg} />
+            </View>
           </View>
-          <View style={styles.infoCard}>
-            <Image source={Rating5} style={styles.infoBannerImg} />
+
+          <View style={styles.listHeader}>
+            <Text style={styles.listTitle}>Explore Our Locations</Text>
+            <View style={styles.listLine} />
           </View>
-        </View>
 
-        {/* Restaurant Section */}
-        <View style={[styles.sectionHeader, { marginTop: 15 }]}>
-          <Text style={styles.sectionTitle}>Find a Crispy Dosa branch near you</Text>
-        </View>
-
-        <View style={{ marginTop: 5, paddingBottom: 20 }}>
           {filteredRestaurants.map((r, i) => (
             <RestaurantCard
               key={i}
@@ -607,6 +630,57 @@ const styles = StyleSheet.create({
     fontFamily: "PoppinsSemiBold",
     color: "#E23744",
   },
+  contentWrap: {
+    paddingTop: 10,
+    backgroundColor: 'transparent',
+  },
+  listHeader: {
+    paddingHorizontal: 24,
+    marginTop: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listTitle: {
+    fontSize: 16 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#333",
+    marginRight: 15,
+  },
+  listLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 1,
+  },
+  voiceOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voiceOverlayInner: {
+    width: '100%',
+    height: '100%',
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  voiceText: {
+    fontSize: 24 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
+    marginTop: 20,
+  },
+  voiceSubtext: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 10,
+  },
+  voiceClose: {
+    position: 'absolute',
+    bottom: 50,
+  },
 });
 
 const cardStyles = StyleSheet.create({
@@ -626,14 +700,14 @@ const cardStyles = StyleSheet.create({
   },
   cardBody: {
     flexDirection: "row",
-    padding: 14,
+    padding: 12,
   },
   imageContainer: {
     position: 'relative',
   },
   image: {
-    width: 100 * scale,
-    height: 120 * scale,
+    width: 110 * scale,
+    height: 110 * scale,
     borderRadius: 8,
   },
   premiumBadge: {
@@ -649,13 +723,13 @@ const cardStyles = StyleSheet.create({
   },
   premiumText: {
     color: '#FFD700',
-    fontSize: 8 * scale,
+    fontSize: 6 * scale,
     fontFamily: 'PoppinsSemiBold',
     marginLeft: 3,
   },
   info: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 12,
     justifyContent: 'center',
   },
   headerRow: {
@@ -664,7 +738,7 @@ const cardStyles = StyleSheet.create({
     alignItems: 'center',
   },
   name: {
-    fontSize: 17 * scale,
+    fontSize: 15 * scale,
     color: "#1C1C1C",
     fontFamily: "PoppinsSemiBold",
     flex: 1,
@@ -678,7 +752,7 @@ const cardStyles = StyleSheet.create({
   vegText: {
     marginLeft: 4,
     color: "#16a34a",
-    fontSize: 11 * scale,
+    fontSize: 13 * scale,
     fontFamily: "PoppinsMedium",
   },
   addressRow: {
@@ -686,21 +760,16 @@ const cardStyles = StyleSheet.create({
     marginTop: 8,
   },
   address: {
-    fontSize: 12 * scale,
+    fontSize: 14 * scale,
     color: "#666",
     marginLeft: 5,
     lineHeight: 18 * scale,
     fontFamily: "PoppinsMedium",
     flex: 1,
   },
-  footerRow: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    paddingTop: 10,
-  },
   serviceRow: {
     flexDirection: "row",
+    marginTop: 10,
   },
   serviceChip: {
     flexDirection: "row",
