@@ -168,16 +168,45 @@ export default function Categories({ route, navigation }) {
   );
 
   const [voiceListening, setVoiceListening] = useState(false);
+  const voiceTimeoutRef = useRef(null);
 
   const startVoiceSearch = () => {
+    // Prevent multiple simultaneous activations
+    if (voiceListening) return;
+
     setVoiceListening(true);
-    setTimeout(() => {
+
+    // Clear any existing timeout
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+    }
+
+    voiceTimeoutRef.current = setTimeout(() => {
       setVoiceListening(false);
+      // Simulated voice recognition - in production, integrate with @react-native-voice/voice
       const keywords = ["Dosa", "Idli", "Chaats", "Drinks"];
       const random = keywords[Math.floor(Math.random() * keywords.length)];
       setSearchText(random);
-    }, 2500);
+      voiceTimeoutRef.current = null;
+    }, 2000);
   };
+
+  const cancelVoiceSearch = () => {
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+      voiceTimeoutRef.current = null;
+    }
+    setVoiceListening(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceTimeoutRef.current) {
+        clearTimeout(voiceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const { refreshing, onRefresh } = useRefresh(async () => {
     // Reload restaurant
@@ -209,34 +238,50 @@ export default function Categories({ route, navigation }) {
     }
   });
 
-  const renderCategory = ({ item }) => (
-    <TouchableOpacity
-      style={cardStyles.categoryCard}
-      activeOpacity={0.9}
-      onPress={() =>
-        navigation.navigate("Products", { userId, categoryId: item.id })
-      }
-    >
-      <View style={cardStyles.imageContainer}>
-        <Image
-          source={
-            item?.image
-              ? { uri: item.image }
-              : require("../../assets/restaurant.png")
-          }
-          style={cardStyles.categoryImage}
-        />
-      </View>
-      <View style={cardStyles.textContainer}>
-        <Text style={cardStyles.categoryText} numberOfLines={1}>
-          {item?.name}
-        </Text>
-        <View style={cardStyles.actionBadge}>
-          <Ionicons name="chevron-forward" size={12} color="#E23744" />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderCategory = ({ item, index }) => {
+    const isEven = index % 2 === 0;
+    return (
+      <TouchableOpacity
+        style={cardStyles.wideCard}
+        activeOpacity={0.9}
+        onPress={() =>
+          navigation.navigate("Products", { userId, categoryId: item.id })
+        }
+      >
+        <LinearGradient
+          colors={isEven ? ["#FFF", "#FDF2F8"] : ["#FFF", "#F0FDF4"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={cardStyles.cardGradient}
+        >
+          <View style={cardStyles.cardInfo}>
+            <Text style={cardStyles.categoryName}>{item?.name}</Text>
+            <View style={styles.serviceRow}>
+              <View style={[styles.serviceChip, { backgroundColor: isEven ? '#FCE7F3' : '#DCFCE7' }]}>
+                <Text style={[styles.serviceChipText, { color: isEven ? '#9D174D' : '#166534', fontWeight: '800' }]}>EXPLORE MENU</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={cardStyles.floatingImageContainer}>
+            <View style={[cardStyles.imageShadow, { shadowColor: isEven ? '#DB2777' : '#16a34a' }]}>
+              <Image
+                source={
+                  item?.image
+                    ? { uri: item.image }
+                    : require("../../assets/restaurant.png")
+                }
+                style={cardStyles.roundImage}
+              />
+            </View>
+            <View style={cardStyles.arrowCirc}>
+              <Ionicons name="arrow-forward" size={16} color="#FFF" />
+            </View>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  };
 
   const timeLabel = todayTiming
     ? todayTiming.is_active
@@ -292,14 +337,20 @@ export default function Categories({ route, navigation }) {
             style={styles.premiumOfferInner}
           >
             <View style={styles.offerIconBadge}>
-              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={16 * scale} color={offers[activeIndex]?.textColor || "#FFF"} />
+              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={18 * scale} color={offers[activeIndex]?.textColor || "#FFF"} />
             </View>
             <View style={styles.offerTextContainer}>
-              <Text style={[styles.offerText, { color: offers[activeIndex]?.textColor || '#FFF' }]} numberOfLines={1}>
+              <Text
+                style={[
+                  styles.offerText,
+                  { color: "#000000" }   // 🔒 hard lock to black
+                ]}
+                numberOfLines={1}
+              >
                 {animatedTexts[textIndex]}
               </Text>
             </View>
-            <View style={[styles.glowingDot, { backgroundColor: offers[activeIndex]?.textColor || '#FFF' }]} />
+            <View style={[styles.glowingDot, { backgroundColor: offers[activeIndex]?.textColor || '#000000' }]} />
           </LinearGradient>
         </Animated.View>
 
@@ -338,13 +389,13 @@ export default function Categories({ route, navigation }) {
                   <View style={styles.serviceRow}>
                     {restaurant.instore && (
                       <View style={styles.serviceChip}>
-                        <Ionicons name="storefront" size={11 * scale} color="#666" />
+                        <Ionicons name="storefront" size={14 * scale} color="#666" />
                         <Text style={styles.serviceChipText}>In-store</Text>
                       </View>
                     )}
                     {restaurant.kerbside && (
                       <View style={styles.serviceChip}>
-                        <Ionicons name="car" size={12 * scale} color="#666" />
+                        <Ionicons name="car" size={16 * scale} color="#666" />
                         <Text style={styles.serviceChipText}>Kerbside</Text>
                       </View>
                     )}
@@ -411,7 +462,7 @@ export default function Categories({ route, navigation }) {
               <Ionicons name="mic" size={60 * scale} color="#FFF" />
               <Text style={styles.voiceText}>Listening...</Text>
               <Text style={styles.voiceSubtext}>Try saying "Dhosa" or "Snacks"</Text>
-              <TouchableOpacity style={styles.voiceClose} onPress={() => setVoiceListening(false)}>
+              <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
                 <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
               </TouchableOpacity>
             </LinearGradient>
@@ -424,11 +475,11 @@ export default function Categories({ route, navigation }) {
         ) : (
           <FlatList
             data={filteredCategories}
-            numColumns={2}
+            numColumns={1}
             renderItem={renderCategory}
             scrollEnabled={false}
             keyExtractor={(i) => i.id.toString()}
-            contentContainerStyle={styles.grid}
+            contentContainerStyle={styles.listContainer}
           />
         )}
       </ScrollView>
@@ -537,10 +588,12 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   offerText: {
-    fontSize: 14 * scale,
+    fontSize: 16 * scale,
     fontFamily: "PoppinsBold",
-    letterSpacing: 0.5,
+    fontWeight: "900",
+    letterSpacing: 0.6,
   },
+
   glowingDot: {
     width: 8,
     height: 8,
@@ -647,7 +700,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   serviceChipText: {
-    fontSize: 10 * scale,
+    fontSize: 11 * scale,
     fontFamily: "PoppinsMedium",
     color: "#666",
   },
@@ -725,10 +778,10 @@ const styles = StyleSheet.create({
     color: "#1C1C1C",
   },
 
-  grid: {
-    paddingHorizontal: 8,
+  listContainer: {
+    paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 40,
   },
 
   modalWrapper: {
@@ -812,55 +865,69 @@ const styles = StyleSheet.create({
 });
 
 const cardStyles = StyleSheet.create({
-  categoryCard: {
-    width: (width - 44) / 2, // Slightly more width for the cards
+  wideCard: {
+    marginBottom: 16,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
-    borderRadius: 10, // User requested 8 or 10
-    margin: 6, // Slightly smaller margin
+    elevation: 6,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 }, // Softer shadow
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  imageContainer: {
-    width: "100%",
-    height: 100 * scale, // Reduced height (from 125)
-    backgroundColor: "#FFFFFF", // Clean white background
-    padding: 8, // Add padding to ensure image doesn't touch edges
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
-  },
-  textContainer: {
-    paddingHorizontal: 10,
-    paddingVertical: 10, // More compact
+  cardGradient: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 14,
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F9F9F9',
   },
-  categoryText: {
-    fontSize: 13 * scale,
-    fontFamily: "PoppinsBold",
-    color: "#1C1C1C",
+  cardInfo: {
     flex: 1,
+    paddingRight: 15,
   },
-  actionBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(226,55,68,0.05)',
+  categoryName: {
+    fontSize: 19 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#0F172A",
+    fontWeight: '900',
+    marginBottom: 4,
+    letterSpacing: -0.4,
+  },
+  floatingImageContainer: {
+    position: 'relative',
+  },
+  imageShadow: {
+    width: 85 * scale,
+    height: 85 * scale,
+    borderRadius: 42.5 * scale,
+    backgroundColor: '#FFF',
+    padding: 6,
+    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  roundImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40 * scale,
+    resizeMode: 'contain',
+  },
+  arrowCirc: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+    elevation: 4,
   },
 });

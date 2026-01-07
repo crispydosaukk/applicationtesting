@@ -68,6 +68,7 @@ export default function CheckoutScreen({ navigation }) {
   // Full Screen Success Animation
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
+  const [paymentIntent, setPaymentIntent] = useState(null);
 
   const isFocused = useIsFocused();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -188,6 +189,37 @@ export default function CheckoutScreen({ navigation }) {
     ]).start();
   };
 
+  const preparePayment = async () => {
+    if (!user) return;
+    try {
+      const amount = getFinalTotal();
+      if (amount <= 0) return;
+
+      const res = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+
+      const data = await res.json();
+      if (data.clientSecret) {
+        setPaymentIntent(data);
+        await initPaymentSheet({
+          paymentIntentClientSecret: data.clientSecret,
+          merchantDisplayName: "Crispy Dosa",
+        });
+      }
+    } catch (e) {
+      console.log("Pre-payment init failed", e);
+    }
+  };
+
+  useEffect(() => {
+    if (isFocused && user && cart.length > 0) {
+      preparePayment();
+    }
+  }, [isFocused, user, cart, useWallet, useLoyalty]);
+
   const placeOrder = async () => {
     if (processingPayment) return;
     if (!user) {
@@ -198,30 +230,27 @@ export default function CheckoutScreen({ navigation }) {
 
     try {
       setProcessingPayment(true);
-      const amount = getFinalTotal();
+      let activeIntent = paymentIntent;
 
-      const res = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
-      });
+      // If intent not ready or amount changed, fetch fresh one
+      if (!activeIntent || activeIntent.amount !== getFinalTotal()) {
+        const amount = getFinalTotal();
+        const res = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount }),
+        });
+        activeIntent = await res.json();
+        if (!activeIntent.clientSecret) {
+          alert("Payment initialization failed");
+          setProcessingPayment(false);
+          return;
+        }
 
-      const data = await res.json();
-      if (!data.clientSecret) {
-        alert("Payment initialization failed");
-        setProcessingPayment(false);
-        return;
-      }
-
-      const init = await initPaymentSheet({
-        paymentIntentClientSecret: data.clientSecret,
-        merchantDisplayName: "Crispy Dosa",
-      });
-
-      if (init.error) {
-        alert(init.error.message);
-        setProcessingPayment(false);
-        return;
+        await initPaymentSheet({
+          paymentIntentClientSecret: activeIntent.clientSecret,
+          merchantDisplayName: "Crispy Dosa",
+        });
       }
 
       const paymentResult = await presentPaymentSheet();
@@ -234,7 +263,7 @@ export default function CheckoutScreen({ navigation }) {
         user_id: user.id,
         customer_id: user.customer_id ?? user.id,
         payment_mode: 1,
-        payment_request_id: data.payment_intent_id,
+        payment_request_id: activeIntent.payment_intent_id,
         instore: deliveryMethod === "instore" ? 1 : 0,
         allergy_note: allergyNote,
         car_color: kerbsideColor,
@@ -486,7 +515,7 @@ export default function CheckoutScreen({ navigation }) {
                     >
                       {processingPayment ? <ActivityIndicator size="small" color="#FFF" /> : (
                         <>
-                          <Text style={styles.btnTextPremium}>Pay Now</Text>
+                          <Text style={styles.btnTextPremium}>Place Order</Text>
                           <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 8 }} />
                         </>
                       )}
@@ -655,16 +684,38 @@ const styles = StyleSheet.create({
 
   actionCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
   qtyLabelText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#999' },
-  totalTextSmall: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginTop: 10 },
+  totalTextSmall: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginTop: 10, fontWeight: '900' },
 
   billSummary: { padding: 20, paddingBottom: 20 },
-  billTitle: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginBottom: 12, fontWeight: '900' },
+  billTitle: {
+    fontSize: 20 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',
+    color: '#1C1C1C',
+    marginBottom: 14,
+    letterSpacing: 0.3,
+  },
+
 
   creditCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 20, elevation: 3, borderWidth: 1, borderColor: '#F5F5F5', marginBottom: 25 },
   creditRow: { flexDirection: 'row', alignItems: 'center' },
   creditIcon: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center' },
-  creditLabel: { fontSize: 11 * scale, fontFamily: "PoppinsMedium", color: "#999", letterSpacing: 0.5 },
-  creditVal: { fontSize: 18 * scale, fontFamily: "PoppinsBold", color: "#1C1C1C" },
+  creditLabel: {
+    fontSize: 11 * scale,
+    fontFamily: "PoppinsBold",
+    fontWeight: '700',
+    color: "#555",
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+
+  creditVal: {
+    fontSize: 18 * scale,     // ⬆️ visible jump
+    fontFamily: "PoppinsBold",
+    fontWeight: '900',
+    color: "#1C1C1C",
+  },
+
   applyBtn: { borderWidth: 1.5, borderColor: '#16a34a', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 },
   appliedBtn: { backgroundColor: '#16a34a' },
   applyBtnText: { fontSize: 12 * scale, fontFamily: "PoppinsBold", color: "#16a34a" },
@@ -673,12 +724,31 @@ const styles = StyleSheet.create({
   billCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 18, elevation: 3, marginBottom: 20 },
   billRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8, alignItems: 'center' },
   billLabel: { fontSize: 14 * scale, fontFamily: 'PoppinsMedium', color: '#777' },
-  billValue: { fontSize: 14 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
+  billValue: {
+    fontSize: 16 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '800',
+    color: '#1C1C1C',
+  },
+
+
   billLabelDeduct: { fontSize: 14 * scale, fontFamily: 'PoppinsBold', color: '#DC2626' },
-  billValueDeduct: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#DC2626' },
+  billValueDeduct: {
+    fontSize: 16 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',
+    color: '#DC2626',
+  },
+
   billDivider: { height: 1.5, backgroundColor: '#F0F0F0', marginVertical: 12 },
   grandLabel: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', fontWeight: '900' },
-  grandValue: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#16a34a' },
+  grandValue: {
+    fontSize: 20 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',
+    color: '#16a34a',
+  },
+
 
   safetyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f5e9', marginTop: 15, padding: 15, borderRadius: 12, marginBottom: 20 },
   safetyTextRow: { marginLeft: 15 },
@@ -703,10 +773,16 @@ const styles = StyleSheet.create({
   itemCountText: { fontSize: 11 * scale, fontFamily: 'PoppinsBold', color: '#999', textTransform: 'uppercase', letterSpacing: 0.5 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
   totalLabelSmall: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#666', marginRight: 4 },
-  finalTotalText: { fontSize: 22 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
+  finalTotalText: {
+    fontSize: 22 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '800',
+    color: '#1C1C1C',
+  },
+
   actionBtnPremium: { borderRadius: 8, overflow: 'hidden' },
   btnGradient: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 22 },
-  btnTextPremium: { color: '#FFF', fontFamily: 'PoppinsBold', fontSize: 16 * scale },
+  btnTextPremium: { color: '#FFF', fontFamily: 'PoppinsBold', fontSize: 15 * scale },
 
   premiumToast: { position: 'absolute', top: 0, left: 20, right: 20, zIndex: 9999, alignItems: 'center' },
   toastInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 30, elevation: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10 },

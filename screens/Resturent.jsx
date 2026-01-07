@@ -72,14 +72,14 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside }) {
           <View style={cardStyles.serviceRow}>
             {instore && (
               <View style={cardStyles.serviceChip}>
-                <Ionicons name="storefront" size={11 * scale} color="#666" />
+                <Ionicons name="storefront" size={14 * scale} color="#666" />
                 <Text style={cardStyles.serviceChipText}>In-store</Text>
               </View>
             )}
 
             {kerbside && (
               <View style={cardStyles.serviceChip}>
-                <Ionicons name="car" size={12 * scale} color="#666" />
+                <Ionicons name="car" size={16 * scale} color="#666" />
                 <Text style={cardStyles.serviceChipText}>Kerbside</Text>
               </View>
             )}
@@ -196,18 +196,45 @@ export default function Resturent({ navigation }) {
   );
 
   const [voiceListening, setVoiceListening] = useState(false);
+  const voiceTimeoutRef = useRef(null);
 
   const startVoiceSearch = () => {
+    // Prevent multiple simultaneous activations
+    if (voiceListening) return;
+
     setVoiceListening(true);
-    // Simulate voice recognition
-    setTimeout(() => {
+
+    // Clear any existing timeout
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+    }
+
+    voiceTimeoutRef.current = setTimeout(() => {
       setVoiceListening(false);
-      // Pick a random keyword from list to show it works
+      // Simulated voice recognition - in production, integrate with @react-native-voice/voice
       const keywords = ["Milton", "London", "Dosa", "Crispy"];
       const random = keywords[Math.floor(Math.random() * keywords.length)];
       setSearch(random);
-    }, 2500);
+      voiceTimeoutRef.current = null;
+    }, 2000);
   };
+
+  const cancelVoiceSearch = () => {
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+      voiceTimeoutRef.current = null;
+    }
+    setVoiceListening(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceTimeoutRef.current) {
+        clearTimeout(voiceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const { refreshing, onRefresh } = useRefresh(async () => {
     const list = await fetchRestaurants();
@@ -308,7 +335,7 @@ export default function Resturent({ navigation }) {
               <Ionicons name="mic" size={60 * scale} color="#FFF" />
               <Text style={styles.voiceText}>Listening...</Text>
               <Text style={styles.voiceSubtext}>Try saying "Milton Keynes" or "Crispy Dosa"</Text>
-              <TouchableOpacity style={styles.voiceClose} onPress={() => setVoiceListening(false)}>
+              <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
                 <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
               </TouchableOpacity>
             </LinearGradient>

@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#28a745', // Brand green
+        color: '#16a34a', // Brand green
         marginTop: 20,
         marginBottom: 10,
     },

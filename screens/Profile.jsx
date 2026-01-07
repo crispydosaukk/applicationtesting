@@ -40,6 +40,7 @@ export default function Profile({ navigation }) {
 
   const [userLocal, setUserLocal] = useState(null);
   const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [orderCount, setOrderCount] = useState(0);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -71,7 +72,11 @@ export default function Profile({ navigation }) {
         }
 
         // Fetch fresh
-        const [profileData, walletData] = await Promise.all([fetchProfile(), getWalletSummary()]);
+        const [profileData, walletData, ordersData] = await Promise.all([
+          fetchProfile(),
+          getWalletSummary(),
+          import('../services/orderService').then(m => m.getOrders(parsed.id || parsed.customer_id))
+        ]);
 
         if (profileData) {
           setProfile(profileData);
@@ -80,6 +85,10 @@ export default function Profile({ navigation }) {
         if (walletData) {
           setWallet(walletData);
           AsyncStorage.setItem("wallet_summary_cache", JSON.stringify(walletData));
+        }
+        if (ordersData && ordersData.status === 1) {
+          const list = ordersData.data || [];
+          setOrderCount(list.length);
         }
         setLoading(false);
         startAnimations();
@@ -236,11 +245,11 @@ export default function Profile({ navigation }) {
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statVal}>{wallet?.loyalty_expiry_list?.length || 0}</Text>
-                <Text style={styles.statLabel}>Rewards</Text>
+                <Text style={styles.statLabel}>Points Items</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
-                <Text style={styles.statVal}>0</Text>
+                <Text style={styles.statVal}>{orderCount}</Text>
                 <Text style={styles.statLabel}>Orders</Text>
               </View>
             </View>
@@ -350,11 +359,11 @@ const styles = StyleSheet.create({
   businessBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 8, alignSelf: 'flex-start' },
   badgeText: { fontSize: 10 * scale, fontFamily: "PoppinsBold", color: "#FFF", marginLeft: 5, letterSpacing: 0.5 },
 
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 35, backgroundColor: 'rgba(0,0,0,0.1)', padding: 15, borderRadius: 20 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 35, backgroundColor: 'rgba(0,0,0,0.15)', padding: 18, borderRadius: 25 },
   statBox: { flex: 1, alignItems: 'center' },
-  statVal: { fontSize: 18 * scale, fontFamily: "PoppinsBold", color: "#FFF" },
-  statLabel: { fontSize: 10 * scale, fontFamily: "PoppinsMedium", color: "rgba(255,255,255,0.7)", textTransform: 'uppercase' },
-  statDivider: { width: 1, height: '60%', backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center' },
+  statVal: { fontSize: 20 * scale, fontFamily: "PoppinsBold", color: "#FFF", fontWeight: '900' },
+  statLabel: { fontSize: 9 * scale, fontFamily: "PoppinsBold", color: "rgba(255,255,255,0.9)", textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
+  statDivider: { width: 1.5, height: '50%', backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center' },
 
   section: { paddingHorizontal: 20, marginTop: 25 },
   sectionLabel: { fontSize: 12 * scale, fontFamily: "PoppinsBold", color: "#64748B", letterSpacing: 1.5, marginBottom: 15, marginLeft: 5 },

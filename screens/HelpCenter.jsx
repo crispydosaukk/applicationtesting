@@ -120,7 +120,7 @@ export default function HelpCenter({ navigation }) {
                 {/* Hero Section */}
                 <View style={styles.heroCard}>
                     <LinearGradient
-                        colors={["#0b7a2a", "#28a745"]}
+                        colors={["#0b7a2a", "#16a34a"]}
                         style={styles.heroGradient}
                     >
                         <Ionicons name="headset" size={64} color="#ffffff" />

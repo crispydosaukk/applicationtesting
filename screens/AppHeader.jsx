@@ -306,16 +306,18 @@ const styles = StyleSheet.create({
     marginBottom: -2 * scale,
   },
   goldSmallText: {
-    fontSize: 8 * scale,
-    fontFamily: "PoppinsSemiBold",
-    color: "#D4AF37",
-    letterSpacing: 0.5,
-  },
+  fontSize: 8 * scale,
+  fontFamily: "PoppinsBold",
+  fontWeight: "900",
+  color: "#D4AF37",
+  letterSpacing: 0.6,
+},
+
   premiumBadgeText: {
     color: "#1C1C1C",
     fontSize: 14 * scale,
-    fontFamily: "PoppinsSemiBold",
-    fontWeight: "800",
+    fontFamily: "PoppinsBold",
+    fontWeight: "900",
   },
 
   iconButton: {

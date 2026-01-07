@@ -248,15 +248,45 @@ export default function Products({ route, navigation }) {
   }, [searchText, products]);
 
   const [voiceListening, setVoiceListening] = useState(false);
+  const voiceTimeoutRef = useRef(null);
+
   const startVoiceSearch = () => {
+    // Prevent multiple simultaneous activations
+    if (voiceListening) return;
+
     setVoiceListening(true);
-    setTimeout(() => {
+
+    // Clear any existing timeout
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+    }
+
+    voiceTimeoutRef.current = setTimeout(() => {
       setVoiceListening(false);
+      // Simulated voice recognition - in production, integrate with @react-native-voice/voice
       const keywords = ["Curry", "Dosa", "Rice", "Nan"];
       const random = keywords[Math.floor(Math.random() * keywords.length)];
       setSearchText(random);
-    }, 2500);
+      voiceTimeoutRef.current = null;
+    }, 2000);
   };
+
+  const cancelVoiceSearch = () => {
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+      voiceTimeoutRef.current = null;
+    }
+    setVoiceListening(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceTimeoutRef.current) {
+        clearTimeout(voiceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const { refreshing, onRefresh } = useRefresh(async () => {
     // Reload products
@@ -695,10 +725,18 @@ export default function Products({ route, navigation }) {
             style={styles.premiumOfferInner}
           >
             <View style={styles.offerIconBadge}>
-              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={16 * scale} color={offers[activeIndex]?.textColor || "#FFF"} />
+              <Ionicons
+                name={offers[activeIndex]?.icon || "gift"}
+                size={16 * scale}
+                color="#000000"
+              />
+
             </View>
             <View style={styles.offerTextContainer}>
-              <Text style={[styles.offerText, { color: offers[activeIndex]?.textColor || '#FFF' }]} numberOfLines={1}>
+              <Text
+                style={styles.offerText}   // ✅ uses hard black from StyleSheet
+                numberOfLines={1}
+              >
                 {animatedTexts[textIndex]}
               </Text>
             </View>
@@ -732,7 +770,7 @@ export default function Products({ route, navigation }) {
             <Ionicons name="mic" size={60 * scale} color="#FFF" />
             <Text style={styles.voiceText}>Listening...</Text>
             <Text style={styles.voiceSubtext}>Try saying "Dhosa" or "Paneer"</Text>
-            <TouchableOpacity style={styles.voiceClose} onPress={() => setVoiceListening(false)}>
+            <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
               <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
             </TouchableOpacity>
           </LinearGradient>
@@ -927,10 +965,13 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   offerText: {
-    fontSize: 14 * scale,
+    fontSize: 16 * scale,      // ⬆️ slightly bigger
     fontFamily: "PoppinsBold",
-    letterSpacing: 0.5,
+    fontWeight: "900",         // ⬅️ force bold (Android safe)
+    letterSpacing: 0.6,
+    color: "#000000",          // ⬅️ HARD BLACK
   },
+
   glowingDot: {
     width: 8,
     height: 8,
@@ -979,7 +1020,7 @@ const styles = StyleSheet.create({
 
   banner: {
     width: "100%",
-    backgroundColor: "#2faa3f",
+    backgroundColor: "#16a34a",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -997,7 +1038,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2faa3f",
+    backgroundColor: "#16a34a",
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 5,
@@ -1056,10 +1097,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 16 * scale,
+    fontSize: 17.5 * scale,    // ⬆️ slight bump
     fontFamily: "PoppinsBold",
+    fontWeight: "800",
     color: "#1C1C1C",
   },
+
   cardDesc: {
     fontSize: 11 * scale,
     fontFamily: "PoppinsMedium",
@@ -1073,10 +1116,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   price: {
-    fontSize: 17 * scale,
+    fontSize: 18 * scale,
     fontFamily: "PoppinsBold",
+    fontWeight: "900",
     color: "#FF2B5C",
   },
+
   qtyRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1115,10 +1160,13 @@ const styles = StyleSheet.create({
   },
   addText: {
     color: "#ffffff",
-    fontSize: 13 * scale,
+    fontSize: 14.5 * scale,    // ⬆️ clearer CTA
     fontFamily: "PoppinsBold",
+    fontWeight: "900",
     marginLeft: 6,
+    letterSpacing: 0.5,
   },
+
   checkoutWrap: {
     width: width - 32,
     alignSelf: 'center',
@@ -1141,10 +1189,13 @@ const styles = StyleSheet.create({
   },
   checkoutText: {
     color: "#ffffff",
-    fontSize: 16 * scale,
+    fontSize: 17.5 * scale,   // ⬆️ premium CTA size
     fontFamily: "PoppinsBold",
+    fontWeight: "900",
     marginLeft: 10,
+    letterSpacing: 0.6,
   },
+
   glassStickyBottom: {
     position: 'absolute',
     bottom: 60, // Sits above bottom bar
@@ -1221,7 +1272,7 @@ const styles = StyleSheet.create({
   popupPrice: {
     fontSize: 15 * scale,
     fontWeight: "700",
-    color: "#28a745",
+    color: "#16a34a",
   },
 
   popupHint: {
@@ -1267,7 +1318,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: "#28a745",
+    backgroundColor: "#16a34a",
   },
 
   popupPrimaryText: {

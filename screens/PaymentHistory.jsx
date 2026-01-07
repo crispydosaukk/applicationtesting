@@ -91,7 +91,7 @@ export default function PaymentHistory({ navigation }) {
               {error ? (
                 <>
                   <Text style={{ color: "#a00", marginBottom: 12 }}>{error}</Text>
-                  <TouchableOpacity onPress={() => fetchPayments()} style={{ padding: 10, backgroundColor: "#28a745", borderRadius: 8 }}>
+                  <TouchableOpacity onPress={() => fetchPayments()} style={{ padding: 10, backgroundColor: "#16a34a", borderRadius: 8 }}>
                     <Text style={{ color: "#fff" }}>Retry</Text>
                   </TouchableOpacity>
                 </>

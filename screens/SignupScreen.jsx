@@ -1,3 +1,4 @@
+// screens/SignupScreen.jsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -10,6 +11,7 @@ import {
   Platform,
   StatusBar,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -24,10 +26,8 @@ import {
 import { registerUser } from "../services/authService";
 import { fetchRestaurants } from "../services/restaurantService";
 
-const FONT_FAMILY = Platform.select({
-  ios: "System",
-  android: "System", // simple, matches Swiggy/Zomato style
-});
+const { width } = Dimensions.get("window");
+const scale = width / 400;
 
 export default function SignupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -45,65 +45,43 @@ export default function SignupScreen({ navigation }) {
   const [referralCode, setReferralCode] = useState("");
   const [gender, setGender] = useState("");
 
-  // 🔹 New: restaurant list state
   const [restaurants, setRestaurants] = useState([]);
   const [restaurantsLoading, setRestaurantsLoading] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Only for picker initial position (18 yrs back)
-  const getDefaultDobForPicker = () => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() - 18);
-    return d;
-  };
-
-  // 🔹 New: fetch restaurants on mount
   useEffect(() => {
     let isMounted = true;
-
     (async () => {
       try {
         const data = await fetchRestaurants();
-        if (isMounted) {
-          setRestaurants(data || []);
-        }
+        if (isMounted) setRestaurants(data || []);
       } catch (err) {
-        console.error("Failed to load restaurants:", err);
-        if (isMounted) {
-          Alert.alert(
-            "Error",
-            "Unable to load restaurants. Please try again later."
-          );
-        }
+        console.error(err);
       } finally {
         if (isMounted) setRestaurantsLoading(false);
       }
     })();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const validateForm = () => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
     if (!name.trim()) return "Full name is required.";
     if (!email.trim()) return "Email is required.";
-    if (!emailRegex.test(email)) return "Enter valid Gmail address.";
+    if (!emailRegex.test(email)) return "Enter valid Gmail address (@gmail.com).";
     if (!phone.trim()) return "Phone number is required.";
     if (!password.trim()) return "Password is required.";
     if (password.length < 6) return "Password must be 6+ characters.";
     if (password !== confirmPassword) return "Passwords do not match.";
     if (!preferredRestaurant) return "Select your preferred restaurant.";
-
     if (!dob) return "Please select your Date of Birth.";
-    if (!termsAccepted) return "You must accept the Terms & Conditions and Privacy Policy to sign up.";
+    if (!termsAccepted) return "Please accept Terms & Conditions.";
     return null;
   };
 
   const handleSignup = async () => {
     const err = validateForm();
-    if (err) return Alert.alert("Validation Error", err);
+    if (err) return Alert.alert("Required", err);
 
     try {
       await registerUser({
@@ -112,388 +90,306 @@ export default function SignupScreen({ navigation }) {
         mobile_number: phone,
         country_code: `+${callingCode}`,
         password,
-        // 🔹 sending restaurant NAME (same behaviour as earlier A/B/C)
         preferred_restaurant: preferredRestaurant,
         date_of_birth: dob ? dob.toISOString().split("T")[0] : null,
         referral_code: referralCode || null,
         gender: gender || null,
       });
-      Alert.alert("Success", "Account created!");
+      Alert.alert("Success", "Welcome to Crispy Dosa!");
       navigation.navigate("Login");
     } catch (e) {
-      Alert.alert("Error", e.message || "Signup failed");
+      Alert.alert("Signup Failed", e.message || "Something went wrong.");
     }
   };
 
   return (
-    <>
-      {/* UI is drawn AFTER the status bar, icons dark */}
-      <StatusBar backgroundColor="#f8fff8" barStyle="dark-content" />
+    <View style={styles.root}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: "#f8fff8",
-          paddingBottom: insets.bottom, // only safe space at bottom
-        }}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 60 }}>
+
         <LinearGradient
-          colors={["#eaffea", "#ffffff"]}
-          style={styles.container}
+          colors={["#16a34a", "#15803d"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
         >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
-          >
-            {/* LOGO */}
+          <View style={styles.headerContent}>
             <Image source={require("../assets/logo.png")} style={styles.logo} />
+            <Text style={styles.title}>Create Account</Text>
 
-            {/* FULL NAME */}
-            <View style={styles.inputRow}>
-              <Ionicons name="person-outline" size={20} color="#1b5e20" />
-              <TextInput
-                placeholder="Last Name"
-                placeholderTextColor="#7a927a"
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-              />
+            {/* SIGNUP BONUS PILL */}
+            <View style={styles.bonusBadge}>
+              <Ionicons name="gift" size={16} color="#FFD700" />
+              <Text style={styles.bonusText}>GET <Text style={{ fontWeight: '900' }}>£0.25</Text> SIGNUP BONUS</Text>
             </View>
+          </View>
+          {/* Decorative shapes */}
+          <View style={styles.decor1} />
+          <View style={styles.decor2} />
+        </LinearGradient>
 
-            {/* EMAIL */}
-            <View style={styles.inputRow}>
-              <Ionicons name="mail-outline" size={20} color="#1b5e20" />
-              <TextInput
-                placeholder="Email"
-                placeholderTextColor="#7a927a"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
+        <View style={styles.formCard}>
 
-            {/* PHONE */}
-            <View style={styles.inputRow}>
-              <CountryPicker
-                countryCode={countryCode}
-                withFlag
-                withCallingCode
-                onSelect={(c) => {
-                  setCountryCode(c.cca2);
-                  setCallingCode(c.callingCode[0]);
-                }}
-              />
-              <Text style={styles.countryCode}>+{callingCode}</Text>
-              <TextInput
-                placeholder="Phone Number"
-                placeholderTextColor="#7a927a"
-                keyboardType="number-pad"
-                style={[styles.input, { flex: 1 }]}
-                value={phone}
-                onChangeText={setPhone}
-              />
-            </View>
+          <InputItem icon="person-outline" placeholder="Full Name" value={name} onChangeText={setName} />
 
-            {/* PASSWORD */}
-            <View style={styles.inputRow}>
-              <Ionicons name="lock-closed-outline" size={20} color="#1b5e20" />
-              <TextInput
-                placeholder="Password"
-                placeholderTextColor="#7a927a"
-                secureTextEntry
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-              />
-            </View>
+          <InputItem icon="mail-outline" placeholder="Gmail Address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
 
-            {/* CONFIRM PASSWORD */}
-            <View style={styles.inputRow}>
-              <Ionicons name="lock-closed-outline" size={20} color="#1b5e20" />
-              <TextInput
-                placeholder="Confirm Password"
-                placeholderTextColor="#7a927a"
-                secureTextEntry
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
-            </View>
+          <View style={styles.phoneContainer}>
+            <CountryPicker
+              countryCode={countryCode}
+              withFlag
+              withCallingCode
+              onSelect={(c) => {
+                setCountryCode(c.cca2);
+                setCallingCode(c.callingCode[0]);
+              }}
+            />
+            <Text style={styles.callingCodeText}>+{callingCode}</Text>
+            <TextInput
+              placeholder="Mobile Number"
+              placeholderTextColor="#94A3B8"
+              keyboardType="number-pad"
+              style={styles.phoneInput}
+              value={phone}
+              onChangeText={setPhone}
+            />
+          </View>
 
-            {/* 🔹 PREFERRED RESTAURANT (DYNAMIC) */}
-            <View style={styles.pickerBox}>
+          <InputItem icon="lock-closed-outline" placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
+
+          <InputItem icon="lock-closed-outline" placeholder="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+
+          {/* RESTAURANT PICKER */}
+          <View style={styles.pickerWrapper}>
+            <Ionicons name="restaurant-outline" size={20} color="#16a34a" style={styles.pickerIcon} />
+            <View style={{ flex: 1 }}>
               <Picker
                 selectedValue={preferredRestaurant}
                 onValueChange={setPreferredRestaurant}
-                style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
-                itemStyle={{ color: "#1b5e20" }}              // 🔥 Text visible everywhere
+                style={styles.picker}
+                dropdownIconColor="#16a34a"
               >
-
-                <Picker.Item label="Preferred Restaurant" value="" />
-
-                {restaurantsLoading && (
-                  <Picker.Item label="Loading restaurants..." value="" />
-                )}
-
-                {!restaurantsLoading && restaurants.length === 0 && (
-                  <Picker.Item
-                    label="No restaurants available"
-                    value=""
-                  />
-                )}
-
-                {!restaurantsLoading &&
-                  restaurants.map((r) => (
-                    <Picker.Item
-                      key={r.id}
-                      label={r.name}
-                      value={r.name} // keep behaviour same as old static names
-                    />
-                  ))}
+                <Picker.Item label="Preferred Restaurant" value="" color="#94A3B8" />
+                {restaurants.map(r => (
+                  <Picker.Item key={r.id} label={r.name} value={r.name} />
+                ))}
               </Picker>
             </View>
+          </View>
 
-            {/* DATE OF BIRTH */}
-            <TouchableOpacity
-              style={styles.dateRow}
-              onPress={() => setShowDobPicker(true)}
-            >
-              <Text
-                style={[
-                  styles.dateText,
-                  !dob && { color: "#7a927a" }, // placeholder style
-                ]}
-              >
-                {dob ? dob.toDateString() : "Date of Birth"}
-              </Text>
-              <Ionicons name="calendar-outline" size={20} color="#1b5e20" />
-            </TouchableOpacity>
+          {/* DOB */}
+          <TouchableOpacity style={styles.dobBtn} onPress={() => setShowDobPicker(true)}>
+            <Ionicons name="calendar-outline" size={20} color="#16a34a" />
+            <Text style={[styles.dobText, !dob && { color: "#94A3B8" }]}>
+              {dob ? dob.toDateString() : "Date of Birth"}
+            </Text>
+          </TouchableOpacity>
 
-            {showDobPicker && (
-              <DateTimePicker
-                mode="date"
-                display="default"
-                value={dob || getDefaultDobForPicker()}
-                maximumDate={new Date()}
-                onChange={(e, selectedDate) => {
-                  setShowDobPicker(false);
-                  if (selectedDate) setDob(selectedDate);
-                }}
-              />
-            )}
+          {showDobPicker && (
+            <DateTimePicker
+              value={dob || new Date()}
+              mode="date"
+              display="spinner"
+              onChange={(e, date) => {
+                setShowDobPicker(false);
+                if (date) setDob(date);
+              }}
+            />
+          )}
 
-            {/* GENDER */}
-            <View style={styles.pickerBox}>
+          {/* GENDER */}
+          <View style={styles.pickerWrapper}>
+            <Ionicons name="transgender-outline" size={20} color="#16a34a" style={styles.pickerIcon} />
+            <View style={{ flex: 1 }}>
               <Picker
                 selectedValue={gender}
                 onValueChange={setGender}
-                style={{ width: "100%", color: "#1b5e20" }}   // 🔥 MAIN FIX
-                itemStyle={{ color: "#1b5e20" }}              // 🔥 Placeholder visible
+                style={styles.picker}
+                dropdownIconColor="#16a34a"
               >
-                <Picker.Item label="Gender (Optional)" value="" />
+                <Picker.Item label="Gender (Optional)" value="" color="#94A3B8" />
                 <Picker.Item label="Male" value="male" />
                 <Picker.Item label="Female" value="female" />
                 <Picker.Item label="Other" value="other" />
               </Picker>
             </View>
+          </View>
 
-            {/* REFERRAL CODE */}
-            <View style={styles.inputRow}>
-              <Ionicons name="gift-outline" size={20} color="#1b5e20" />
-              <TextInput
-                placeholder="Referral Code (Optional)"
-                placeholderTextColor="#7a927a"
-                style={styles.input}
-                value={referralCode}
-                onChangeText={setReferralCode}
-              />
-            </View>
+          <InputItem icon="gift-outline" placeholder="Referral Code (Optional)" value={referralCode} onChangeText={setReferralCode} />
 
-            {/* TERMS CHECKBOX */}
-            <View style={styles.termsContainer}>
-              <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)} style={styles.checkbox}>
-                <Ionicons
-                  name={termsAccepted ? "checkbox" : "square-outline"}
-                  size={24}
-                  color={termsAccepted ? "#2e7d32" : "#7a927a"}
-                />
-              </TouchableOpacity>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.termsText}>
-                  I agree to the{" "}
-                  <Text
-                    style={styles.linkText}
-                    onPress={() => navigation.navigate("TermsConditions")}
-                  >
-                    Terms & Conditions
-                  </Text>{" "}
-                  and{" "}
-                  <Text
-                    style={styles.linkText}
-                    onPress={() => navigation.navigate("PrivacyPolicy")}
-                  >
-                    Privacy Policy
-                  </Text>
-                </Text>
-              </View>
-            </View>
-
-            {/* SIGN UP BUTTON */}
-            <TouchableOpacity
-              style={[styles.signupBtn, { opacity: termsAccepted ? 1 : 0.6 }]}
-              onPress={handleSignup}
-              disabled={!termsAccepted}
-            >
-              <LinearGradient
-                colors={termsAccepted ? ["#4caf50", "#2e7d32"] : ["#a5d6a7", "#81c784"]}
-                style={styles.signupGradient}
-              >
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={22}
-                  color="#fff"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.signupText}>Sign Up</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <Text style={styles.footer}>
-              Already have an account?{" "}
-              <Text
-                style={styles.loginLink}
-                onPress={() => navigation.navigate("Login")}
-              >
-                Login
-              </Text>
+          <TouchableOpacity style={styles.termsRow} onPress={() => setTermsAccepted(!termsAccepted)}>
+            <Ionicons name={termsAccepted ? "checkbox" : "square-outline"} size={22} color={termsAccepted ? "#16a34a" : "#CBD5E1"} />
+            <Text style={styles.termsText}>
+              I agree to the <Text style={styles.link} onPress={() => navigation.navigate("TermsConditions")}>Terms</Text> & <Text style={styles.link} onPress={() => navigation.navigate("PrivacyPolicy")}>Privacy Policy</Text>
             </Text>
-          </ScrollView>
-        </LinearGradient>
-      </SafeAreaView>
-    </>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.mainBtn, !termsAccepted && { opacity: 0.6 }]}
+            onPress={handleSignup}
+            disabled={!termsAccepted}
+          >
+            <LinearGradient colors={["#16a34a", "#15803d"]} style={styles.btnGradient}>
+              <Text style={styles.btnText}>Create Account</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+        </View>
+
+        <TouchableOpacity style={styles.footer} onPress={() => navigation.navigate("Login")}>
+          <Text style={styles.footerText}>Already have an account? <Text style={styles.footerLink}>Sign In</Text></Text>
+        </TouchableOpacity>
+
+      </ScrollView>
+    </View>
   );
 }
 
+const InputItem = ({ icon, ...props }) => (
+  <View style={styles.inputContainer}>
+    <Ionicons name={icon} size={18} color="#16a34a" />
+    <TextInput
+      placeholderTextColor="#475569"
+      style={styles.input}
+      {...props}
+    />
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "flex-start",
+  root: { flex: 1, backgroundColor: "#F8FAFC" },
+  headerGradient: {
+    paddingTop: 30,
+    paddingBottom: 65,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
   },
-
-  logo: {
-    width: 140,
-    height: 55,
-    resizeMode: "contain",
-    alignSelf: "center",
-    marginTop: 0,
-    marginBottom: 0,
+  headerContent: {
+    alignItems: 'center',
+    zIndex: 10,
   },
+  logo: { width: 140, height: 60, resizeMode: 'contain' },
+  title: { fontSize: 22 * scale, fontFamily: "PoppinsBold", color: "#FFF", marginTop: 2, fontWeight: '900' },
 
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  bonusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    marginBottom: 2,
-    borderBottomWidth: 1.1,
-    borderColor: "#cde8d0",
+    borderRadius: 20,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  bonusText: {
+    color: '#FFF',
+    fontSize: 11 * scale,
+    fontFamily: 'PoppinsBold',
+    marginLeft: 6,
+    letterSpacing: 0.5,
   },
 
-  input: {
-    flex: 1,
-    fontSize: 14,
-    marginLeft: 8,
-    color: "#1b5e20",
-    fontFamily: FONT_FAMILY,
+  decor1: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  decor2: {
+    position: 'absolute',
+    bottom: 20,
+    left: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
 
-  countryCode: {
-    marginHorizontal: 6,
-    fontWeight: "600",
-    color: "#1b5e20",
-    fontFamily: FONT_FAMILY,
-    fontSize: 13,
+  formCard: {
+    backgroundColor: "#FFF",
+    marginHorizontal: 16,
+    marginTop: -45, // Moved significantly higher
+    borderRadius: 24,
+    padding: 16,
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F1F5F9"
   },
-
-  pickerBox: {
-    borderBottomWidth: 1.1,
-    borderColor: "#cde8d0",
-    marginBottom: 2,
-    paddingVertical: Platform.OS === "ios" ? 2 : 0,
-  },
-
-  dateRow: {
-    borderBottomWidth: 1.1,
-    borderColor: "#cde8d0",
-    paddingVertical: 6,
-    marginBottom: 2,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  dateText: {
-    fontSize: 15,
-    color: "#1b5e20",
-    fontFamily: FONT_FAMILY,
-  },
-
-  signupBtn: {
-    marginTop: 12,
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-
-  signupGradient: {
-    paddingVertical: 12,
-    borderRadius: 8,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  signupText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    fontFamily: FONT_FAMILY,
-  },
-
-  footer: {
-    textAlign: "center",
-    marginTop: 10,
-    color: "#607163",
-    fontSize: 12.5,
-    fontFamily: FONT_FAMILY,
-  },
-
-  loginLink: {
-    color: "#2e7d32",
-    fontWeight: "700",
-
-    textDecorationLine: "underline",
-    fontFamily: FONT_FAMILY,
-  },
-
-  termsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 52,
     marginBottom: 10,
-    marginTop: 10,
+    borderWidth: 1.2,
+    borderColor: "#94A3B8"
   },
-  checkbox: {
-    padding: 2,
+  input: { flex: 1, marginLeft: 12, fontSize: 14 * scale, color: "#000000", fontFamily: "PoppinsBold", paddingVertical: 0 },
+
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 52,
+    marginBottom: 10,
+    borderWidth: 1.2,
+    borderColor: "#94A3B8"
   },
-  termsText: {
-    fontSize: 13,
-    color: "#444",
-    fontFamily: FONT_FAMILY,
-    lineHeight: 18,
+  callingCodeText: { fontSize: 14 * scale, fontFamily: "PoppinsBold", color: "#000000", marginLeft: 5 },
+  phoneInput: { flex: 1, marginLeft: 10, fontSize: 14 * scale, color: "#000000", fontFamily: "PoppinsBold", paddingVertical: 0 },
+
+  pickerWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 52,
+    marginBottom: 10,
+    borderWidth: 1.2,
+    borderColor: "#94A3B8"
   },
-  linkText: {
-    color: "#2e7d32",
-    fontWeight: "700",
-    textDecorationLine: "underline",
+  pickerIcon: { marginRight: 2 },
+  picker: { flex: 1, marginLeft: 2, height: 52, color: "#000000" },
+
+  dobBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 52,
+    marginBottom: 10,
+    borderWidth: 1.2,
+    borderColor: "#94A3B8"
   },
+  dobText: { marginLeft: 12, fontSize: 14 * scale, color: "#000000", fontFamily: "PoppinsBold" },
+
+  termsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, marginTop: 4 },
+  termsText: { flex: 1, marginLeft: 10, fontSize: 12 * scale, color: "#475569", lineHeight: 18 },
+  link: { color: "#16a34a", fontFamily: "PoppinsBold" },
+
+  mainBtn: { borderRadius: 14, overflow: 'hidden', marginTop: 5 },
+  btnGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  btnText: { color: "#FFF", fontSize: 16 * scale, fontFamily: "PoppinsBold", marginRight: 8 },
+
+  footer: { marginTop: 20, alignItems: 'center' },
+  footerText: { fontSize: 14 * scale, color: "#64748B" },
+  footerLink: { color: "#16a34a", fontFamily: "PoppinsBold" }
 });

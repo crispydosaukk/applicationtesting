@@ -262,7 +262,6 @@ export default function CartSummary({ navigation }) {
                         <Ionicons name="add" size={18} color="#FF2B5C" />
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.totalTextSmall}>£{total}</Text>
                   </View>
                 </View>
               );
@@ -355,7 +354,13 @@ const styles = StyleSheet.create({
   browseText: { color: '#FFF', fontFamily: 'PoppinsBold', fontSize: 15 * scale },
 
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', padding: 20, paddingTop: 15 },
-  headerTitle: { fontSize: 20 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
+  headerTitle: {
+  fontSize: 22 * scale,     // ⬆️ slightly bigger
+  fontFamily: 'PoppinsBold',
+  fontWeight: '900',        // ✅ force bold
+  color: '#1C1C1C',
+},
+
   headerSub: { fontSize: 12 * scale, fontFamily: 'PoppinsMedium', color: '#888' },
   addMoreBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,43,92,0.08)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
   addMoreText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#FF2B5C', marginLeft: 5 },
@@ -364,15 +369,33 @@ const styles = StyleSheet.create({
   etaInner: { flexDirection: 'row', alignItems: 'center', padding: 15 },
   etaIconBg: { width: 45, height: 45, borderRadius: 10, backgroundColor: 'rgba(255,43,92,0.1)', alignItems: 'center', justifyContent: 'center' },
   etaTextWrap: { flex: 1, marginLeft: 15 },
-  etaLabel: { fontSize: 11 * scale, fontFamily: 'PoppinsBold', color: '#AAA', letterSpacing: 0.5 },
-  etaValue: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
+ etaLabel: {
+  fontSize: 12 * scale,
+  fontFamily: 'PoppinsBold',
+  fontWeight: '800',
+  color: '#AAA',
+  letterSpacing: 0.6,
+},
+etaValue: {
+  fontSize: 16 * scale,
+  fontFamily: 'PoppinsBold',
+  fontWeight: '900',
+  color: '#1C1C1C',
+},
+
   arrivalBadge: { backgroundColor: '#FF2B5C', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   arrivalText: { fontSize: 10 * scale, fontFamily: 'PoppinsBold', color: '#FFF' },
 
   itemRow: { flexDirection: 'row', backgroundColor: '#FFF', marginHorizontal: 20, marginVertical: 6, borderRadius: 12, padding: 16, elevation: 2 },
   itemInfo: { flex: 1, paddingRight: 10 },
   nameHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  itemName: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
+  itemName: {
+  fontSize: 16.5 * scale,   // ⬆️ clearer
+  fontFamily: 'PoppinsBold',
+  fontWeight: '800',
+  color: '#1C1C1C',
+},
+
   noteBox: { backgroundColor: '#F9F9F9', padding: 10, borderRadius: 8, marginTop: 8, borderLeftWidth: 3, borderLeftColor: '#DDD' },
   itemNote: { fontSize: 12 * scale, fontFamily: 'PoppinsMedium', fontStyle: 'italic', color: '#666' },
   itemPriceUnit: { fontSize: 14 * scale, fontFamily: 'PoppinsSemiBold', color: '#FF2B5C', marginTop: 8 },
@@ -384,14 +407,39 @@ const styles = StyleSheet.create({
   totalTextSmall: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginTop: 10 },
 
   billSummary: { padding: 20, paddingBottom: 20 },
-  billTitle: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginBottom: 12 },
+  billTitle: {
+  fontSize: 20 * scale,     // ⬆️ stronger hierarchy
+  fontFamily: 'PoppinsBold',
+  fontWeight: '900',
+  color: '#1C1C1C',
+  marginBottom: 12,
+},
+
   billCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 18, elevation: 3 },
   billRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 6 },
   billLabel: { fontSize: 14 * scale, fontFamily: 'PoppinsMedium', color: '#777' },
-  billValue: { fontSize: 14 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
+  billValue: {
+  fontSize: 15 * scale,      // ⬆️ slightly bigger
+  fontFamily: 'PoppinsBold',
+  fontWeight: '800',         // ✅ stronger bold
+  color: '#1C1C1C',
+},
+
   billDivider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 12 },
-  grandLabel: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
-  grandValue: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#16a34a' },
+  grandLabel: {
+  fontSize: 17 * scale,
+  fontFamily: 'PoppinsBold',
+  fontWeight: '900',
+  color: '#1C1C1C',
+},
+
+grandValue: {
+  fontSize: 22 * scale,      // ⬆️ premium emphasis
+  fontFamily: 'PoppinsBold',
+  fontWeight: '900',         // 🔥 extra bold
+  color: '#16a34a',
+},
+
 
   safetyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f5e9', marginTop: 15, padding: 15, borderRadius: 12 },
   safetyTextRow: { marginLeft: 15 },
@@ -416,8 +464,21 @@ const styles = StyleSheet.create({
   itemCountText: { fontSize: 11 * scale, fontFamily: 'PoppinsBold', color: '#999', textTransform: 'uppercase', letterSpacing: 0.5 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
   totalLabelSmall: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#666', marginRight: 4 },
-  finalTotalText: { fontSize: 22 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
+  finalTotalText: {
+  fontSize: 24 * scale,     // ⬆️ premium emphasis
+  fontFamily: 'PoppinsBold',
+  fontWeight: '900',
+  color: '#1C1C1C',
+},
+
   actionBtnPremium: { borderRadius: 8, overflow: 'hidden' },
   btnGradient: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 22 },
-  btnTextPremium: { color: '#FFF', fontFamily: 'PoppinsBold', fontSize: 16 * scale },
+  btnTextPremium: {
+  color: '#FFF',
+  fontFamily: 'PoppinsBold',
+  fontWeight: '900',
+  fontSize: 17 * scale,
+  letterSpacing: 0.5,
+},
+
 });

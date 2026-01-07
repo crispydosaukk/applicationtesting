@@ -265,7 +265,7 @@ export default function CreditsScreen({ navigation }) {
 
       {loadingUser ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#28a745" />
+          <ActivityIndicator size="large" color="#16a34a" />
         </View>
       ) : !user ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
@@ -554,7 +554,7 @@ export default function CreditsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f9fafb" },
-  content: { paddingHorizontal: 16, paddingBottom: 90, paddingTop: 16 },
+  content: { paddingHorizontal: 16, paddingBottom: 40, paddingTop: 16 },
 
   title: { fontSize: 24, fontWeight: "800", color: "#111827", marginBottom: 6 },
   subtitle: { fontSize: 13, color: "#6b7280", marginBottom: 20 },
@@ -631,13 +631,13 @@ const styles = StyleSheet.create({
 
   referActionRow: { marginTop: 8 },
   premiumShareBtn: {
-    backgroundColor: "#28a745",
+    backgroundColor: "#16a34a",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
     borderRadius: 12,
-    shadowColor: "#28a745",
+    shadowColor: "#16a34a",
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

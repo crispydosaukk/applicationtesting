@@ -152,9 +152,9 @@ export default function HomeScreen({ navigation }) {
     const parts = text.split("£0.25");
     const activeOffer = offers[msgIndex % offers.length];
     return (
-      <Text style={[styles.offerText, { color: activeOffer.textColor }]}>
+      <Text style={[styles.offerText, { color: '#000000', fontWeight: 'bold' }]}>
         {parts[0].toUpperCase()}
-        <Text style={[styles.offerAmount, { color: activeOffer.textColor === '#FFFFFF' ? '#fff700' : activeOffer.textColor }]}>£0.25</Text>
+        <Text style={[styles.offerAmount, { color: '#000000', fontWeight: '900' }]}>£0.25</Text>
         {parts[1]?.toUpperCase()}
       </Text>
     );
@@ -228,7 +228,7 @@ export default function HomeScreen({ navigation }) {
                   end={{ x: 1, y: 0 }}
                   style={styles.offerPill}
                 >
-                  <Ionicons name="gift-outline" size={18} color={offers[msgIndex % offers.length].textColor} />
+                  <Ionicons name="gift-outline" size={20} color="#000000" />
                   <Text style={styles.offerText}>
                     {highlightOffer(messages[msgIndex])}
                   </Text>
@@ -359,8 +359,9 @@ const styles = StyleSheet.create({
   },
   offerText: {
     fontSize: 13,
-    fontFamily: "PoppinsSemiBold",
+    fontFamily: "PoppinsBold",
     marginLeft: 8,
+    fontWeight: 'bold',
   },
   buttonArea: {
     width: "100%",

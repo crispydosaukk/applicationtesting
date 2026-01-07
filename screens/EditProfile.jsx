@@ -96,7 +96,7 @@ export default function EditProfile({ navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#28a745" />
+        <ActivityIndicator size="large" color="#16a34a" />
       </View>
     );
   }
@@ -105,7 +105,7 @@ export default function EditProfile({ navigation }) {
     <View style={{ flex: 1, backgroundColor: "#f6f7fb" }}>
       {/* HEADER */}
       <LinearGradient
-        colors={["#28a745", "#43c76f"]}
+        colors={["#16a34a", "#43c76f"]}
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
 
   saveBtn: {
-    backgroundColor: "#28a745",
+    backgroundColor: "#16a34a",
     height: 52,
     borderRadius: 16,
     justifyContent: "center",

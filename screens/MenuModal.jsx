@@ -97,10 +97,21 @@ export default function MenuModal({ visible, setVisible, user, navigation }) {
               </TouchableOpacity>
             </View>
             <View style={styles.headerInfo}>
-              <Text style={styles.greetingText}>Hello,</Text>
-              <Text style={styles.userNameText} numberOfLines={1}>
-                {user?.full_name ? user.full_name.split(" ")[0] : "Guest"}
-              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={styles.greetingText}>Hello,</Text>
+                  <Text style={styles.userNameText} numberOfLines={1}>
+                    {user?.full_name ? user.full_name.split(" ")[0] : "Guest"}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.supportIconBtn}
+                  onPress={() => handleNavigation("HelpCenter")}
+                >
+                  <Ionicons name="headset" size={26} color="#000000" />
+                  <Text style={styles.supportBadgeText}>SUPPORT</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </LinearGradient>
 
@@ -227,6 +238,19 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     marginTop: 20,
+  },
+  supportIconBtn: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  supportBadgeText: {
+    fontSize: 9,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',
+    color: '#000',
+    marginTop: 1,
+    letterSpacing: 0.5,
   },
   greetingText: {
     fontSize: 16,
