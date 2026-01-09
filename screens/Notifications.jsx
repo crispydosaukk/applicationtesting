@@ -13,6 +13,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import messaging from "@react-native-firebase/messaging";
+import LinearGradient from "react-native-linear-gradient";
 import {
   getNotifications,
   markNotificationRead,
@@ -167,40 +168,50 @@ export default function Notifications({ navigation }) {
   // =========================
   // RENDER ITEM
   // =========================
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item, index }) => {
     const isUnread = Number(item.is_read) === 0;
+    // Premium alternate colors like category cards
+    // Even: White/Pink-tint, Odd: White/Green-tint (or similar to Restaurant.jsx)
+    const isEven = index % 2 === 0;
+    const gradientColors = isEven ? ["#FFF", "#FDF2F8"] : ["#FFF", "#F0FDF4"];
 
     return (
       <TouchableOpacity
         activeOpacity={0.85}
-        style={[
-          styles.card,
-          isUnread && styles.unreadCard,
-        ]}
-        // Optional: navigating to order details if order_number exists
         onPress={() => {
           // if (item.order_number) { ... }
         }}
+        style={styles.cardContainer} // moved style
       >
-        <View style={styles.iconWrap}>
-          <Ionicons
-            name="notifications"
-            size={20}
-            color={isUnread ? "#E23744" : "#999"}
-          />
-        </View>
-
-        <View style={styles.content}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={styles.title}>{item.title}</Text>
-            {isUnread && <View style={styles.dot} />}
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[
+            styles.card,
+            isUnread && styles.unreadCard,
+          ]}
+        >
+          <View style={styles.iconWrap}>
+            <Ionicons
+              name="notifications"
+              size={20}
+              color={isUnread ? "#E23744" : "#999"}
+            />
           </View>
-          <Text style={styles.body}>{item.body}</Text>
 
-          <Text style={styles.time}>
-            {new Date(item.created_at).toLocaleString()}
-          </Text>
-        </View>
+          <View style={styles.content}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={styles.title}>{item.title}</Text>
+              {isUnread && <View style={styles.dot} />}
+            </View>
+            <Text style={styles.body}>{item.body}</Text>
+
+            <Text style={styles.time}>
+              {new Date(item.created_at).toLocaleString()}
+            </Text>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
     );
   };
@@ -293,24 +304,27 @@ const styles = StyleSheet.create({
     color: "#777",
     fontSize: 14 * scale,
   },
+  cardContainer: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    backgroundColor: '#FFF', // fallback
+  },
   card: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 14,
-    marginVertical: 6,
-    padding: 14,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 0.5,
-    borderColor: "#eee"
+    padding: 16,
+    borderRadius: 16, // Ensure gradient respects this
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.03)"
   },
   unreadCard: {
     borderLeftWidth: 4,
     borderLeftColor: "#E23744",
-    backgroundColor: "#FFF9F9",
   },
   iconWrap: {
     marginRight: 12,

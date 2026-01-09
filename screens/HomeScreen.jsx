@@ -16,12 +16,13 @@ import LinearGradient from "react-native-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import { Alert } from "react-native";
+import { Alert, Modal } from "react-native";
 
 const { width, height } = Dimensions.get("window");
 const isVerySmallScreen = height <= 640;
 const isSmallScreen = height > 640 && height <= 720;
 const FONT_FAMILY = Platform.select({ ios: "System", android: "System" });
+const scale = width / 400; // Add scale definition since styles use it implicitly or we will add it
 
 export default function HomeScreen({ navigation }) {
   const swingAnim = useRef(new Animated.Value(0)).current;
@@ -54,24 +55,38 @@ export default function HomeScreen({ navigation }) {
     }, [])
   );
 
-  const handleLogout = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.multiRemove([
-            "token",
-            "user",
-            "profile_cache",
-            "wallet_summary_cache",
-          ]);
-          setIsLoggedIn(false);
-          Alert.alert("Success", "You have been signed out.");
-        },
-      },
+  // Premium Logout Modal State
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const logoutScaleAnim = useRef(new Animated.Value(0)).current;
+
+  const handleLogoutPress = () => {
+    setLogoutModalVisible(true);
+    Animated.spring(logoutScaleAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const confirmLogout = async () => {
+    setLogoutModalVisible(false);
+    await AsyncStorage.multiRemove([
+      "token",
+      "user",
+      "profile_cache",
+      "wallet_summary_cache",
     ]);
+    setIsLoggedIn(false);
+    // Optional: show a small toast or success alert if needed
+  };
+
+  const cancelLogout = () => {
+    Animated.timing(logoutScaleAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setLogoutModalVisible(false));
   };
 
   useEffect(() => {
@@ -150,15 +165,29 @@ export default function HomeScreen({ navigation }) {
 
   const highlightOffer = (text) => {
     const parts = text.split("£0.25");
-    const activeOffer = offers[msgIndex % offers.length];
+
     return (
-      <Text style={[styles.offerText, { color: '#000000', fontWeight: 'bold' }]}>
+      <Text style={[styles.offerText, { color: "#FFFFFF" }]}>
         {parts[0].toUpperCase()}
-        <Text style={[styles.offerAmount, { color: '#000000', fontWeight: '900' }]}>£0.25</Text>
+        <Text
+          style={[
+            styles.offerAmount,
+            {
+              color: "#FBFF00", // Brighter yellow
+              fontWeight: "900",
+              textShadowColor: 'rgba(0, 0, 0, 0.4)',
+              textShadowOffset: { width: 1, height: 1 },
+              textShadowRadius: 3,
+            },
+          ]}
+        >
+          £0.25
+        </Text>
         {parts[1]?.toUpperCase()}
       </Text>
     );
   };
+
 
   return (
     <>
@@ -228,7 +257,7 @@ export default function HomeScreen({ navigation }) {
                   end={{ x: 1, y: 0 }}
                   style={styles.offerPill}
                 >
-                  <Ionicons name="gift-outline" size={20} color="#000000" />
+                  <Ionicons name="gift-outline" size={20} color="#fcf9f9ff" />
                   <Text style={styles.offerText}>
                     {highlightOffer(messages[msgIndex])}
                   </Text>
@@ -256,7 +285,7 @@ export default function HomeScreen({ navigation }) {
                 <TouchableOpacity
                   style={styles.secondaryBtn}
                   onPress={() => {
-                    if (isLoggedIn) handleLogout();
+                    if (isLoggedIn) handleLogoutPress();
                     else navigation.navigate("Login");
                   }}
                   activeOpacity={0.9}
@@ -286,6 +315,32 @@ export default function HomeScreen({ navigation }) {
           </View>
         </LinearGradient>
       </SafeAreaView>
+
+      {/* PREMIUM LOGOUT MODAL */}
+      <Modal visible={logoutModalVisible} transparent animationType="fade">
+        <View style={styles.logoutOverlay}>
+          <Animated.View style={[styles.logoutCard, { transform: [{ scale: logoutScaleAnim }] }]}>
+            <LinearGradient colors={["#FFFFFF", "#FFF5F5"]} style={styles.logoutContent}>
+              <View style={[styles.logoutIconRing, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                <Ionicons name="log-out" size={40} color="#EF4444" />
+              </View>
+              <Text style={styles.logoutTitle}>Sign Out?</Text>
+              <Text style={styles.logoutMsg}>Are you sure you want to sign out from your account?</Text>
+
+              <View style={styles.logoutActionRow}>
+                <TouchableOpacity style={styles.cancelLogoutBtn} onPress={cancelLogout}>
+                  <Text style={styles.cancelLogoutText}>Stay</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.confirmLogoutBtn} onPress={confirmLogout}>
+                  <LinearGradient colors={["#EF4444", "#DC2626"]} style={styles.alertBtnGrad}>
+                    <Text style={styles.alertBtnText}>Sign Out</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -418,5 +473,85 @@ const styles = StyleSheet.create({
     height: 28,
     backgroundColor: "#1D976C",
     marginBottom: 6,
+  },
+
+  /* LOGOUT MODAL STYLES */
+  logoutOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoutCard: {
+    width: "85%",
+    borderRadius: 30,
+    overflow: "hidden",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  logoutContent: {
+    padding: 30,
+    alignItems: "center",
+  },
+  logoutIconRing: {
+    width: 80 * scale,
+    height: 80 * scale,
+    borderRadius: 40 * scale,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  logoutTitle: {
+    fontSize: 22 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#0F172A",
+    fontWeight: "900",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  logoutMsg: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#475569",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 22 * scale,
+  },
+  logoutActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  cancelLogoutBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginRight: 10,
+    borderRadius: 15,
+    backgroundColor: "#F3F4F6",
+  },
+  cancelLogoutText: {
+    fontSize: 15 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#4B5563",
+  },
+  confirmLogoutBtn: {
+    flex: 1,
+    borderRadius: 15,
+    overflow: "hidden",
+  },
+  alertBtnGrad: {
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  alertBtnText: {
+    fontSize: 15 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
+    fontWeight: "800",
   },
 });

@@ -16,6 +16,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import Voice from "@react-native-voice/voice";
+import { PermissionsAndroid, Platform } from "react-native";
 import { RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import useRefresh from "../../hooks/useRefresh";
@@ -81,7 +83,7 @@ export default function Products({ route, navigation }) {
     const parts = text.split(regex);
 
     return (
-      <Text style={styles.bannerText}>
+      <Text style={[styles.offerText, { color: "#FFFFFF" }]} numberOfLines={1}>
         {parts[0]}
         {parts[1] && <Text style={styles.amountHighlight}>{parts[1]}</Text>}
         {parts[2]}
@@ -248,43 +250,105 @@ export default function Products({ route, navigation }) {
   }, [searchText, products]);
 
   const [voiceListening, setVoiceListening] = useState(false);
-  const voiceTimeoutRef = useRef(null);
 
-  const startVoiceSearch = () => {
-    // Prevent multiple simultaneous activations
-    if (voiceListening) return;
-
-    setVoiceListening(true);
-
-    // Clear any existing timeout
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-    }
-
-    voiceTimeoutRef.current = setTimeout(() => {
+  useEffect(() => {
+    if (!Voice) return;
+    Voice.onSpeechStart = () => setVoiceListening(true);
+    Voice.onSpeechEnd = () => setVoiceListening(false);
+    Voice.onSpeechError = (e) => {
+      console.log("onSpeechError: ", e);
       setVoiceListening(false);
-      // Simulated voice recognition - in production, integrate with @react-native-voice/voice
-      const keywords = ["Curry", "Dosa", "Rice", "Nan"];
-      const random = keywords[Math.floor(Math.random() * keywords.length)];
-      setSearchText(random);
-      voiceTimeoutRef.current = null;
-    }, 2000);
+    };
+    Voice.onSpeechResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        setSearchText(e.value[0]);
+      }
+      setVoiceListening(false);
+    };
+    Voice.onSpeechPartialResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        setSearchText(e.value[0]);
+      }
+    };
+
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners).catch(err => console.log("Voice Cleanup Err:", err));
+    };
+  }, []);
+
+  const requestAudioPermission = async () => {
+    if (Platform.OS === "android") {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: "Microphone Permission",
+            message: "Crispy Dosa needs access to your microphone to search.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK",
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
   };
 
-  const cancelVoiceSearch = () => {
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-      voiceTimeoutRef.current = null;
+  const startVoiceSearch = async () => {
+    try {
+      if (!Voice || typeof Voice.start !== 'function') {
+        Alert.alert("Voice Not Ready", "Voice search module is not initialized. Please restart the app or ensure permissions are granted.");
+        return;
+      }
+
+      await Voice.stop().catch(() => { });
+      await Voice.destroy().catch(() => { });
+
+      const hasPermission = await requestAudioPermission();
+      if (!hasPermission) return;
+
+      setSearchText("");
+      setVoiceListening(true);
+
+      Voice.onSpeechStart = () => setVoiceListening(true);
+      Voice.onSpeechResults = (e) => {
+        if (e.value && e.value.length > 0) setSearchText(e.value[0]);
+        setVoiceListening(false);
+      };
+      Voice.onSpeechError = (e) => {
+        console.error("Speech Error:", e);
+        setVoiceListening(false);
+      };
+
+      await Voice.start("en-US");
+    } catch (e) {
+      console.error("Voice Error:", e);
+      setVoiceListening(false);
+      if (e?.message?.includes('null')) {
+        Alert.alert("Voice Error", "Native voice module not found. A clean build/re-install may be required.");
+      }
     }
-    setVoiceListening(false);
+  };
+
+  const cancelVoiceSearch = async () => {
+    try {
+      if (Voice && typeof Voice.stop === 'function') {
+        await Voice.stop().catch(() => { });
+      }
+      setVoiceListening(false);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (voiceTimeoutRef.current) {
-        clearTimeout(voiceTimeoutRef.current);
-      }
+      // Any cleanup logic here
     };
   }, []);
 
@@ -591,106 +655,114 @@ export default function Products({ route, navigation }) {
 
   const totalItemsInCart = Object.values(cartItems || {}).reduce((a, b) => a + b, 0);
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item, index }) => {
     const qty = cartItems[item.id] || 0;
+    const isEven = index % 2 === 0;
     return (
       <View style={styles.card}>
-        <Image
-          source={
-            item.image
-              ? { uri: item.image }
-              : require("../../assets/restaurant.png")
-          }
-          style={styles.cardImg}
-        />
-        <View style={styles.cardBody}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.name}
-          </Text>
-
-          {!!item.description && (
-            <Text style={styles.cardDesc} numberOfLines={2}>
-              {item.description}
+        <LinearGradient
+          colors={isEven ? ["#FFF", "#FDF2F8"] : ["#FFF", "#F0FDF4"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.cardContent}
+        >
+          <Image
+            source={
+              item.image
+                ? { uri: item.image }
+                : require("../../assets/restaurant.png")
+            }
+            style={styles.cardImg}
+          />
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.name}
             </Text>
-          )}
-          {Array.isArray(item.contains) && item.contains.length > 0 && (
-            <View style={styles.containsRow}>
-              {item.contains.map((c, index) => {
-                const rawKey = String(c).trim();
-                const key = rawKey.toLowerCase();
 
-                const ICON_MAP = {
-                  dairy: CONTAINS_ICONS.Dairy,
-                  gluten: CONTAINS_ICONS.Gluten,
-                  mild: CONTAINS_ICONS.Mild,
-                  nuts: CONTAINS_ICONS.Nuts,
-                  sesame: CONTAINS_ICONS.Sesame,
-                  vegan: CONTAINS_ICONS.Vegan,
-                  vegetarian: CONTAINS_ICONS.Vegetarian,
-                };
-
-                const iconSource = ICON_MAP[key];
-
-                if (iconSource) {
-                  return (
-                    <Image
-                      key={index}
-                      source={iconSource}
-                      style={styles.containsIcon}
-                    />
-                  );
-                }
-
-                // Fallback: Display text if icon is missing
-                return (
-                  <Text key={index} style={{ fontSize: 10, color: '#555', marginRight: 4 }}>{rawKey}</Text>
-                );
-              })}
-            </View>
-          )}
-
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>£{item.price}</Text>
-
-            {qty > 0 ? (
-              <View style={styles.qtyRow}>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => decrement(item.id)}
-                  disabled={!!updating[item.id]}
-                >
-                  {updating[item.id] ? (
-                    <ActivityIndicator size="small" />
-                  ) : (
-                    <Ionicons name="remove-outline" size={18 * scale} color="#000" />
-                  )}
-                </TouchableOpacity>
-
-                <Text style={styles.qtyText}>{qty}</Text>
-
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => increment(item.id)}
-                  disabled={!!updating[item.id]}
-                >
-                  {updating[item.id] ? (
-                    <ActivityIndicator size="small" />
-                  ) : (
-                    <Ionicons name="add-outline" size={18 * scale} color="#000" />
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.addBtn}
-                onPress={() => addAndOpenPopup(item.id)}
-              >
-                <Ionicons name="add-outline" size={20 * scale} color="#fff" />
-                <Text style={styles.addText}>ADD</Text>
-              </TouchableOpacity>
+            {!!item.description && (
+              <Text style={styles.cardDesc} numberOfLines={2}>
+                {item.description}
+              </Text>
             )}
+            {Array.isArray(item.contains) && item.contains.length > 0 && (
+              <View style={styles.containsRow}>
+                {item.contains.map((c, index) => {
+                  const rawKey = String(c).trim();
+                  const key = rawKey.toLowerCase();
+
+                  const ICON_MAP = {
+                    dairy: CONTAINS_ICONS.Dairy,
+                    gluten: CONTAINS_ICONS.Gluten,
+                    mild: CONTAINS_ICONS.Mild,
+                    nuts: CONTAINS_ICONS.Nuts,
+                    sesame: CONTAINS_ICONS.Sesame,
+                    vegan: CONTAINS_ICONS.Vegan,
+                    vegetarian: CONTAINS_ICONS.Vegetarian,
+                  };
+
+                  const iconSource = ICON_MAP[key];
+
+                  if (iconSource) {
+                    return (
+                      <Image
+                        key={index}
+                        source={iconSource}
+                        style={styles.containsIcon}
+                      />
+                    );
+                  }
+
+                  // Fallback: Display text if icon is missing
+                  return (
+                    <Text key={index} style={{ fontSize: 10, color: '#555', marginRight: 4 }}>{rawKey}</Text>
+                  );
+                })}
+              </View>
+            )}
+
+            <View style={styles.priceRow}>
+              <Text style={styles.price}>£{item.price}</Text>
+
+              {qty > 0 ? (
+                <View style={styles.qtyRow}>
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => decrement(item.id)}
+                    disabled={!!updating[item.id]}
+                  >
+                    {updating[item.id] ? (
+                      <ActivityIndicator size="small" />
+                    ) : (
+                      <Ionicons name="remove-outline" size={18 * scale} color="#000" />
+                    )}
+                  </TouchableOpacity>
+
+                  <Text style={styles.qtyText}>{qty}</Text>
+
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => increment(item.id)}
+                    disabled={!!updating[item.id]}
+                  >
+                    {updating[item.id] ? (
+                      <ActivityIndicator size="small" />
+                    ) : (
+                      <Ionicons name="add-outline" size={18 * scale} color="#000" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.addBtn}
+                  onPress={() => addAndOpenPopup(item.id)}
+                >
+                  <Ionicons name="add-outline" size={20 * scale} color="#fff" />
+                  <Text style={styles.addText}>ADD</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
+        </LinearGradient>
       </View>
     );
   };
@@ -728,19 +800,14 @@ export default function Products({ route, navigation }) {
               <Ionicons
                 name={offers[activeIndex]?.icon || "gift"}
                 size={16 * scale}
-                color="#000000"
+                color="#FFFFFF"
               />
 
             </View>
             <View style={styles.offerTextContainer}>
-              <Text
-                style={styles.offerText}   // ✅ uses hard black from StyleSheet
-                numberOfLines={1}
-              >
-                {animatedTexts[textIndex]}
-              </Text>
+              {highlightAmount(animatedTexts[textIndex])}
             </View>
-            <View style={[styles.glowingDot, { backgroundColor: offers[activeIndex]?.textColor || '#FFF' }]} />
+            <View style={[styles.glowingDot, { backgroundColor: '#FFFFFF' }]} />
           </LinearGradient>
         </Animated.View>
 
@@ -760,22 +827,29 @@ export default function Products({ route, navigation }) {
         </View>
       </View>
 
-      {/* Voice Overlay */}
-      {voiceListening && (
+      {/* Voice Overlay - Modal for absolute visibility */}
+      <Modal visible={voiceListening} transparent animationType="fade">
         <View style={styles.voiceOverlay}>
           <LinearGradient
-            colors={["rgba(255,43,92,0.95)", "rgba(255,43,92,0.8)"]}
+            colors={["rgba(226,55,68,0.98)", "rgba(185,28,38,0.95)"]}
             style={styles.voiceOverlayInner}
           >
-            <Ionicons name="mic" size={60 * scale} color="#FFF" />
+            <View style={styles.voicePulseCircle}>
+              <Ionicons name="mic" size={60 * scale} color="#FFF" />
+            </View>
             <Text style={styles.voiceText}>Listening...</Text>
-            <Text style={styles.voiceSubtext}>Try saying "Dhosa" or "Paneer"</Text>
+            <Text style={styles.voiceSubtext}>Try saying "Dosa" or "Paneer"</Text>
             <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
-              <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
+              <LinearGradient
+                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                style={styles.voiceCloseInner}
+              >
+                <Ionicons name="close" size={28 * scale} color="#FFF" />
+              </LinearGradient>
             </TouchableOpacity>
           </LinearGradient>
         </View>
-      )}
+      </Modal>
 
       {/* List */}
       {loading ? (
@@ -998,17 +1072,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f8f8f8" },
 
   amountHighlight: {
-    color: "#ffea63",         // GOLD
+    color: "#FBFF00",
     fontWeight: "900",
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 1 },
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
   },
 
   containsRow: {
     flexDirection: "row",
     marginTop: 6,
-    gap: 6,
     flexWrap: "wrap",
   },
 
@@ -1016,6 +1089,8 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     resizeMode: "contain",
+    marginRight: 6,
+    marginBottom: 4,
   },
 
   banner: {
@@ -1070,12 +1145,9 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    flexDirection: "row",
-    backgroundColor: "#ffffff",
     marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 10,
-    padding: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -1083,6 +1155,11 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: '#F8F8F8',
+    overflow: 'hidden',
+  },
+  cardContent: {
+    flexDirection: "row",
+    padding: 12,
   },
   cardImg: {
     width: 100 * scale,
@@ -1328,7 +1405,6 @@ const styles = StyleSheet.create({
   },
   voiceOverlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1337,6 +1413,16 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: "center",
     alignItems: "center",
+  },
+  voicePulseCircle: {
+    width: 140 * scale,
+    height: 140 * scale,
+    borderRadius: 70 * scale,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   voiceText: {
     fontSize: 24 * scale,
@@ -1352,7 +1438,17 @@ const styles = StyleSheet.create({
   },
   voiceClose: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 80,
+    alignItems: 'center',
+  },
+  voiceCloseInner: {
+    width: 60 * scale,
+    height: 60 * scale,
+    borderRadius: 30 * scale,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   flyingItem: {
     position: 'absolute',

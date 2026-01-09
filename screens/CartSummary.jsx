@@ -197,10 +197,6 @@ export default function CartSummary({ navigation }) {
                     <Text style={styles.headerTitle}>Review Items</Text>
                     <Text style={styles.headerSub}>{products.length} {products.length === 1 ? 'item' : 'items'} in your bucket</Text>
                   </View>
-                  <TouchableOpacity style={styles.addMoreBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="add-circle-outline" size={18} color="#FF2B5C" />
-                    <Text style={styles.addMoreText}>Add more</Text>
-                  </TouchableOpacity>
                 </View>
 
                 {/* Arrival Timer Card */}
@@ -218,6 +214,24 @@ export default function CartSummary({ navigation }) {
                     </View>
                   </LinearGradient>
                 </View>
+
+                {/* PREMIUM ADD MORE CARD ABOVE ITEMS */}
+                <TouchableOpacity
+                  style={styles.addMorePremiumCard}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.goBack()}
+                >
+                  <View style={styles.addMoreContent}>
+                    <View style={styles.addMoreIconWrap}>
+                      <Ionicons name="add" size={24} color="#FF2B5C" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 15 }}>
+                      <Text style={styles.addMoreTitle}>Hungry for more?</Text>
+                      <Text style={styles.addMoreSub}>Add more items to your bucket</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#FF2B5C" />
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
             )}
             renderItem={({ item }) => {
@@ -287,44 +301,41 @@ export default function CartSummary({ navigation }) {
 
                 {/* Safety Badge */}
                 <View style={styles.safetyCard}>
-                  <Ionicons name="shield-checkmark" size={24} color="#16a34a" />
+                  <View style={styles.safetyIconBg}>
+                    <Ionicons name="shield-checkmark" size={24} color="#16a34a" />
+                  </View>
                   <View style={styles.safetyTextRow}>
                     <Text style={styles.safetyTitle}>Safety & Hygiene Guaranteed</Text>
                     <Text style={styles.safetySub}>Trained professionals preparing your food</Text>
                   </View>
                 </View>
 
-                {/* ULTIMATE BUSINESS CHECKOUT BAR */}
-                <View style={styles.premiumCheckoutBar}>
-                  <View style={styles.summaryLeft}>
-                    <Text style={styles.itemCountText}>{products.length} {products.length === 1 ? 'Item' : 'Items'}</Text>
-                    <View style={styles.priceRow}>
-                      <Text style={styles.totalLabelSmall}>Total:</Text>
-                      <Text style={styles.finalTotalText}>£{grandTotal}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={styles.actionBtnPremium}
-                    onPress={() => navigation.navigate("CheckoutScreen")}
-                  >
-                    <LinearGradient
-                      colors={["#16a34a", "#15803d"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.btnGradient}
-                    >
-                      <Text style={styles.btnTextPremium}>Place Order</Text>
-                      <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 8 }} />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
+                <View style={{ height: 85 }} />
               </View>
             )}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           />
+        </View>
+      )}
 
-
+      {/* STICKY PLACE ORDER BAR - NOW CLEANER AT THE BOTTOM */}
+      {!loadingCart && products.length > 0 && (
+        <View style={[styles.stickyFooter, { bottom: insets.bottom }]}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.premiumStickyBar}
+            onPress={() => navigation.navigate("CheckoutScreen")}
+          >
+            <LinearGradient
+              colors={["#16a34a", "#15803d"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.stickyBtn}
+            >
+              <Text style={styles.stickyBtnText}>Proceed to Checkout</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 8 }} />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -334,7 +345,6 @@ export default function CartSummary({ navigation }) {
         user={user}
         navigation={navigation}
       />
-      <BottomBar navigation={navigation} />
     </View>
   );
 }
@@ -355,11 +365,11 @@ const styles = StyleSheet.create({
 
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', padding: 20, paddingTop: 15 },
   headerTitle: {
-  fontSize: 22 * scale,     // ⬆️ slightly bigger
-  fontFamily: 'PoppinsBold',
-  fontWeight: '900',        // ✅ force bold
-  color: '#1C1C1C',
-},
+    fontSize: 22 * scale,     // ⬆️ slightly bigger
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',        // ✅ force bold
+    color: '#1C1C1C',
+  },
 
   headerSub: { fontSize: 12 * scale, fontFamily: 'PoppinsMedium', color: '#888' },
   addMoreBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,43,92,0.08)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
@@ -369,19 +379,19 @@ const styles = StyleSheet.create({
   etaInner: { flexDirection: 'row', alignItems: 'center', padding: 15 },
   etaIconBg: { width: 45, height: 45, borderRadius: 10, backgroundColor: 'rgba(255,43,92,0.1)', alignItems: 'center', justifyContent: 'center' },
   etaTextWrap: { flex: 1, marginLeft: 15 },
- etaLabel: {
-  fontSize: 12 * scale,
-  fontFamily: 'PoppinsBold',
-  fontWeight: '800',
-  color: '#AAA',
-  letterSpacing: 0.6,
-},
-etaValue: {
-  fontSize: 16 * scale,
-  fontFamily: 'PoppinsBold',
-  fontWeight: '900',
-  color: '#1C1C1C',
-},
+  etaLabel: {
+    fontSize: 12 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '800',
+    color: '#AAA',
+    letterSpacing: 0.6,
+  },
+  etaValue: {
+    fontSize: 16 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',
+    color: '#1C1C1C',
+  },
 
   arrivalBadge: { backgroundColor: '#FF2B5C', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   arrivalText: { fontSize: 10 * scale, fontFamily: 'PoppinsBold', color: '#FFF' },
@@ -390,11 +400,11 @@ etaValue: {
   itemInfo: { flex: 1, paddingRight: 10 },
   nameHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   itemName: {
-  fontSize: 16.5 * scale,   // ⬆️ clearer
-  fontFamily: 'PoppinsBold',
-  fontWeight: '800',
-  color: '#1C1C1C',
-},
+    fontSize: 16.5 * scale,   // ⬆️ clearer
+    fontFamily: 'PoppinsBold',
+    fontWeight: '800',
+    color: '#1C1C1C',
+  },
 
   noteBox: { backgroundColor: '#F9F9F9', padding: 10, borderRadius: 8, marginTop: 8, borderLeftWidth: 3, borderLeftColor: '#DDD' },
   itemNote: { fontSize: 12 * scale, fontFamily: 'PoppinsMedium', fontStyle: 'italic', color: '#666' },
@@ -406,79 +416,125 @@ etaValue: {
   qtyText: { fontSize: 14 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginHorizontal: 12 },
   totalTextSmall: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginTop: 10 },
 
-  billSummary: { padding: 20, paddingBottom: 20 },
+  billSummary: { padding: 16, paddingBottom: 10 },
   billTitle: {
-  fontSize: 20 * scale,     // ⬆️ stronger hierarchy
-  fontFamily: 'PoppinsBold',
-  fontWeight: '900',
-  color: '#1C1C1C',
-  marginBottom: 12,
-},
-
-  billCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 18, elevation: 3 },
-  billRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 6 },
+    fontSize: 19 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',
+    color: '#1C1C1C',
+    marginBottom: 10,
+  },
+  billCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, elevation: 3 },
+  billRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
   billLabel: { fontSize: 14 * scale, fontFamily: 'PoppinsMedium', color: '#777' },
   billValue: {
-  fontSize: 15 * scale,      // ⬆️ slightly bigger
-  fontFamily: 'PoppinsBold',
-  fontWeight: '800',         // ✅ stronger bold
-  color: '#1C1C1C',
-},
+    fontSize: 15 * scale,      // ⬆️ slightly bigger
+    fontFamily: 'PoppinsBold',
+    fontWeight: '800',         // ✅ stronger bold
+    color: '#1C1C1C',
+  },
 
-  billDivider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 12 },
+  billDivider: { height: 1.5, backgroundColor: '#F5F5F5', marginVertical: 10 },
   grandLabel: {
-  fontSize: 17 * scale,
-  fontFamily: 'PoppinsBold',
-  fontWeight: '900',
-  color: '#1C1C1C',
-},
+    fontSize: 17 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',
+    color: '#1C1C1C',
+  },
 
-grandValue: {
-  fontSize: 22 * scale,      // ⬆️ premium emphasis
-  fontFamily: 'PoppinsBold',
-  fontWeight: '900',         // 🔥 extra bold
-  color: '#16a34a',
-},
+  grandValue: {
+    fontSize: 22 * scale,      // ⬆️ premium emphasis
+    fontFamily: 'PoppinsBold',
+    fontWeight: '900',         // 🔥 extra bold
+    color: '#16a34a',
+  },
 
 
-  safetyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f5e9', marginTop: 15, padding: 15, borderRadius: 12 },
-  safetyTextRow: { marginLeft: 15 },
-  safetyTitle: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#16a34a' },
-  safetySub: { fontSize: 11 * scale, fontFamily: 'PoppinsMedium', color: '#336633' },
+  safetyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', marginTop: 12, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#DCFCE7' },
+  safetyIconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
+  safetyTextRow: { marginLeft: 12 },
+  safetyTitle: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#15803d' },
+  safetySub: { fontSize: 11 * scale, fontFamily: 'PoppinsMedium', color: '#166534', opacity: 0.8 },
 
-  premiumCheckoutBar: {
+  stickyFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
+  premiumStickyBar: {
     backgroundColor: '#FFF',
-    borderRadius: 10,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
-    padding: 12,
+    justifyContent: 'center', // Centered
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 35,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  // stickyLeft: { flex: 0.45, justifyContent: 'center' },
+  // stickyItemCount: { fontSize: 11 * scale, fontFamily: 'PoppinsBold', color: '#64748B', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: -1 },
+  // stickyPriceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 0 },
+  // stickyTotalLabel: { fontSize: 13 * scale, fontFamily: 'PoppinsSemiBold', color: '#1E293B', marginRight: 4, opacity: 0.7 },
+  // stickyTotalValue: { fontSize: 22 * scale, fontFamily: 'PoppinsBold', fontWeight: '900', color: '#1C1C1C' },
+  stickyBtn: {
+    flex: 1, // Full width inside the centered container
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 15,
+    borderRadius: 14,
+  },
+  stickyBtnText: {
+    color: '#FFF',
+    fontSize: 15 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '800',
+  },
+
+  /* PREMIUM ADD MORE CARD */
+  addMorePremiumCard: {
+    backgroundColor: '#FFF',
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 12,
+    padding: 15,
     borderWidth: 1,
     borderColor: '#F0F0F0',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    borderStyle: 'dashed',
+    elevation: 2,
   },
-  summaryLeft: { flex: 1, marginLeft: 8 },
-  itemCountText: { fontSize: 11 * scale, fontFamily: 'PoppinsBold', color: '#999', textTransform: 'uppercase', letterSpacing: 0.5 },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
-  totalLabelSmall: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#666', marginRight: 4 },
-  finalTotalText: {
-  fontSize: 24 * scale,     // ⬆️ premium emphasis
-  fontFamily: 'PoppinsBold',
-  fontWeight: '900',
-  color: '#1C1C1C',
-},
-
-  actionBtnPremium: { borderRadius: 8, overflow: 'hidden' },
-  btnGradient: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 22 },
-  btnTextPremium: {
-  color: '#FFF',
-  fontFamily: 'PoppinsBold',
-  fontWeight: '900',
-  fontSize: 17 * scale,
-  letterSpacing: 0.5,
-},
-
+  addMoreContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addMoreIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,43,92,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addMoreTitle: {
+    fontSize: 15 * scale,
+    fontFamily: 'PoppinsBold',
+    fontWeight: '800',
+    color: '#1C1C1C',
+  },
+  addMoreSub: {
+    fontSize: 11 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#888',
+  },
 });

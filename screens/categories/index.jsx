@@ -12,10 +12,13 @@ import {
   ScrollView,
   Modal,
   Animated,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import Voice from "@react-native-voice/voice";
+import { PermissionsAndroid, Platform } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
@@ -168,43 +171,107 @@ export default function Categories({ route, navigation }) {
   );
 
   const [voiceListening, setVoiceListening] = useState(false);
-  const voiceTimeoutRef = useRef(null);
 
-  const startVoiceSearch = () => {
-    // Prevent multiple simultaneous activations
-    if (voiceListening) return;
-
-    setVoiceListening(true);
-
-    // Clear any existing timeout
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-    }
-
-    voiceTimeoutRef.current = setTimeout(() => {
+  useEffect(() => {
+    if (!Voice) return;
+    Voice.onSpeechStart = () => setVoiceListening(true);
+    Voice.onSpeechEnd = () => setVoiceListening(false);
+    Voice.onSpeechError = (e) => {
+      console.log("onSpeechError: ", e);
       setVoiceListening(false);
-      // Simulated voice recognition - in production, integrate with @react-native-voice/voice
-      const keywords = ["Dosa", "Idli", "Chaats", "Drinks"];
-      const random = keywords[Math.floor(Math.random() * keywords.length)];
-      setSearchText(random);
-      voiceTimeoutRef.current = null;
-    }, 2000);
+    };
+    Voice.onSpeechResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        setSearchText(e.value[0]);
+      }
+      setVoiceListening(false);
+    };
+    Voice.onSpeechPartialResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        setSearchText(e.value[0]);
+      }
+    };
+
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners).catch(err => console.log("Voice Cleanup Err:", err));
+    };
+  }, []);
+
+  const requestAudioPermission = async () => {
+    if (Platform.OS === "android") {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: "Microphone Permission",
+            message: "Crispy Dosa needs access to your microphone to search.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK",
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
   };
 
-  const cancelVoiceSearch = () => {
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-      voiceTimeoutRef.current = null;
+  const startVoiceSearch = async () => {
+    try {
+      if (!Voice || typeof Voice.start !== 'function') {
+        Alert.alert("Voice Not Ready", "Voice search module is not initialized. Please restart the app or ensure permissions are granted.");
+        return;
+      }
+
+      // Clear any previous state
+      await Voice.stop().catch(() => { });
+      await Voice.destroy().catch(() => { });
+
+      const hasPermission = await requestAudioPermission();
+      if (!hasPermission) return;
+
+      setSearchText("");
+      setVoiceListening(true);
+
+      // Re-initialize listeners due to Voice.destroy()
+      Voice.onSpeechStart = () => setVoiceListening(true);
+      Voice.onSpeechResults = (e) => {
+        if (e.value && e.value.length > 0) setSearchText(e.value[0]);
+        setVoiceListening(false);
+      };
+      Voice.onSpeechError = (e) => {
+        console.error("Speech Error:", e);
+        setVoiceListening(false);
+      };
+
+      await Voice.start("en-US");
+    } catch (e) {
+      console.error("Voice Error:", e);
+      setVoiceListening(false);
+      if (e?.message?.includes('null')) {
+        Alert.alert("Voice Error", "Native voice module not found. A clean build/re-install may be required.");
+      }
     }
-    setVoiceListening(false);
+  };
+
+  const cancelVoiceSearch = async () => {
+    try {
+      if (Voice && typeof Voice.stop === 'function') {
+        await Voice.stop().catch(() => { });
+      }
+      setVoiceListening(false);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (voiceTimeoutRef.current) {
-        clearTimeout(voiceTimeoutRef.current);
-      }
+      // Any cleanup logic here
     };
   }, []);
 
@@ -292,11 +359,11 @@ export default function Categories({ route, navigation }) {
     : "Loading...";
 
   const highlightAmount = (text) => {
-    const regex = /(£\s?0\.25|£0\.25)/i; // detects £0.25 in any format
+    const regex = /(£\s?0\.25|£0\.25)/i;
     const parts = text.split(regex);
 
     return (
-      <Text style={styles.offerText} numberOfLines={1}>
+      <Text style={[styles.offerText, { color: "#FFFFFF" }]} numberOfLines={1}>
         {parts[0]}
         {parts[1] && (
           <Text style={styles.offerAmount}>{parts[1]}</Text>
@@ -337,20 +404,12 @@ export default function Categories({ route, navigation }) {
             style={styles.premiumOfferInner}
           >
             <View style={styles.offerIconBadge}>
-              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={18 * scale} color={offers[activeIndex]?.textColor || "#FFF"} />
+              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={18 * scale} color="#FFFFFF" />
             </View>
             <View style={styles.offerTextContainer}>
-              <Text
-                style={[
-                  styles.offerText,
-                  { color: "#000000" }   // 🔒 hard lock to black
-                ]}
-                numberOfLines={1}
-              >
-                {animatedTexts[textIndex]}
-              </Text>
+              {highlightAmount(animatedTexts[textIndex])}
             </View>
-            <View style={[styles.glowingDot, { backgroundColor: offers[activeIndex]?.textColor || '#000000' }]} />
+            <View style={[styles.glowingDot, { backgroundColor: '#FFFFFF' }]} />
           </LinearGradient>
         </Animated.View>
 
@@ -389,14 +448,14 @@ export default function Categories({ route, navigation }) {
                   <View style={styles.serviceRow}>
                     {restaurant.instore && (
                       <View style={styles.serviceChip}>
-                        <Ionicons name="storefront" size={14 * scale} color="#666" />
+                        <Ionicons name="storefront" size={16 * scale} color="#FF2B5C" />
                         <Text style={styles.serviceChipText}>In-store</Text>
                       </View>
                     )}
                     {restaurant.kerbside && (
                       <View style={styles.serviceChip}>
-                        <Ionicons name="car" size={16 * scale} color="#666" />
-                        <Text style={styles.serviceChipText}>Kerbside</Text>
+                        <Ionicons name="car-sport" size={18 * scale} color="#16a34a" />
+                        <Text style={[styles.serviceChipText, { color: '#16a34a' }]}>Kerbside</Text>
                       </View>
                     )}
                   </View>
@@ -434,9 +493,6 @@ export default function Categories({ route, navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-
-
-
         {/* SEARCH BOX */}
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color="#777" />
@@ -452,23 +508,6 @@ export default function Categories({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Voice Overlay */}
-        {voiceListening && (
-          <View style={styles.voiceOverlay}>
-            <LinearGradient
-              colors={["rgba(255,43,92,0.95)", "rgba(255,43,92,0.8)"]}
-              style={styles.voiceOverlayInner}
-            >
-              <Ionicons name="mic" size={60 * scale} color="#FFF" />
-              <Text style={styles.voiceText}>Listening...</Text>
-              <Text style={styles.voiceSubtext}>Try saying "Dhosa" or "Snacks"</Text>
-              <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
-                <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        )}
-
         {/* CATEGORY GRID */}
         {loading ? (
           <ActivityIndicator size="large" style={{ marginTop: 20 }} />
@@ -483,6 +522,30 @@ export default function Categories({ route, navigation }) {
           />
         )}
       </ScrollView>
+
+      {/* Voice Overlay - Modal for absolute visibility */}
+      <Modal visible={voiceListening} transparent animationType="fade">
+        <View style={styles.voiceOverlay}>
+          <LinearGradient
+            colors={["rgba(226,55,68,0.98)", "rgba(185,28,38,0.95)"]}
+            style={styles.voiceOverlayInner}
+          >
+            <View style={styles.voicePulseCircle}>
+              <Ionicons name="mic" size={60 * scale} color="#FFF" />
+            </View>
+            <Text style={styles.voiceText}>Listening...</Text>
+            <Text style={styles.voiceSubtext}>Try saying "Dosa" or "Snacks"</Text>
+            <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                style={styles.voiceCloseInner}
+              >
+                <Ionicons name="close" size={28 * scale} color="#FFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
 
       <MenuModal
         visible={menuVisible}
@@ -526,7 +589,7 @@ export default function Categories({ route, navigation }) {
           </View>
         </View>
       </Modal>
-    </SafeAreaView >
+    </SafeAreaView>
   );
 }
 
@@ -539,8 +602,11 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   offerAmount: {
-    color: "#FFFF00",
+    color: "#FBFF00",
     fontWeight: "900",
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
 
   // IMMERSIVE BRAND SECTION
@@ -660,6 +726,7 @@ const styles = StyleSheet.create({
   boutiqueName: {
     fontSize: 20 * scale,
     fontFamily: "PoppinsBold",
+    fontWeight: '900',
     color: "#1C1C1C",
     marginBottom: 6,
   },
@@ -688,21 +755,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: 8,
-    gap: 8,
   },
   serviceChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    paddingHorizontal: 8,
+    backgroundColor: "transparent",
     paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    marginRight: 15,
   },
   serviceChipText: {
-    fontSize: 11 * scale,
-    fontFamily: "PoppinsMedium",
-    color: "#666",
+    marginLeft: 6,
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FF2B5C",
+    letterSpacing: 0.3,
   },
   cardFooter: {
     flexDirection: "row",
@@ -860,8 +926,28 @@ const styles = StyleSheet.create({
   },
   voiceClose: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 80,
+    alignItems: 'center',
   },
+  voiceCloseInner: {
+    width: 60 * scale,
+    height: 60 * scale,
+    borderRadius: 30 * scale,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  voicePulseCircle: {
+    width: 140 * scale,
+    height: 140 * scale,
+    borderRadius: 70 * scale,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  }
 });
 
 const cardStyles = StyleSheet.create({

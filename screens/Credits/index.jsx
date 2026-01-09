@@ -286,9 +286,10 @@ export default function CreditsScreen({ navigation }) {
           </Text>
 
           <View style={styles.column}>
-            <View style={[styles.card, styles.creditsCard]}>
+            {/* LOYALTY CARD */}
+            <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Ionicons name="gift-outline" size={24} color="#3b82f6" />
+                <Ionicons name="gift-outline" size={22} color="#3b82f6" />
                 <Text style={styles.cardLabel}>Loyalty Credits</Text>
               </View>
 
@@ -406,12 +407,13 @@ export default function CreditsScreen({ navigation }) {
               )}
             </View>
 
-            <View style={[styles.card, styles.walletCard]}>
+            {/* WALLET CARD */}
+            <View style={[styles.card, { marginTop: 16 }]}>
               <View style={styles.cardHeader}>
-                <Ionicons name="wallet-outline" size={24} color="#10b981" />
-                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-                  <Text style={[styles.cardLabel, { marginLeft: 10 }]}>Referral and Signup Amount</Text>
-                  <Text style={{ fontSize: 10, color: '#666', marginLeft: 8 }}>(Friend Invites & Joining)</Text>
+                <Ionicons name="wallet-outline" size={22} color="#10b981" />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.cardLabel}>Referral and Signup Amount</Text>
+                  <Text style={styles.cardSubLabel}>(Friend Invites & Joining)</Text>
                 </View>
               </View>
               <Text style={styles.cardValue}>
@@ -424,10 +426,10 @@ export default function CreditsScreen({ navigation }) {
           </View>
 
           {/* CONSOLIDATED REFERRAL CARD */}
-          <View style={[styles.card, styles.referralCard]}>
+          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: "#8b5cf6" }]}>
             <View style={styles.cardHeader}>
               <Ionicons name="people-outline" size={24} color="#8b5cf6" />
-              <Text style={styles.cardLabel}>Referrals & Rewards</Text>
+              <Text style={[styles.cardLabel, { fontSize: 16 }]}>Referrals & Rewards</Text>
             </View>
 
             <View style={styles.referralStats}>
@@ -559,26 +561,29 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "800", color: "#111827", marginBottom: 6 },
   subtitle: { fontSize: 13, color: "#6b7280", marginBottom: 20 },
 
-  column: { gap: 16, marginBottom: 16 },
+  column: { marginBottom: 16 },
   card: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.03,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6'
   },
-  walletCard: { borderLeftWidth: 4, borderLeftColor: "#10b981" },
-  creditsCard: { borderLeftWidth: 4, borderLeftColor: "#3b82f6" },
+  // walletCard: { borderLeftWidth: 4, borderLeftColor: "#10b981" },
+  // creditsCard: { borderLeftWidth: 4, borderLeftColor: "#3b82f6" },
 
-  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 },
-  cardLabel: { fontSize: 14, fontWeight: "600", color: "#4b5563" },
-  cardValue: { fontSize: 28, fontWeight: "800", color: "#111827", marginBottom: 4 },
-  cardHint: { fontSize: 12, color: "#9ca3af", marginTop: 4 },
+  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
+  cardLabel: { fontSize: 15, fontFamily: 'PoppinsBold', color: '#1F2937', fontWeight: '700', marginLeft: 10 },
+  cardSubLabel: { fontSize: 11, fontFamily: 'PoppinsMedium', color: '#6B7280', marginTop: 2 },
+  cardValue: { fontSize: 32, fontFamily: 'PoppinsBold', color: '#111827', marginBottom: 8, fontWeight: '900' },
+  cardHint: { fontSize: 13, fontFamily: 'PoppinsMedium', color: '#6B7280', lineHeight: 20 },
 
-  creditsRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  creditsRow: { flexDirection: "row", alignItems: "baseline" },
   pointsSubText: { fontSize: 14, color: "#6b7280", fontWeight: "500" },
 
   // Dropdown Styles
@@ -586,20 +591,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#f3f4f6",
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    marginTop: 15,
   },
-  dropdownTitle: { fontSize: 13, fontWeight: "600", color: "#6b7280" },
-  dropdownContent: { marginTop: 4, paddingBottom: 4 },
+  dropdownTitle: { fontSize: 13, fontFamily: 'PoppinsSemiBold', color: "#6B7280" },
+  dropdownContent: { marginTop: 0, paddingBottom: 4 },
   dropdownItem: {
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#f3f4f6",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
-  itemMainText: { fontSize: 14, fontWeight: "700", color: "#111827", marginBottom: 2 },
-  itemSubText: { fontSize: 12, color: "#6b7280" },
-  itemExpiryDate: { fontSize: 11, color: "#9ca3af" },
+  itemMainText: { fontSize: 15, fontFamily: 'PoppinsBold', color: "#111827", marginBottom: 2 },
+  itemSubText: { fontSize: 12, fontFamily: 'PoppinsMedium', color: "#6B7280" },
+  itemExpiryDate: { fontSize: 11, fontFamily: 'PoppinsRegular', color: "#9CA3AF" },
 
   // Referral Card Styles
   referralCard: { borderLeftWidth: 4, borderLeftColor: "#8b5cf6" },

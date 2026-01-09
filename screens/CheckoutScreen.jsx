@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   FlatList,
   TouchableOpacity,
   Modal,
@@ -60,6 +61,13 @@ export default function CheckoutScreen({ navigation }) {
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
 
+  // Premium Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMsg, setAlertMsg] = useState("");
+  const [alertType, setAlertType] = useState("info"); // info, error, success
+  const alertScale = useRef(new Animated.Value(0)).current;
+
   // Success Toast State
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -74,6 +82,32 @@ export default function CheckoutScreen({ navigation }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const walletScale = useRef(new Animated.Value(0)).current;
   const loyaltyScale = useRef(new Animated.Value(0)).current;
+  const bottomSheetAnim = useRef(new Animated.Value(height)).current;
+
+  // Helper to open sheet
+  const openSheet = () => {
+    Animated.spring(bottomSheetAnim, {
+      toValue: 0,
+      tension: 60,
+      friction: 8,
+      useNativeDriver: true
+    }).start();
+  };
+
+  // Helper to close sheet
+  const closeSheet = (callback) => {
+    Animated.timing(bottomSheetAnim, {
+      toValue: height,
+      duration: 250,
+      useNativeDriver: true
+    }).start(callback);
+  };
+
+  useEffect(() => {
+    if (deliveryPopup || allergyPopup) {
+      openSheet();
+    }
+  }, [deliveryPopup, allergyPopup]);
 
   const cartItemsMap = useMemo(() => {
     const map = {};
@@ -122,6 +156,27 @@ export default function CheckoutScreen({ navigation }) {
   const getFinalTotal = () => {
     const total = getCartTotal();
     return Math.max(0, total - (useWallet ? walletUsed : 0) - (useLoyalty ? loyaltyUsed : 0));
+  };
+
+  const showPremiumAlert = (title, msg, type = "info") => {
+    setAlertTitle(title);
+    setAlertMsg(msg);
+    setAlertType(type);
+    setAlertVisible(true);
+    Animated.spring(alertScale, {
+      toValue: 1,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const hidePremiumAlert = () => {
+    Animated.timing(alertScale, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setAlertVisible(false));
   };
 
   const showToast = (msg) => {
@@ -223,8 +278,11 @@ export default function CheckoutScreen({ navigation }) {
   const placeOrder = async () => {
     if (processingPayment) return;
     if (!user) {
-      alert("Please sign in to place an order.");
-      navigation.navigate("Login");
+      showPremiumAlert("Sign In Required", "Please sign in to place an order.", "info");
+      setTimeout(() => {
+        hidePremiumAlert();
+        navigation.navigate("Login");
+      }, 2000);
       return;
     }
 
@@ -242,7 +300,7 @@ export default function CheckoutScreen({ navigation }) {
         });
         activeIntent = await res.json();
         if (!activeIntent.clientSecret) {
-          alert("Payment initialization failed");
+          showPremiumAlert("Payment Error", "Payment initialization failed. Please try again.", "error");
           setProcessingPayment(false);
           return;
         }
@@ -284,9 +342,7 @@ export default function CheckoutScreen({ navigation }) {
 
       const orderRes = await createOrder(payload);
       if (orderRes.status === 1) {
-        // Calculate earned amount (e.g., 5% of order value)
-        const earned = (getFinalTotal() * 0.05).toFixed(2);
-        setEarnedPoints(earned); // Reusing state but showing as amount
+        // Show success
         triggerSuccessAnimation();
         setCart([]);
         await AsyncStorage.removeItem("cart");
@@ -300,12 +356,12 @@ export default function CheckoutScreen({ navigation }) {
           });
         }, 3000);
       } else {
-        alert(orderRes.message || "Order failed");
+        showPremiumAlert("Order Failed", orderRes.message || "Something went wrong while placing your order.", "error");
       }
       setProcessingPayment(false);
     } catch (err) {
       setProcessingPayment(false);
-      alert("Something went wrong");
+      showPremiumAlert("System Error", "An unexpected error occurred. Please check your connection.", "error");
     }
   };
 
@@ -335,7 +391,7 @@ export default function CheckoutScreen({ navigation }) {
       {/* Congrats Animated Toast */}
       {toastVisible && (
         <AnimatedView style={[styles.premiumToast, { transform: [{ translateY: toastAnim }] }]}>
-          <LinearGradient colors={["#16a34a", "#15803d"]} style={styles.toastInner}>
+          <LinearGradient colors={["#10B981", "#059669"]} style={styles.toastInner}>
             <Ionicons name="sparkles" size={20} color="#FFF" />
             <Text style={styles.toastText}>{toastMsg}</Text>
           </LinearGradient>
@@ -343,233 +399,257 @@ export default function CheckoutScreen({ navigation }) {
       )}
 
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        <FlatList
-          data={visibleCart}
-          keyExtractor={(i, idx) => String(i.product_id ?? idx)}
-          contentContainerStyle={{ paddingBottom: 40 }}
+        <ScrollView
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View style={styles.headerCover}>
-              <View style={styles.listHeader}>
-                <View style={styles.headerLeft}>
-                  <Text style={styles.headerTitle}>Review Checkout</Text>
-                  <Text style={styles.headerSub}>{visibleCart.length} {visibleCart.length === 1 ? 'item' : 'items'} in your order</Text>
+          contentContainerStyle={{ paddingBottom: 110 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <View style={styles.mainContent}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.mainTitle}>Review Order</Text>
+                <Text style={styles.subTitle}>{visibleCart.length} {visibleCart.length === 1 ? 'item' : 'items'} in your bucket</Text>
+              </View>
+            </View>
+
+            {/* SERVICE INFO & ETA - COMPOSITE CARD */}
+            <View style={styles.serviceCompositeCard}>
+              <View style={styles.serviceRow}>
+                <View style={styles.serviceIconFrame}>
+                  <Ionicons name={deliveryMethod === 'Kerbside' ? "car-sport" : "walk"} size={26} color="#FF2B5C" />
                 </View>
-                <TouchableOpacity style={styles.addMoreBtn} onPress={() => navigation.goBack()}>
-                  <Ionicons name="add-circle-outline" size={18} color="#FF2B5C" />
-                  <Text style={styles.addMoreText}>Add more</Text>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                  <Text style={styles.serviceLabel}>{deliveryMethod === 'instore' ? "In-store Pickup" : "Kerbside Delivery"}</Text>
+                  <Text style={styles.serviceSub}>Estimated Prep: 20 - 25 Mins</Text>
+                </View>
+                <TouchableOpacity style={styles.changeBtn} onPress={() => { setDeliveryPopup(true); openSheet(); }}>
+                  <Text style={styles.changeBtnText}>Change</Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.prefSummary}>
-                {deliveryMethod && (
-                  <View style={[styles.prefBadge, deliveryMethod === 'kerbside' ? { flexDirection: 'column', alignItems: 'flex-start' } : null]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Ionicons name={deliveryMethod === 'instore' ? "walk" : "car"} size={16} color="#16a34a" />
-                      <Text style={[styles.badgeText, { fontSize: 15 }]}>
-                        {deliveryMethod === 'instore' ? "Collecting In-store" : "Kerbside Delivery"}
-                      </Text>
-                    </View>
-                    {deliveryMethod === 'kerbside' && (
-                      <View style={{ marginTop: 6, marginLeft: 26, width: '100%' }}>
-                        {kerbsideName ? <Text style={styles.badgeSubText}>• Car: {kerbsideName}</Text> : null}
-                        {kerbsideColor ? <Text style={styles.badgeSubText}>• Color: {kerbsideColor}</Text> : null}
-                        {kerbsideReg ? <Text style={styles.badgeSubText}>• Reg: {kerbsideReg}</Text> : null}
-                      </View>
-                    )}
-                  </View>
-                )}
-                {allergyNote ? (
-                  <View style={[styles.prefBadge, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
-                    <Ionicons name="medical" size={14} color="#EA580C" />
-                    <Text style={[styles.badgeText, { color: '#EA580C' }]}>Allergy: {allergyNote}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <View style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <View style={styles.nameHeader}>
-                  <Ionicons name="radio-button-on" size={12} color="#16a34a" style={{ marginRight: 6, marginTop: 3 }} />
-                  <Text style={styles.itemName} numberOfLines={2}>{item.product_name}</Text>
+              {(deliveryMethod === 'kerbside' && (kerbsideName || kerbsideReg || kerbsideColor)) && (
+                <View style={[styles.kerbsideInfoDetail, { flexDirection: 'column', alignItems: 'flex-start', gap: 4 }]}>
+                  {kerbsideName ? <Text style={styles.kerbsideText}><Text style={{ fontWeight: '700', color: '#0F172A' }}>Car Name:</Text> {kerbsideName}</Text> : null}
+                  {kerbsideColor ? <Text style={styles.kerbsideText}><Text style={{ fontWeight: '700', color: '#0F172A' }}>Color:</Text> {kerbsideColor}</Text> : null}
+                  {kerbsideReg ? <Text style={styles.kerbsideText}><Text style={{ fontWeight: '700', color: '#0F172A' }}>Reg No:</Text> {kerbsideReg}</Text> : null}
                 </View>
-                {item.textfield ? (
-                  <View style={styles.noteBox}>
-                    <Text style={styles.itemNote}>“{item.textfield}”</Text>
-                  </View>
-                ) : null}
-                <Text style={styles.itemPriceUnit}>£{Number(item.discount_price ?? item.product_price).toFixed(2)}</Text>
+              )}
+
+              {allergyNote ? (
+                <TouchableOpacity activeOpacity={0.8} style={styles.allergyBar} onPress={() => { setAllergyPopup(true); openSheet(); }}>
+                  <Ionicons name="warning" size={18} color="#EA580C" />
+                  <Text style={styles.allergyText} numberOfLines={1}>Note: {allergyNote}</Text>
+                  <Ionicons name="pencil" size={14} color="#EA580C" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity activeOpacity={0.8} style={styles.addAllergyLink} onPress={() => { setAllergyPopup(true); openSheet(); }}>
+                  <Ionicons name="medical-outline" size={16} color="#64748B" />
+                  <Text style={styles.addAllergyText}>Add allergy instructions</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#64748B" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* BASKET ITEMS */}
+            <View style={styles.basketContainer}>
+              <View style={styles.basketHeader}>
+                <Ionicons name="basket" size={20} color="#0F172A" />
+                <Text style={styles.basketTitle}>Basket Items</Text>
               </View>
 
-              <View style={styles.actionCol}>
-                <Text style={styles.qtyLabelText}>Qty: {item.product_quantity}</Text>
-                <Text style={styles.totalTextSmall}>£{(Number(item.discount_price ?? item.product_price) * item.product_quantity).toFixed(2)}</Text>
+              <View style={styles.basketCard}>
+                {visibleCart.map((item, index) => (
+                  <View key={item.product_id ?? index}>
+                    <View style={styles.cartItemRow}>
+                      <View style={styles.cartItemInfo}>
+                        <View style={styles.itemNameWrapper}>
+                          <View style={[styles.vegStatus, { borderColor: '#16A34A' }]}>
+                            <View style={[styles.vegInner, { backgroundColor: '#16A34A' }]} />
+                          </View>
+                          <Text style={styles.itemNameText} numberOfLines={2}>{item.product_name}</Text>
+                        </View>
+                        {item.textfield ? (
+                          <Text style={styles.itemNoteText}>“{item.textfield}”</Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.cartItemPriceCol}>
+                        <Text style={styles.itemTotalPriceText}>£{(Number(item.discount_price ?? item.product_price) * item.product_quantity).toFixed(2)}</Text>
+                        <Text style={styles.itemQtyText}>Qty: {item.product_quantity}</Text>
+                      </View>
+                    </View>
+                    {index < visibleCart.length - 1 && <View style={styles.itemDivider} />}
+                  </View>
+                ))}
               </View>
             </View>
-          )}
-          ListFooterComponent={
-            <View style={styles.billSummary}>
-              {/* Credits Section */}
-              <Text style={styles.billTitle}>Credits & Loyalty</Text>
-              <View style={styles.creditCard}>
-                <View style={styles.creditRow}>
-                  <View style={styles.creditIcon}>
-                    <Ionicons name="wallet-outline" size={24} color="#16a34a" />
+
+            {/* SAVINGS & REWARDS */}
+            <View style={styles.savingsSection}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="gift-outline" size={20} color="#0F172A" />
+                <Text style={styles.sectionTitle}>Savings & Rewards</Text>
+              </View>
+
+              <View style={styles.premiumCreditCard}>
+                {/* WALLET */}
+                <View style={styles.creditItem}>
+                  <View style={[styles.creditIconBox, { backgroundColor: 'rgba(22, 163, 74, 0.08)' }]}>
+                    <Ionicons name="wallet" size={22} color="#16A34A" />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 15 }}>
-                    <Text style={styles.creditLabel}>Wallet Balance</Text>
-                    <Text style={styles.creditVal}>£{walletBalance.toFixed(2)}</Text>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.creditLabelText}>Wallet Balance</Text>
+                    <Text style={[styles.creditValueText, useWallet && { color: '#16A34A' }]}>£{walletBalance.toFixed(2)}</Text>
                   </View>
                   <TouchableOpacity
-                    style={[styles.applyBtn, useWallet && styles.appliedBtn, walletBalance <= 0 && { opacity: 0.3 }]}
+                    style={[styles.premiumApplyBtn, useWallet && styles.premiumAppliedBtn, walletBalance <= 0 && { opacity: 0.4 }]}
                     disabled={walletBalance <= 0}
                     onPress={handleWalletToggle}
                   >
-                    <Text style={[styles.applyBtnText, useWallet && { color: "#FFF" }]}>{useWallet ? "REMOVE" : "APPLY"}</Text>
+                    <Text style={[styles.premiumApplyBtnText, useWallet && { color: "#FFF" }]}>{useWallet ? "Remove" : "Apply"}</Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.creditDivider} />
+                <View style={styles.itemSeparatorLine} />
 
-                <View style={[styles.creditRow]}>
-                  <View style={[styles.creditIcon, { backgroundColor: '#F0F9FF' }]}>
-                    <Ionicons name="star-outline" size={24} color="#0EA5E9" />
+                {/* LOYALTY */}
+                <View style={styles.creditItem}>
+                  <View style={[styles.creditIconBox, { backgroundColor: 'rgba(14, 165, 233, 0.08)' }]}>
+                    <Ionicons name="star" size={22} color="#0EA5E9" />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 15 }}>
-                    <Text style={styles.creditLabel}>Loyalty Credits</Text>
-                    <Text style={styles.creditVal}>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.creditLabelText}>Loyalty Credits</Text>
+                    <Text style={[styles.creditValueText, useLoyalty && { color: '#16A34A' }]}>
                       £{loyaltyCredits.reduce((sum, c) => sum + Number(c.credit_value || 0), 0).toFixed(2)}
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={[styles.applyBtn, useLoyalty && styles.appliedBtn, loyaltyCredits.length <= 0 && { opacity: 0.3 }]}
+                    style={[styles.premiumApplyBtn, useLoyalty && styles.premiumAppliedBtn, loyaltyCredits.length <= 0 && { opacity: 0.4 }]}
                     disabled={loyaltyCredits.length <= 0}
                     onPress={handleLoyaltyToggle}
                   >
-                    <Text style={[styles.applyBtnText, useLoyalty && { color: "#FFF" }]}>{useLoyalty ? "REMOVE" : "APPLY"}</Text>
+                    <Text style={[styles.premiumApplyBtnText, useLoyalty && { color: "#FFF" }]}>{useLoyalty ? "Remove" : "Apply"}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
+            </View>
 
-              {/* Bill Details */}
-              <Text style={styles.billTitle}>Price Details</Text>
-              <View style={styles.billCard}>
-                <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Cart Total</Text>
-                  <Text style={styles.billValue}>£{getCartTotal().toFixed(2)}</Text>
+            {/* BILLING BREAKDOWN */}
+            <View style={styles.billingSection}>
+              <Text style={styles.sectionTitleSmall}>Invoice Summary</Text>
+              <View style={styles.invoiceCard}>
+                <View style={styles.invoiceRow}>
+                  <Text style={styles.invoiceLabel}>Subtotal</Text>
+                  <Text style={styles.invoiceValue}>£{getCartTotal().toFixed(2)}</Text>
                 </View>
 
                 {useWallet && walletUsed > 0 && (
-                  <AnimatedView style={[styles.billRow, { transform: [{ scale: walletScale }], opacity: walletScale }]}>
-                    <Text style={styles.billLabelDeduct}>Wallet Applied</Text>
-                    <Text style={styles.billValueDeduct}>-£{walletUsed.toFixed(2)}</Text>
+                  <AnimatedView style={[styles.invoiceRow, { transform: [{ scale: walletScale }], opacity: walletScale }]}>
+                    <Text style={styles.invoiceLabelDeduct}>Wallet Savings</Text>
+                    <Text style={styles.invoiceValueDeduct}>-£{walletUsed.toFixed(2)}</Text>
                   </AnimatedView>
                 )}
 
                 {useLoyalty && loyaltyUsed > 0 && (
-                  <AnimatedView style={[styles.billRow, { transform: [{ scale: loyaltyScale }], opacity: loyaltyScale }]}>
-                    <Text style={styles.billLabelDeduct}>Loyalty Applied</Text>
-                    <Text style={styles.billValueDeduct}>-£{loyaltyUsed.toFixed(2)}</Text>
+                  <AnimatedView style={[styles.invoiceRow, { transform: [{ scale: loyaltyScale }], opacity: loyaltyScale }]}>
+                    <Text style={styles.invoiceLabelDeduct}>Loyalty Discount</Text>
+                    <Text style={styles.invoiceValueDeduct}>-£{loyaltyUsed.toFixed(2)}</Text>
                   </AnimatedView>
                 )}
 
-                <View style={styles.billDivider} />
-                <View style={styles.billRow}>
-                  <Text style={styles.grandLabel}>Amount Payable</Text>
-                  <Text style={styles.grandValue}>£{getFinalTotal().toFixed(2)}</Text>
+                <View style={styles.invoiceDivider} />
+                <View style={styles.invoiceRow}>
+                  <Text style={styles.grandTotalLabel}>Payable amount</Text>
+                  <Text style={styles.grandTotalValue}>£{getFinalTotal().toFixed(2)}</Text>
                 </View>
               </View>
-
-              {/* Safety Badge */}
-              <View style={styles.safetyCard}>
-                <Ionicons name="shield-checkmark" size={24} color="#16a34a" />
-                <View style={styles.safetyTextRow}>
-                  <Text style={styles.safetyTitle}>Safety & Hygiene Guaranteed</Text>
-                  <Text style={styles.safetySub}>Trained professionals preparing your food</Text>
-                </View>
-              </View>
-
-              {/* ULTIMATE BUSINESS CHECKOUT BAR (Cart Summary Style) */}
-              {!deliveryPopup && !allergyPopup && visibleCart.length > 0 && (
-                <View style={styles.premiumCheckoutBar}>
-                  <View style={styles.summaryLeft}>
-                    <Text style={styles.itemCountText}>{visibleCart.length} {visibleCart.length === 1 ? 'Item' : 'Items'}</Text>
-                    <View style={styles.priceRow}>
-                      <Text style={styles.totalLabelSmall}>Total:</Text>
-                      <Text style={styles.finalTotalText}>£{getFinalTotal().toFixed(2)}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={styles.actionBtnPremium}
-                    onPress={placeOrder}
-                    disabled={processingPayment}
-                  >
-                    <LinearGradient
-                      colors={["#16a34a", "#15803d"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.btnGradient}
-                    >
-                      {processingPayment ? <ActivityIndicator size="small" color="#FFF" /> : (
-                        <>
-                          <Text style={styles.btnTextPremium}>Place Order</Text>
-                          <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 8 }} />
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
-          }
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        />
+
+            {/* SAFETY BADGE */}
+            <View style={styles.premiumSafetyBar}>
+              <Ionicons name="shield-checkmark" size={22} color="#16A34A" />
+              <Text style={styles.premiumSafetyText}>Crispy Dosa’s Kitchen Safety & Hygiene Assured</Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* ULTIMATE BUSINESS CHECKOUT BAR (Sticky bottom like Cart Summary) */}
+        {!deliveryPopup && !allergyPopup && visibleCart.length > 0 && (
+          <View style={styles.stickyFooter}>
+            <View style={[styles.premiumStickyBar, { paddingBottom: insets.bottom > 0 ? insets.bottom + 5 : 15 }]}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.actionBtnPremium}
+                onPress={placeOrder}
+                disabled={processingPayment}
+              >
+                <LinearGradient
+                  colors={["#16a34a", "#15803d"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.btnGradient}
+                >
+                  {processingPayment ? <ActivityIndicator size="small" color="#FFF" /> : (
+                    <>
+                      <Text style={styles.btnTextPremium}>Place Order</Text>
+                      <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </Animated.View>
 
       {/* Delivery sheet */}
-      <Modal visible={deliveryPopup} transparent animationType="slide">
+      < Modal visible={deliveryPopup} transparent animationType="fade" >
         <View style={styles.sheetOverlay}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => navigation.goBack()} />
-          <View style={[styles.sheetContent, { paddingBottom: insets.bottom + 20 }]}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => closeSheet(() => setDeliveryPopup(false))} />
+          <Animated.View style={[styles.sheetContent, { transform: [{ translateY: bottomSheetAnim }], paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.modalHeaderRow}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.modalBackBtn}>
+              <TouchableOpacity onPress={() => closeSheet(() => navigation.goBack())} style={styles.modalBackBtn}>
                 <Ionicons name="arrow-back" size={22} color="#1C1C1C" />
               </TouchableOpacity>
               <Text style={styles.sheetTitle}>Pickup details</Text>
             </View>
 
             <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.optionCard, deliveryMethod === 'kerbside' && styles.optionSelected]}
+              activeOpacity={0.9}
               onPress={() => setDeliveryMethod("kerbside")}
             >
-              <View style={styles.optionIconContainer}>
-                <Ionicons name="car" size={26} color={deliveryMethod === 'kerbside' ? "#16a34a" : "#999"} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={styles.optionTitle}>Kerbside Delivery</Text>
-                <Text style={styles.optionSub}>We bring it to your car</Text>
-              </View>
-              <Ionicons name={deliveryMethod === 'kerbside' ? "radio-button-on" : "radio-button-off"} size={22} color={deliveryMethod === 'kerbside' ? "#16a34a" : "#DDD"} />
+              <LinearGradient
+                colors={deliveryMethod === 'kerbside' ? ["#F0FDF4", "#DCFCE7"] : ["#F8FAFC", "#F8FAFC"]}
+                style={[styles.optionCard, deliveryMethod === 'kerbside' && styles.optionSelected]}
+              >
+                <View style={styles.optionIconContainer}>
+                  <Ionicons name="car" size={26} color={deliveryMethod === 'kerbside' ? "#16a34a" : "#999"} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 15 }}>
+                  <Text style={styles.optionTitle}>Kerbside Delivery</Text>
+                  <Text style={styles.optionSub}>We bring it to your car</Text>
+                </View>
+                <Ionicons name={deliveryMethod === 'kerbside' ? "radio-button-on" : "radio-button-off"} size={22} color={deliveryMethod === 'kerbside' ? "#16a34a" : "#DDD"} />
+              </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.optionCard, deliveryMethod === 'instore' && styles.optionSelected]}
+              activeOpacity={0.9}
               onPress={() => setDeliveryMethod("instore")}
             >
-              <View style={styles.optionIconContainer}>
-                <Ionicons name="walk" size={26} color={deliveryMethod === 'instore' ? "#16a34a" : "#999"} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={styles.optionTitle}>In-store Pickup</Text>
-                <Text style={styles.optionSub}>You collect from our counter</Text>
-              </View>
-              <Ionicons name={deliveryMethod === 'instore' ? "radio-button-on" : "radio-button-off"} size={22} color={deliveryMethod === 'instore' ? "#16a34a" : "#DDD"} />
+              <LinearGradient
+                colors={deliveryMethod === 'instore' ? ["#F0FDF4", "#DCFCE7"] : ["#F8FAFC", "#F8FAFC"]}
+                style={[styles.optionCard, deliveryMethod === 'instore' && styles.optionSelected]}
+              >
+                <View style={styles.optionIconContainer}>
+                  <Ionicons name="walk" size={26} color={deliveryMethod === 'instore' ? "#16a34a" : "#999"} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 15 }}>
+                  <Text style={styles.optionTitle}>In-store Pickup</Text>
+                  <Text style={styles.optionSub}>You collect from our counter</Text>
+                </View>
+                <Ionicons name={deliveryMethod === 'instore' ? "radio-button-on" : "radio-button-off"} size={22} color={deliveryMethod === 'instore' ? "#16a34a" : "#DDD"} />
+              </LinearGradient>
             </TouchableOpacity>
 
             {deliveryMethod === 'kerbside' && (
@@ -583,24 +663,29 @@ export default function CheckoutScreen({ navigation }) {
             <TouchableOpacity
               style={[styles.sheetActionBtn, !deliveryMethod && { opacity: 0.5 }]}
               disabled={!deliveryMethod}
-              onPress={() => { setDeliveryPopup(false); setAllergyPopup(true); }}
+              onPress={() => {
+                closeSheet(() => {
+                  setDeliveryPopup(false);
+                  setTimeout(() => setAllergyPopup(true), 100);
+                });
+              }}
             >
-              <LinearGradient colors={["#16a34a", "#059669"]} style={styles.sheetActionGrad}>
+              <LinearGradient colors={["#10B981", "#059669"]} style={styles.sheetActionGrad}>
                 <Text style={styles.sheetActionText}>Continue</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
-      </Modal>
+      </Modal >
 
       {/* Allergy sheet */}
-      <Modal visible={allergyPopup} transparent animationType="slide">
+      < Modal visible={allergyPopup} transparent animationType="fade" >
         <View style={styles.sheetOverlay}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setAllergyPopup(false)} />
-          <View style={[styles.sheetContent, { paddingBottom: insets.bottom + 20 }]}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => closeSheet(() => setAllergyPopup(false))} />
+          <Animated.View style={[styles.sheetContent, { transform: [{ translateY: bottomSheetAnim }], paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.modalHeaderRow}>
-              <TouchableOpacity onPress={() => { setAllergyPopup(false); setDeliveryPopup(true); }} style={styles.modalBackBtn}>
+              <TouchableOpacity onPress={() => closeSheet(() => { setAllergyPopup(false); setTimeout(() => setDeliveryPopup(true), 100); })} style={styles.modalBackBtn}>
                 <Ionicons name="arrow-back" size={22} color="#1C1C1C" />
               </TouchableOpacity>
               <Text style={styles.sheetTitle}>Food Allergies?</Text>
@@ -614,22 +699,22 @@ export default function CheckoutScreen({ navigation }) {
               onChangeText={setAllergyNote}
               placeholderTextColor="#999"
             />
-            <TouchableOpacity style={styles.sheetActionBtn} onPress={() => setAllergyPopup(false)}>
-              <LinearGradient colors={["#16a34a", "#059669"]} style={styles.sheetActionGrad}>
+            <TouchableOpacity style={styles.sheetActionBtn} onPress={() => closeSheet(() => setAllergyPopup(false))}>
+              <LinearGradient colors={["#10B981", "#059669"]} style={styles.sheetActionGrad}>
                 <Text style={styles.sheetActionText}>Review Order Summary</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
-      </Modal>
+      </Modal >
 
       {/* Full Screen High-End Order Success Modal */}
-      <Modal visible={orderPlaced} transparent animationType="none">
+      < Modal visible={orderPlaced} transparent animationType="none" >
         <View style={styles.successFullOverlay}>
           <LinearGradient colors={["#16A34A", "#15803D"]} style={styles.successGrad}>
             <Animated.View style={[styles.successContent, { opacity: successOpacity, transform: [{ scale: successScale }] }]}>
               <View style={styles.successIconRing}>
-                <Ionicons name="checkmark-sharp" size={80} color="#16a34a" />
+                <Ionicons name="checkmark-sharp" size={84} color="#10B981" />
               </View>
               <Text style={styles.fullSuccessTitle}>Order Placed!</Text>
               <Text style={styles.fullSuccessSub}>Your delicious meal is on its way.</Text>
@@ -637,8 +722,8 @@ export default function CheckoutScreen({ navigation }) {
               <View style={styles.rewardCard}>
                 <Ionicons name="gift" size={30} color="#EAB308" />
                 <View style={{ marginLeft: 15 }}>
-                  <Text style={styles.rewardTitle}>Congrats! £{earnedPoints} Earned</Text>
-                  <Text style={styles.rewardSub}>Check it in your Credits screen</Text>
+                  <Text style={styles.rewardTitle}>Congrats! Rewards Earned</Text>
+                  <Text style={styles.rewardSub}>Check details in your Credits screen</Text>
                 </View>
               </View>
 
@@ -650,172 +735,382 @@ export default function CheckoutScreen({ navigation }) {
             </Animated.View>
           </LinearGradient>
         </View>
-      </Modal>
+      </Modal >
 
       <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
-      <BottomBar navigation={navigation} />
-    </SafeAreaView>
+
+      {/* PREMIUM ALERT MODAL */}
+      <Modal visible={alertVisible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <Animated.View style={[styles.alertCard, { transform: [{ scale: alertScale }] }]}>
+            <LinearGradient
+              colors={alertType === 'error' ? ["#FFF5F5", "#FFFFFF"] : ["#F0FDF4", "#FFFFFF"]}
+              style={styles.alertContent}
+            >
+              <View style={[styles.alertIconRing, { backgroundColor: alertType === 'error' ? '#FEE2E2' : '#DCFCE7' }]}>
+                <Ionicons
+                  name={alertType === 'error' ? "close-circle" : "information-circle"}
+                  size={40}
+                  color={alertType === 'error' ? "#EF4444" : "#16A34A"}
+                />
+              </View>
+              <Text style={styles.alertTitleText}>{alertTitle}</Text>
+              <Text style={styles.alertMsgText}>{alertMsg}</Text>
+              <TouchableOpacity style={styles.alertBtn} onPress={hidePremiumAlert}>
+                <LinearGradient
+                  colors={alertType === 'error' ? ["#EF4444", "#DC2626"] : ["#16A34A", "#15803D"]}
+                  style={styles.alertBtnGrad}
+                >
+                  <Text style={styles.alertBtnText}>Got it</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal>
+    </SafeAreaView >
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F8F8F8" },
-  headerCover: { backgroundColor: "#FFF", borderBottomWidth: 1, borderBottomColor: '#F5F5F5', paddingBottom: 15 },
+  safe: { flex: 1, backgroundColor: "#F8FAFC" },
+  mainContent: { paddingBottom: 0 },
 
-  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', padding: 20, paddingTop: 15 },
-  headerLeft: { flex: 1 },
-  headerTitle: { fontSize: 22 * scale, fontFamily: "PoppinsBold", color: "#1C1C1C", fontWeight: '900' },
-  headerSub: { fontSize: 12 * scale, fontFamily: "PoppinsMedium", color: "#888", marginTop: 2 },
-  addMoreBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,43,92,0.08)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
-  addMoreText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#FF2B5C', marginLeft: 5 },
-
-  prefSummary: { flexDirection: 'column', paddingHorizontal: 20, marginTop: 12 },
-  prefBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#DCFCE7', marginBottom: 12, elevation: 1 },
-  badgeText: { fontSize: 13 * scale, fontFamily: "PoppinsBold", color: "#16a34a", marginLeft: 8 },
-  badgeSubText: { fontSize: 13 * scale, fontFamily: "PoppinsMedium", color: "#065F46", marginTop: 2 },
-
-  itemRow: { flexDirection: 'row', backgroundColor: '#FFF', marginHorizontal: 20, marginVertical: 6, borderRadius: 12, padding: 16, elevation: 2 },
-  itemInfo: { flex: 1, paddingRight: 10 },
-  nameHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  itemName: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C' },
-  noteBox: { backgroundColor: '#F9F9F9', padding: 10, borderRadius: 8, marginTop: 8, borderLeftWidth: 3, borderLeftColor: '#DDD' },
-  itemNote: { fontSize: 12 * scale, fontFamily: 'PoppinsMedium', fontStyle: 'italic', color: '#666' },
-  itemPriceUnit: { fontSize: 14 * scale, fontFamily: 'PoppinsSemiBold', color: '#FF2B5C', marginTop: 8 },
-
-  actionCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
-  qtyLabelText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#999' },
-  totalTextSmall: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginTop: 10, fontWeight: '900' },
-
-  billSummary: { padding: 20, paddingBottom: 20 },
-  billTitle: {
-    fontSize: 20 * scale,
-    fontFamily: 'PoppinsBold',
-    fontWeight: '900',
-    color: '#1C1C1C',
-    marginBottom: 14,
-    letterSpacing: 0.3,
+  /* HEADER */
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
-
-
-  creditCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 20, elevation: 3, borderWidth: 1, borderColor: '#F5F5F5', marginBottom: 25 },
-  creditRow: { flexDirection: 'row', alignItems: 'center' },
-  creditIcon: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center' },
-  creditLabel: {
-    fontSize: 11 * scale,
-    fontFamily: "PoppinsBold",
-    fontWeight: '700',
-    color: "#555",
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-
-  creditVal: {
-    fontSize: 18 * scale,     // ⬆️ visible jump
-    fontFamily: "PoppinsBold",
-    fontWeight: '900',
-    color: "#1C1C1C",
-  },
-
-  applyBtn: { borderWidth: 1.5, borderColor: '#16a34a', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 },
-  appliedBtn: { backgroundColor: '#16a34a' },
-  applyBtnText: { fontSize: 12 * scale, fontFamily: "PoppinsBold", color: "#16a34a" },
-  creditDivider: { height: 1.5, backgroundColor: '#F8F8F8', marginVertical: 18 },
-
-  billCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 18, elevation: 3, marginBottom: 20 },
-  billRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8, alignItems: 'center' },
-  billLabel: { fontSize: 14 * scale, fontFamily: 'PoppinsMedium', color: '#777' },
-  billValue: {
-    fontSize: 16 * scale,
-    fontFamily: 'PoppinsBold',
-    fontWeight: '800',
-    color: '#1C1C1C',
-  },
-
-
-  billLabelDeduct: { fontSize: 14 * scale, fontFamily: 'PoppinsBold', color: '#DC2626' },
-  billValueDeduct: {
-    fontSize: 16 * scale,
-    fontFamily: 'PoppinsBold',
-    fontWeight: '900',
-    color: '#DC2626',
-  },
-
-  billDivider: { height: 1.5, backgroundColor: '#F0F0F0', marginVertical: 12 },
-  grandLabel: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', fontWeight: '900' },
-  grandValue: {
-    fontSize: 20 * scale,
-    fontFamily: 'PoppinsBold',
-    fontWeight: '900',
-    color: '#16a34a',
-  },
-
-
-  safetyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f5e9', marginTop: 15, padding: 15, borderRadius: 12, marginBottom: 20 },
-  safetyTextRow: { marginLeft: 15 },
-  safetyTitle: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#16a34a' },
-  safetySub: { fontSize: 11 * scale, fontFamily: 'PoppinsMedium', color: '#336633' },
-
-  premiumCheckoutBar: {
-    backgroundColor: '#FFF',
-    borderRadius: 10,
+  mainTitle: { fontSize: 28 * scale, fontFamily: "PoppinsBold", color: "#0F172A", fontWeight: '900', letterSpacing: -0.8 },
+  subTitle: { fontSize: 13 * scale, fontFamily: "PoppinsMedium", color: "#64748B", marginTop: 2 },
+  miniAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
-    padding: 12,
+    backgroundColor: '#FFF',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
-    elevation: 4,
+    borderColor: '#E2E8F0',
+    elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowRadius: 5,
   },
-  summaryLeft: { flex: 1, marginLeft: 8 },
-  itemCountText: { fontSize: 11 * scale, fontFamily: 'PoppinsBold', color: '#999', textTransform: 'uppercase', letterSpacing: 0.5 },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
-  totalLabelSmall: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#666', marginRight: 4 },
-  finalTotalText: {
-    fontSize: 22 * scale,
+  miniAddText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#FF2B5C', marginLeft: 4 },
+
+  /* COMPOSITE CARD */
+  serviceCompositeCard: {
+    backgroundColor: '#FFF',
+    marginHorizontal: 16,
+    borderRadius: 24,
+    padding: 20,
+    elevation: 8,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 20,
+  },
+  serviceRow: { flexDirection: 'row', alignItems: 'center' },
+  serviceIconFrame: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,43,92,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceLabel: { fontSize: 17 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '900' },
+  serviceSub: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#64748B', marginTop: 2 },
+  changeBtn: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' },
+  changeBtnText: { fontSize: 12 * scale, fontFamily: 'PoppinsBold', color: '#FF2B5C' },
+
+  kerbsideInfoDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginTop: 15,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  kerbsideText: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#475569', marginLeft: 8 },
+
+  allergyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    marginTop: 15,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  allergyText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#EA580C', marginLeft: 10, flex: 1 },
+  addAllergyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9'
+  },
+  addAllergyText: { flex: 1, marginLeft: 10, fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#64748B' },
+
+  /* BASKET */
+  basketContainer: { paddingHorizontal: 16, marginBottom: 20 },
+  basketHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingLeft: 4 },
+  basketTitle: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', marginLeft: 10, fontWeight: '900' },
+
+  basketCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 20,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  cartItemRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+  },
+  itemDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    width: '100%',
+  },
+  cartItemInfo: { flex: 1, paddingRight: 10 },
+  itemNameWrapper: { flexDirection: 'row', alignItems: 'flex-start' },
+  vegStatus: { width: 14, height: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginRight: 8 },
+  vegInner: { width: 6, height: 6, borderRadius: 3 },
+  itemNameText: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '800', lineHeight: 22 },
+  itemNoteText: { fontSize: 12 * scale, fontFamily: 'PoppinsMedium', color: '#64748B', fontStyle: 'italic', marginTop: 8 },
+  cartItemPriceCol: { alignItems: 'flex-end', justifyContent: 'center' },
+  itemTotalPriceText: { fontSize: 17 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '900' },
+  itemQtyText: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#94A3B8', marginTop: 4 },
+
+  /* PREMIUM ADD MORE CARD */
+  addMorePremiumCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 5,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    borderStyle: 'dashed',
+    elevation: 2,
+  },
+  addMoreContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addMoreIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,43,92,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addMoreTitle: {
+    fontSize: 15 * scale,
     fontFamily: 'PoppinsBold',
     fontWeight: '800',
     color: '#1C1C1C',
   },
+  addMoreSub: {
+    fontSize: 11 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#888',
+  },
 
-  actionBtnPremium: { borderRadius: 8, overflow: 'hidden' },
-  btnGradient: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 22 },
-  btnTextPremium: { color: '#FFF', fontFamily: 'PoppinsBold', fontSize: 15 * scale },
+  /* SAVINGS */
+  savingsSection: { paddingHorizontal: 16, marginBottom: 25 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingLeft: 4 },
+  sectionTitle: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', marginLeft: 10, fontWeight: '900' },
+  premiumCreditCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 20,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  creditItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  creditIconBox: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  creditLabelText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', fontWeight: '900', color: '#1E293B', letterSpacing: 0.5, textTransform: 'uppercase' },
+  creditValueText: { fontSize: 19 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '900', marginTop: 1 },
+  premiumApplyBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 30, borderWidth: 1.5, borderColor: '#16A34A', backgroundColor: '#FFF' },
+  premiumAppliedBtn: { backgroundColor: '#16A34A' },
+  premiumApplyBtnText: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#16A34A' },
+  itemSeparatorLine: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 10 },
 
-  premiumToast: { position: 'absolute', top: 0, left: 20, right: 20, zIndex: 9999, alignItems: 'center' },
-  toastInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 30, elevation: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10 },
-  toastText: { color: '#FFF', fontFamily: "PoppinsBold", fontSize: 14 * scale, marginLeft: 10 },
+  /* BILLING */
+  billingSection: { paddingHorizontal: 16, marginBottom: 30 },
+  sectionTitleSmall: { fontSize: 14 * scale, fontFamily: 'PoppinsBold', color: '#94A3B8', textTransform: 'uppercase', marginBottom: 15, paddingLeft: 4, letterSpacing: 0.5 },
+  invoiceCard: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, elevation: 2, shadowColor: "#000", shadowOpacity: 0.02, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' },
+  invoiceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  invoiceLabel: { fontSize: 15 * scale, fontFamily: 'PoppinsMedium', color: '#64748B' },
+  invoiceValue: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '800' },
+  invoiceLabelDeduct: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#16A34A' },
+  invoiceValueDeduct: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#16A34A', fontWeight: '900' },
+  invoiceDivider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 10 },
+  grandTotalLabel: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '900' },
+  grandTotalValue: { fontSize: 24 * scale, fontFamily: 'PoppinsBold', color: '#16A34A', fontWeight: '900' },
 
-  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheetContent: { backgroundColor: '#FFF', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 30 },
-  sheetHandle: { width: 35, height: 5, backgroundColor: '#E2E8F0', borderRadius: 10, alignSelf: 'center', marginBottom: 20 },
-  modalHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  modalBackBtn: { padding: 5, marginRight: 10 },
-  sheetTitle: { fontSize: 22 * scale, fontFamily: "PoppinsBold", color: "#1C1C1C", fontWeight: '900' },
-  sheetDesc: { fontSize: 14 * scale, fontFamily: "PoppinsMedium", color: "#999", marginBottom: 25 },
-  optionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FAFBFB', borderRadius: 12, padding: 18, marginBottom: 15, borderWidth: 1.5, borderColor: '#F1F5F9' },
-  optionSelected: { borderColor: '#16a34a', backgroundColor: '#F0FDF4' },
-  optionIconContainer: { width: 50, height: 50, backgroundColor: '#FFF', borderRadius: 10, alignItems: 'center', justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05 },
-  optionTitle: { fontSize: 16 * scale, fontFamily: "PoppinsBold", color: "#1C1C1C" },
-  optionSub: { fontSize: 12 * scale, fontFamily: "PoppinsMedium", color: "#999" },
-  kerbsideFields: { marginTop: 5, marginBottom: 15 },
-  kInput: { backgroundColor: '#F8FAFC', borderRadius: 8, padding: 15, fontFamily: 'PoppinsMedium', fontSize: 14, marginBottom: 10, color: '#1C1C1C', borderWidth: 1, borderColor: '#E2E8F0' },
-  sheetActionBtn: { borderRadius: 10, overflow: 'hidden', marginTop: 10 },
-  sheetActionGrad: { paddingVertical: 16, alignItems: 'center' },
-  sheetActionText: { color: '#FFF', fontFamily: "PoppinsBold", fontSize: 17 * scale },
-  allergyInput: { backgroundColor: '#F8FAFC', borderRadius: 10, padding: 20, minHeight: 120, textAlignVertical: 'top', fontFamily: 'PoppinsMedium', fontSize: 15, color: '#1C1C1C', marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  premiumSafetyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    padding: 16,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+  },
+  premiumSafetyText: { flex: 1, marginLeft: 12, fontSize: 12 * scale, fontFamily: 'PoppinsMedium', color: '#166534', opacity: 0.8 },
 
+  /* STICKY FOOTER */
+  stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 100 },
+  premiumStickyBar: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center', // Centered
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 25,
+    elevation: 30,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  // stickyLeft: { flex: 0.45, justifyContent: 'center' }, deleted
+  // stickyItemCount: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '800' }, deleted
+  // stickyPriceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 }, deleted
+  // stickyTotalLabel: { fontSize: 13 * scale, fontFamily: 'PoppinsBold', color: '#1E293B', marginRight: 6, opacity: 0.9, fontWeight: '700' }, deleted
+  // stickyTotalValue: { fontSize: 20 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '900' }, deleted
+  actionBtnPremium: { flex: 1, borderRadius: 18, overflow: 'hidden' },
+  btnGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 20 },
+  btnTextPremium: { color: '#FFF', fontFamily: 'PoppinsBold', fontSize: 16 * scale, fontWeight: '900' },
+
+  /* MODALS & SHEETS */
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'flex-end' },
+  sheetContent: { backgroundColor: '#FFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 30, elevation: 20 },
+  sheetHandle: { width: 45, height: 5, backgroundColor: '#E2E8F0', borderRadius: 5, alignSelf: 'center', marginBottom: 25 },
+  modalHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
+  modalBackBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+  sheetTitle: { fontSize: 22 * scale, fontFamily: "PoppinsBold", color: "#0F172A", marginLeft: 15, fontWeight: '900' },
+  optionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 20, padding: 18, marginBottom: 15, borderWidth: 1.5, borderColor: '#F1F5F9' },
+  optionSelected: { borderColor: '#16A34A', backgroundColor: '#F0FDF4' },
+  optionIconContainer: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', elevation: 2 },
+  optionTitle: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', color: '#0F172A', fontWeight: '800' },
+  optionSub: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: '#64748B', marginTop: 2 },
+  kerbsideFields: { marginTop: 10, marginBottom: 20 },
+  kInput: { backgroundColor: '#F8FAFC', padding: 16, borderRadius: 14, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0', fontFamily: 'PoppinsMedium', color: '#0F172A' },
+  sheetActionBtn: { marginTop: 10 },
+  sheetActionGrad: { borderRadius: 18, paddingVertical: 18, alignItems: 'center' },
+  sheetActionText: { color: '#FFF', fontSize: 16 * scale, fontFamily: 'PoppinsBold', fontWeight: '800' },
+
+  sheetDesc: { fontSize: 14 * scale, fontFamily: 'PoppinsMedium', color: '#64748B', marginBottom: 20, lineHeight: 22 },
+  allergyInput: { backgroundColor: '#F8FAFC', borderRadius: 18, padding: 18, height: 120, textAlignVertical: 'top', borderWidth: 1, borderColor: '#E2E8F0', fontFamily: 'PoppinsMedium', color: '#0F172A', marginBottom: 25 },
+
+  /* TOAST */
+  premiumToast: { position: 'absolute', top: 50, left: 24, right: 24, zIndex: 1000 },
+  toastInner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20, borderRadius: 20, elevation: 10 },
+  toastText: { color: '#FFF', fontSize: 14 * scale, fontFamily: 'PoppinsBold', marginLeft: 10 },
+
+  /* SUCCESS MODAL */
   successFullOverlay: { flex: 1 },
   successGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   successContent: { alignItems: 'center', width: '90%' },
-  successIconRing: { width: 150, height: 150, borderRadius: 75, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 20, shadowColor: '#000', shadowOpacity: 0.2, marginBottom: 30 },
-  fullSuccessTitle: { fontSize: 36 * scale, fontFamily: "PoppinsBold", color: "#FFF", fontWeight: '900', textAlign: 'center' },
-  fullSuccessSub: { fontSize: 18 * scale, fontFamily: "PoppinsMedium", color: "#E0E0E0", textAlign: 'center', marginTop: 10 },
-  rewardCard: { backgroundColor: '#FFF', borderRadius: 20, padding: 25, flexDirection: 'row', alignItems: 'center', marginTop: 40, elevation: 15, shadowColor: '#000', shadowOpacity: 0.1, width: '100%' },
-  rewardTitle: { fontSize: 18 * scale, fontFamily: "PoppinsBold", color: "#1C1C1C" },
-  rewardSub: { fontSize: 13 * scale, fontFamily: "PoppinsMedium", color: "#666", marginTop: 2 },
+  successIconRing: { width: 140, height: 140, borderRadius: 70, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', elevation: 20 },
+  fullSuccessTitle: { fontSize: 32 * scale, fontFamily: 'PoppinsBold', color: '#FFF', fontWeight: '900', marginTop: 30 },
+  fullSuccessSub: { fontSize: 16 * scale, fontFamily: 'PoppinsMedium', color: 'rgba(255,255,255,0.8)', textAlign: 'center', marginTop: 10 },
+  rewardCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', padding: 20, borderRadius: 24, marginTop: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  rewardTitle: { fontSize: 18 * scale, fontFamily: 'PoppinsBold', color: '#FFF' },
+  rewardSub: { fontSize: 13 * scale, fontFamily: 'PoppinsMedium', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   confettiContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  confetti: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFD700', opacity: 0.8 },
+  confetti: { position: 'absolute', width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFD700', opacity: 0.8 },
+
+  /* ALERT STYLES */
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  alertCard: {
+    width: "85%",
+    borderRadius: 30,
+    overflow: "hidden",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  alertContent: {
+    padding: 30,
+    alignItems: "center",
+  },
+  alertIconRing: {
+    width: 80 * scale,
+    height: 80 * scale,
+    borderRadius: 40 * scale,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  alertTitleText: {
+    fontSize: 22 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#0F172A",
+    fontWeight: "900",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  alertMsgText: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#475569",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 22 * scale,
+  },
+  alertBtn: {
+    width: "100%",
+    borderRadius: 15,
+    overflow: "hidden",
+  },
+  alertBtnGrad: {
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  alertBtnText: {
+    fontSize: 15 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
+    fontWeight: "800",
+  },
 });

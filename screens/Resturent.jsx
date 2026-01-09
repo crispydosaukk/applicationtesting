@@ -12,9 +12,13 @@ import {
   Platform,
   StatusBar,
   Animated,
+  Modal,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import Voice from "@react-native-voice/voice";
+import { PermissionsAndroid } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import { useIsFocused } from "@react-navigation/native";
 import { RefreshControl } from "react-native";
@@ -34,14 +38,20 @@ const { width } = Dimensions.get("window");
 const scale = width / 400;
 const FONT_FAMILY = Platform.select({ ios: "System", android: "System" });
 
-function RestaurantCard({ name, address, photo, onPress, instore, kerbside }) {
+function RestaurantCard({ name, address, photo, onPress, instore, kerbside, index }) {
+  const isEven = index % 2 === 0;
   return (
     <TouchableOpacity
       style={cardStyles.card}
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <View style={cardStyles.cardBody}>
+      <LinearGradient
+        colors={isEven ? ["#FFF", "#FDF2F8"] : ["#FFF", "#F0FDF4"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={cardStyles.cardBody}
+      >
         <View style={cardStyles.imageContainer}>
           <Image
             source={photo ? { uri: photo } : RestaurantImg}
@@ -72,20 +82,20 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside }) {
           <View style={cardStyles.serviceRow}>
             {instore && (
               <View style={cardStyles.serviceChip}>
-                <Ionicons name="storefront" size={14 * scale} color="#666" />
+                <Ionicons name="storefront" size={16 * scale} color="#FF2B5C" />
                 <Text style={cardStyles.serviceChipText}>In-store</Text>
               </View>
             )}
 
             {kerbside && (
               <View style={cardStyles.serviceChip}>
-                <Ionicons name="car" size={16 * scale} color="#666" />
-                <Text style={cardStyles.serviceChipText}>Kerbside</Text>
+                <Ionicons name="car-sport" size={18 * scale} color="#16a34a" />
+                <Text style={[cardStyles.serviceChipText, { color: '#16a34a' }]}>Kerbside</Text>
               </View>
             )}
           </View>
         </View>
-      </View>
+      </LinearGradient>
     </TouchableOpacity>
   );
 }
@@ -195,44 +205,134 @@ export default function Resturent({ navigation }) {
     r.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const [voiceListening, setVoiceListening] = useState(false);
-  const voiceTimeoutRef = useRef(null);
+  // Premium Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMsg, setAlertMsg] = useState("");
+  const [alertType, setAlertType] = useState("info");
+  const alertScale = useRef(new Animated.Value(0)).current;
 
-  const startVoiceSearch = () => {
-    // Prevent multiple simultaneous activations
-    if (voiceListening) return;
-
-    setVoiceListening(true);
-
-    // Clear any existing timeout
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-    }
-
-    voiceTimeoutRef.current = setTimeout(() => {
-      setVoiceListening(false);
-      // Simulated voice recognition - in production, integrate with @react-native-voice/voice
-      const keywords = ["Milton", "London", "Dosa", "Crispy"];
-      const random = keywords[Math.floor(Math.random() * keywords.length)];
-      setSearch(random);
-      voiceTimeoutRef.current = null;
-    }, 2000);
+  const showPremiumAlert = (title, msg, type = "info") => {
+    setAlertTitle(title);
+    setAlertMsg(msg);
+    setAlertType(type);
+    setAlertVisible(true);
+    Animated.spring(alertScale, {
+      toValue: 1,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
   };
 
-  const cancelVoiceSearch = () => {
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-      voiceTimeoutRef.current = null;
+  const hidePremiumAlert = () => {
+    Animated.timing(alertScale, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setAlertVisible(false));
+  };
+
+  const [voiceListening, setVoiceListening] = useState(false);
+
+  useEffect(() => {
+    if (!Voice) return;
+    Voice.onSpeechStart = () => setVoiceListening(true);
+    Voice.onSpeechEnd = () => setVoiceListening(false);
+    Voice.onSpeechError = (e) => {
+      console.log("onSpeechError: ", e);
+      setVoiceListening(false);
+    };
+    Voice.onSpeechResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        setSearch(e.value[0]);
+      }
+      setVoiceListening(false);
+    };
+    Voice.onSpeechPartialResults = (e) => {
+      if (e.value && e.value.length > 0) {
+        setSearch(e.value[0]);
+      }
+    };
+
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners).catch(err => console.log("Voice Cleanup Err:", err));
+    };
+  }, []);
+
+  const requestAudioPermission = async () => {
+    if (Platform.OS === "android") {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: "Microphone Permission",
+            message: "Crispy Dosa needs access to your microphone to search.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK",
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
     }
-    setVoiceListening(false);
+    return true;
+  };
+
+  const startVoiceSearch = async () => {
+    try {
+      if (!Voice || typeof Voice.start !== 'function') {
+        showPremiumAlert("Voice Not Ready", "Voice search module is not initialized. Please restart the app or ensure permissions are granted.", "error");
+        return;
+      }
+
+      await Voice.stop().catch(() => { });
+      await Voice.destroy().catch(() => { });
+
+      const hasPermission = await requestAudioPermission();
+      if (!hasPermission) return;
+
+      setSearch("");
+      setVoiceListening(true);
+
+      Voice.onSpeechStart = () => setVoiceListening(true);
+      Voice.onSpeechResults = (e) => {
+        if (e.value && e.value.length > 0) setSearch(e.value[0]);
+        setVoiceListening(false);
+      };
+      Voice.onSpeechError = (e) => {
+        console.error("Speech Error:", e);
+        setVoiceListening(false);
+      };
+
+      await Voice.start("en-US");
+    } catch (e) {
+      console.error("Voice Error:", e);
+      setVoiceListening(false);
+      if (e?.message?.includes('null')) {
+        showPremiumAlert("Voice Error", "Native voice module not found. A clean build/re-install may be required.", "error");
+      }
+    }
+  };
+
+  const cancelVoiceSearch = async () => {
+    try {
+      if (Voice && typeof Voice.stop === 'function') {
+        await Voice.stop().catch(() => { });
+      }
+      setVoiceListening(false);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (voiceTimeoutRef.current) {
-        clearTimeout(voiceTimeoutRef.current);
-      }
+      // Any cleanup logic here
     };
   }, []);
 
@@ -325,23 +425,6 @@ export default function Resturent({ navigation }) {
           </View>
         </View>
 
-        {/* Voice Listening Overlay */}
-        {voiceListening && (
-          <View style={styles.voiceOverlay}>
-            <LinearGradient
-              colors={["rgba(226,55,68,0.95)", "rgba(226,55,68,0.8)"]}
-              style={styles.voiceOverlayInner}
-            >
-              <Ionicons name="mic" size={60 * scale} color="#FFF" />
-              <Text style={styles.voiceText}>Listening...</Text>
-              <Text style={styles.voiceSubtext}>Try saying "Milton Keynes" or "Crispy Dosa"</Text>
-              <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
-                <Ionicons name="close-circle" size={40 * scale} color="#FFF" />
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        )}
-
         {/* Premium Offer Slider - Integrated for Unified Look */}
         <View style={styles.sliderContainer}>
           <Animated.ScrollView
@@ -365,13 +448,13 @@ export default function Resturent({ navigation }) {
                 <View style={[styles.offerCardWrapper, { backgroundColor: 'transparent' }]}>
                   <View style={styles.offerCardContent}>
                     <View style={styles.offerTextCol}>
-                      <Text style={[styles.offerBadge, { backgroundColor: offer.badgeColor, color: offer.textColor }]}>
+                      <Text style={[styles.offerBadge, { backgroundColor: offer.badgeColor, color: offer.textColor, fontWeight: '900', opacity: 1 }]}>
                         {offer.title}
                       </Text>
-                      <Text style={[styles.offerMainTitle, { color: offer.textColor }]}>
+                      <Text style={[styles.offerMainTitle, { color: offer.textColor, fontWeight: '900' }]}>
                         {offer.subtitle}
                       </Text>
-                      <Text style={[styles.offerDesc, { color: offer.textColor, opacity: 0.8 }]}>
+                      <Text style={[styles.offerDesc, { color: offer.textColor, opacity: 1, fontFamily: 'PoppinsBold', fontWeight: '900' }]}>
                         {offer.desc}
                       </Text>
                     </View>
@@ -432,6 +515,7 @@ export default function Resturent({ navigation }) {
           {filteredRestaurants.map((r, i) => (
             <RestaurantCard
               key={i}
+              index={i}
               name={r.name}
               address={r.address}
               photo={r.photo}
@@ -452,7 +536,68 @@ export default function Resturent({ navigation }) {
         navigation={navigation}
       />
       <BottomBar navigation={navigation} />
-    </View>
+
+      {/* Voice Overlay - Modal for absolute visibility */}
+      <Modal visible={voiceListening} transparent animationType="fade">
+        <View style={styles.voiceOverlay}>
+          <LinearGradient
+            colors={["rgba(226,55,68,0.98)", "rgba(185,28,38,0.95)"]}
+            style={styles.voiceOverlayInner}
+          >
+            <View style={styles.voicePulseCircle}>
+              <Ionicons name="mic" size={60 * scale} color="#FFF" />
+            </View>
+            <Text style={styles.voiceText}>Listening...</Text>
+            <Text style={styles.voiceSubtext}>Try saying "Milton Keynes" or "Crispy Dosa"</Text>
+            <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                style={styles.voiceCloseInner}
+              >
+                <Ionicons name="close" size={28 * scale} color="#FFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
+
+      {/* PREMIUM ALERT MODAL */}
+      <Modal visible={alertVisible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <Animated.View style={[styles.alertCard, { transform: [{ scale: alertScale }] }]}>
+            <LinearGradient
+              colors={alertType === 'error' ? ["#FFF5F5", "#FFFFFF"] : ["#F0FDF4", "#FFFFFF"]}
+              style={styles.alertContent}
+            >
+              <View style={[
+                styles.alertIconRing,
+                { backgroundColor: alertType === 'error' ? '#FEE2E2' : '#DCFCE7' }
+              ]}>
+                <Ionicons
+                  name={
+                    alertType === 'error' ? "close-circle"
+                      : alertType === 'success' ? "checkmark-circle"
+                        : "information-circle"
+                  }
+                  size={40}
+                  color={alertType === 'error' ? "#EF4444" : "#16A34A"}
+                />
+              </View>
+              <Text style={styles.alertTitleText}>{alertTitle}</Text>
+              <Text style={styles.alertMsgText}>{alertMsg}</Text>
+              <TouchableOpacity style={styles.alertBtn} onPress={hidePremiumAlert}>
+                <LinearGradient
+                  colors={alertType === 'error' ? ["#EF4444", "#DC2626"] : ["#16A34A", "#15803D"]}
+                  style={styles.alertBtnGrad}
+                >
+                  <Text style={styles.alertBtnText}>Ok</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal >
+    </View >
   );
 }
 
@@ -544,12 +689,12 @@ const styles = StyleSheet.create({
   offerBadge: {
     backgroundColor: "rgba(255,255,255,0.25)",
     alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 8,
     color: "#FFF",
-    fontSize: 10 * scale,
-    fontFamily: "PoppinsSemiBold",
+    fontSize: 12 * scale,
+    fontFamily: "PoppinsBold",
     letterSpacing: 1,
     marginBottom: 8,
   },
@@ -560,7 +705,7 @@ const styles = StyleSheet.create({
     lineHeight: 28 * scale,
   },
   offerDesc: {
-    fontSize: 12 * scale,
+    fontSize: 14 * scale,
     fontFamily: "PoppinsMedium",
     color: "rgba(255,255,255,0.9)",
     marginTop: 6,
@@ -669,9 +814,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listTitle: {
-    fontSize: 16 * scale,
+    fontSize: 17 * scale,
     fontFamily: "PoppinsBold",
-    color: "#333",
+    fontWeight: '900',
+    color: "#1C1C1C",
     marginRight: 15,
   },
   listLine: {
@@ -706,13 +852,93 @@ const styles = StyleSheet.create({
   },
   voiceClose: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 80,
+    alignItems: 'center',
+  },
+  voiceCloseInner: {
+    width: 60 * scale,
+    height: 60 * scale,
+    borderRadius: 30 * scale,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  voicePulseCircle: {
+    width: 140 * scale,
+    height: 140 * scale,
+    borderRadius: 70 * scale,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+
+  /* ALERT STYLES */
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  alertCard: {
+    width: "85%",
+    borderRadius: 30,
+    overflow: "hidden",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  alertContent: {
+    padding: 30,
+    alignItems: "center",
+  },
+  alertIconRing: {
+    width: 80 * scale,
+    height: 80 * scale,
+    borderRadius: 40 * scale,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  alertTitleText: {
+    fontSize: 22 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#0F172A",
+    fontWeight: "900",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  alertMsgText: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#475569",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 22 * scale,
+  },
+  alertBtn: {
+    width: "100%",
+    borderRadius: 15,
+    overflow: "hidden",
+  },
+  alertBtnGrad: {
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  alertBtnText: {
+    fontSize: 15 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
+    fontWeight: "800",
   },
 });
 
 const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
     marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 10,
@@ -801,18 +1027,15 @@ const cardStyles = StyleSheet.create({
   serviceChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9F9F9",
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#EEE',
+    backgroundColor: "transparent",
+    paddingVertical: 4,
+    marginRight: 15,
   },
   serviceChipText: {
-    marginLeft: 5,
-    fontSize: 11 * scale,
-    color: "#444",
-    fontFamily: "PoppinsMedium",
+    marginLeft: 6,
+    fontSize: 14 * scale,
+    color: "#FF2B5C",
+    fontFamily: "PoppinsBold",
+    letterSpacing: 0.3,
   },
 });

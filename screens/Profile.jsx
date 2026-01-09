@@ -12,6 +12,7 @@ import {
   Animated,
   RefreshControl,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,6 +26,7 @@ import { AuthRequiredInline, AuthRequiredModal } from "./AuthRequired";
 import { fetchProfile } from "../services/profileService";
 import { getWalletSummary } from "../services/walletService";
 import { getCart } from "../services/cartService";
+import { getOrders } from "../services/orderService";
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
@@ -45,6 +47,17 @@ export default function Profile({ navigation }) {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  // Premium Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMsg, setAlertMsg] = useState("");
+  const [alertType, setAlertType] = useState("info");
+  const alertScale = useRef(new Animated.Value(0)).current;
+
+  // Premium Logout Modal State
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const logoutScaleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const init = async () => {
@@ -75,7 +88,7 @@ export default function Profile({ navigation }) {
         const [profileData, walletData, ordersData] = await Promise.all([
           fetchProfile(),
           getWalletSummary(),
-          import('../services/orderService').then(m => m.getOrders(parsed.id || parsed.customer_id))
+          getOrders(parsed.id || parsed.customer_id)
         ]);
 
         if (profileData) {
@@ -123,18 +136,39 @@ export default function Profile({ navigation }) {
     ]).start();
   };
 
+  const showPremiumAlert = (title, msg, type = "info") => {
+    setAlertTitle(title);
+    setAlertMsg(msg);
+    setAlertType(type);
+    setAlertVisible(true);
+    Animated.spring(alertScale, {
+      toValue: 1,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const hidePremiumAlert = () => {
+    Animated.timing(alertScale, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setAlertVisible(false));
+  };
+
   const copyReferralCode = () => {
     if (!profile?.referral_code) {
-      Alert.alert("No referral code", "Please sign in to access your referral code.");
+      showPremiumAlert("No referral code", "Please sign in to access your referral code.", "error");
       return;
     }
     Clipboard.setString(profile.referral_code);
-    Alert.alert("Copied", "Referral code copied to clipboard ✨");
+    showPremiumAlert("Copied", "Referral code copied to clipboard ✨", "success");
   };
 
   const shareReferral = async () => {
     if (!profile?.referral_code) {
-      Alert.alert("No referral code", "Please sign in to share your code.");
+      showPremiumAlert("No referral code", "Please sign in to share your code.", "error");
       return;
     }
     try {
@@ -168,18 +202,28 @@ export default function Profile({ navigation }) {
     }
   };
 
-  const logout = async () => {
-    Alert.alert("Logout", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Yes, Logout",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.multiRemove(["token", "user", "profile_cache", "wallet_summary_cache"]);
-          navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-        }
-      }
-    ]);
+  const logout = () => {
+    setLogoutModalVisible(true);
+    Animated.spring(logoutScaleAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const confirmLogout = async () => {
+    setLogoutModalVisible(false);
+    await AsyncStorage.multiRemove(["token", "user", "profile_cache", "wallet_summary_cache"]);
+    navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+  };
+
+  const cancelLogout = () => {
+    Animated.timing(logoutScaleAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setLogoutModalVisible(false));
   };
 
   if (loading && !profile) {
@@ -270,7 +314,7 @@ export default function Profile({ navigation }) {
                 </View>
               </View>
               <View style={styles.refActions}>
-                <TouchableOpacity style={styles.iconBtn} onPress={copyReferralCode}>
+                <TouchableOpacity style={[styles.iconBtn, { marginBottom: 10 }]} onPress={copyReferralCode}>
                   <Ionicons name="copy" size={20} color="#16a34a" />
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.iconBtn, { backgroundColor: '#16a34a' }]} onPress={shareReferral}>
@@ -313,6 +357,70 @@ export default function Profile({ navigation }) {
 
       <BottomBar navigation={navigation} />
       <AuthRequiredModal visible={authModalVisible} onClose={() => setAuthModalVisible(false)} onSignIn={() => { setAuthModalVisible(false); navigation.replace("Login"); }} />
+
+      {/* PREMIUM ALERT MODAL */}
+      <Modal visible={alertVisible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <Animated.View style={[styles.alertCard, { transform: [{ scale: alertScale }] }]}>
+            <LinearGradient
+              colors={alertType === 'error' ? ["#FFF5F5", "#FFFFFF"] : ["#F0FDF4", "#FFFFFF"]}
+              style={styles.alertContent}
+            >
+              <View style={[
+                styles.alertIconRing,
+                { backgroundColor: alertType === 'error' ? '#FEE2E2' : '#DCFCE7' }
+              ]}>
+                <Ionicons
+                  name={
+                    alertType === 'error' ? "close-circle"
+                      : alertType === 'success' ? "checkmark-circle"
+                        : "information-circle"
+                  }
+                  size={40}
+                  color={alertType === 'error' ? "#EF4444" : "#16A34A"}
+                />
+              </View>
+              <Text style={styles.alertTitleText}>{alertTitle}</Text>
+              <Text style={styles.alertMsgText}>{alertMsg}</Text>
+              <TouchableOpacity style={styles.alertBtn} onPress={hidePremiumAlert}>
+                <LinearGradient
+                  colors={alertType === 'error' ? ["#EF4444", "#DC2626"] : ["#16A34A", "#15803D"]}
+                  style={styles.alertBtnGrad}
+                >
+                  <Text style={styles.alertBtnText}>Ok</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* PREMIUM LOGOUT MODAL */}
+      <Modal visible={logoutModalVisible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <Animated.View style={[styles.alertCard, { transform: [{ scale: logoutScaleAnim }] }]}>
+            <LinearGradient colors={["#FFFFFF", "#FFF5F5"]} style={styles.alertContent}>
+              <View style={[styles.alertIconRing, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                <Ionicons name="log-out" size={40} color="#EF4444" />
+              </View>
+              <Text style={styles.alertTitleText}>Sign Out?</Text>
+              <Text style={styles.alertMsgText}>Are you sure you want to sign out from your account?</Text>
+
+              <View style={styles.logoutActionRow}>
+                <TouchableOpacity style={styles.cancelLogoutBtn} onPress={cancelLogout}>
+                  <Text style={styles.cancelLogoutText}>Stay</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.confirmLogoutBtn} onPress={confirmLogout}>
+                  <LinearGradient colors={["#EF4444", "#DC2626"]} style={styles.alertBtnGrad}>
+                    <Text style={styles.alertBtnText}>Sign Out</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -376,7 +484,7 @@ const styles = StyleSheet.create({
   refCodeLabel: { fontSize: 10 * scale, fontFamily: "PoppinsBold", color: "#94A3B8" },
   refCodeText: { fontSize: 16 * scale, fontFamily: "PoppinsBold", color: "#16a34a", marginLeft: 8, letterSpacing: 2 },
 
-  refActions: { gap: 10 },
+  refActions: {},
   iconBtn: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#DCFCE7' },
 
   menuGroup: { backgroundColor: '#FFF', borderRadius: 22, padding: 10, elevation: 4, shadowColor: '#000', shadowOpacity: 0.03, borderWidth: 1, borderColor: '#F1F5F9' },
@@ -391,5 +499,90 @@ const styles = StyleSheet.create({
   logoutInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderDash: [5, 5], borderWidth: 1, borderColor: '#FEE2E2' },
   logoutText: { fontSize: 16 * scale, fontFamily: "PoppinsBold", color: "#EF4444", marginLeft: 10 },
 
-  versionText: { textAlign: 'center', marginTop: 30, fontSize: 12 * scale, fontFamily: "PoppinsMedium", color: "#CBD5E1" }
+  versionText: { textAlign: 'center', marginTop: 30, fontSize: 12 * scale, fontFamily: "PoppinsMedium", color: "#CBD5E1" },
+
+  /* ALERT STYLES */
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  alertCard: {
+    width: "85%",
+    borderRadius: 30,
+    overflow: "hidden",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  alertContent: {
+    padding: 30,
+    alignItems: "center",
+  },
+  alertIconRing: {
+    width: 80 * scale,
+    height: 80 * scale,
+    borderRadius: 40 * scale,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  alertTitleText: {
+    fontSize: 22 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#0F172A",
+    fontWeight: "900",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  alertMsgText: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#475569",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 22 * scale,
+  },
+  alertBtn: {
+    width: "100%",
+    borderRadius: 15,
+    overflow: "hidden",
+  },
+  alertBtnGrad: {
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  alertBtnText: {
+    fontSize: 15 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
+    fontWeight: "800",
+  },
+  logoutActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  cancelLogoutBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginRight: 10,
+    borderRadius: 15,
+    backgroundColor: "#F3F4F6",
+  },
+  cancelLogoutText: {
+    fontSize: 15 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#4B5563",
+  },
+  confirmLogoutBtn: {
+    flex: 1,
+    borderRadius: 15,
+    overflow: "hidden",
+  },
 });

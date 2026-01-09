@@ -21,6 +21,8 @@ const scale = width / 400;
 
 export default function MenuModal({ visible, setVisible, user, navigation }) {
   const slideAnim = React.useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
+  const [logoutModalVisible, setLogoutModalVisible] = React.useState(false);
+  const logoutScaleAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     if (visible) {
@@ -46,10 +48,29 @@ export default function MenuModal({ visible, setVisible, user, navigation }) {
   };
 
   const handleLogout = () => {
+    setLogoutModalVisible(true);
+    Animated.spring(logoutScaleAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const confirmLogout = () => {
+    setLogoutModalVisible(false);
     setVisible(false);
     setTimeout(() => {
       logoutUser(navigation);
     }, 200);
+  };
+
+  const cancelLogout = () => {
+    Animated.timing(logoutScaleAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setLogoutModalVisible(false));
   };
 
   const menuItems = [
@@ -60,130 +81,181 @@ export default function MenuModal({ visible, setVisible, user, navigation }) {
   ];
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onShow={() => { }} // Optional: trigger extra things on open
-      onRequestClose={() => setVisible(false)}
-    >
-      <View style={styles.modalContainer}>
-        {/* Cinematic Backdrop Overlay */}
-        <Pressable
-          style={styles.overlay}
-          onPress={() => setVisible(false)}
-        />
+    <>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onShow={() => { }} // Optional: trigger extra things on open
+        onRequestClose={() => setVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          {/* Cinematic Backdrop Overlay */}
+          <Pressable
+            style={styles.overlay}
+            onPress={() => setVisible(false)}
+          />
 
-        {/* Premium Sidebar */}
-        <Animated.View
-          style={[
-            styles.sidebar,
-            {
-              transform: [{ translateX: slideAnim }],
-            },
-          ]}
-        >
-          {/* IMMERSIVE BRAND HEADER */}
-          <LinearGradient
-            colors={["#FF2B5C", "#FF6B8B"]}
-            style={styles.sidebarHeader}
+          {/* Premium Sidebar */}
+          <Animated.View
+            style={[
+              styles.sidebar,
+              {
+                transform: [{ translateX: slideAnim }],
+              },
+            ]}
           >
-            <View style={styles.headerTop}>
-              <View style={styles.userIconCircle}>
-                <Ionicons name="person" size={28} color="#FF2B5C" />
-              </View>
-              <TouchableOpacity onPress={() => setVisible(false)} style={styles.closeIconBtn}>
-                <Ionicons name="close" size={28} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.headerInfo}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View>
-                  <Text style={styles.greetingText}>Hello,</Text>
-                  <Text style={styles.userNameText} numberOfLines={1}>
-                    {user?.full_name ? user.full_name.split(" ")[0] : "Guest"}
-                  </Text>
+            {/* IMMERSIVE BRAND HEADER */}
+            <LinearGradient
+              colors={["#FF2B5C", "#FF6B8B"]}
+              style={styles.sidebarHeader}
+            >
+              <View style={styles.headerTop}>
+                <View style={styles.userIconCircle}>
+                  <Ionicons name="person" size={28} color="#FF2B5C" />
                 </View>
-                <TouchableOpacity
-                  style={styles.supportIconBtn}
-                  onPress={() => handleNavigation("HelpCenter")}
-                >
-                  <Ionicons name="headset" size={26} color="#000000" />
-                  <Text style={styles.supportBadgeText}>SUPPORT</Text>
+                <TouchableOpacity onPress={() => setVisible(false)} style={styles.closeIconBtn}>
+                  <Ionicons name="close" size={28} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
+              <View style={styles.headerInfo}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={styles.greetingText}>Hello,</Text>
+                    <Text style={styles.userNameText} numberOfLines={1}>
+                      {user?.full_name ? user.full_name.split(" ")[0] : "Guest"}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.supportIconBtn}
+                    onPress={() => handleNavigation("HelpCenter")}
+                  >
+                    <Ionicons name="headset" size={26} color="#000000" />
+                    <Text style={styles.supportBadgeText}>SUPPORT</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </LinearGradient>
+
+            {/* REFINED MENU LIST */}
+            <View style={styles.menuList}>
+              <View style={styles.listSection}>
+                <Text style={styles.sectionTitle}>Main Navigation</Text>
+                {menuItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.menuItem}
+                    onPress={() => handleNavigation(item.screen)}
+                    activeOpacity={0.6}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: item.color + "15" }]}>
+                      <Ionicons name={item.icon} size={22} color={item.color} />
+                    </View>
+                    <Text style={styles.menuLabel}>{item.label}</Text>
+                    <View style={styles.chevronBox}>
+                      <Ionicons name="chevron-forward" size={16} color="#DDD" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* AUTH SECTION */}
+              <View style={styles.listSection}>
+                {user ? (
+                  <TouchableOpacity
+                    style={[styles.menuItem, styles.logoutItem]}
+                    onPress={handleLogout}
+                    activeOpacity={0.6}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: "#EF444415" }]}>
+                      <Ionicons name="log-out-outline" size={22} color="#EF4444" />
+                    </View>
+                    <Text style={[styles.menuLabel, { color: "#EF4444" }]}>Sign Out</Text>
+                    <View style={styles.chevronBox}>
+                      <Ionicons name="chevron-forward" size={16} color="#FFDADA" />
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => {
+                      setVisible(false);
+                      setTimeout(() => navigation.replace("Login"), 200);
+                    }}
+                    activeOpacity={0.6}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: "#FF2B5C15" }]}>
+                      <Ionicons name="log-in-outline" size={22} color="#FF2B5C" />
+                    </View>
+                    <Text style={styles.menuLabel}>Sign In</Text>
+                    <View style={styles.chevronBox}>
+                      <Ionicons name="chevron-forward" size={16} color="#DDD" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          </LinearGradient>
 
-          {/* REFINED MENU LIST */}
-          <View style={styles.menuList}>
-            <View style={styles.listSection}>
-              <Text style={styles.sectionTitle}>Main Navigation</Text>
-              {menuItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.menuItem}
-                  onPress={() => handleNavigation(item.screen)}
-                  activeOpacity={0.6}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: item.color + "15" }]}>
-                    <Ionicons name={item.icon} size={22} color={item.color} />
-                  </View>
-                  <Text style={styles.menuLabel}>{item.label}</Text>
-                  <View style={styles.chevronBox}>
-                    <Ionicons name="chevron-forward" size={16} color="#DDD" />
-                  </View>
-                </TouchableOpacity>
-              ))}
+            {/* SIDEBAR FOOTER */}
+            <View style={styles.sidebarFooter}>
+              <Text style={styles.footerBrand}>CRISPY DOSA</Text>
+              <Text style={styles.footerVersion}>v 1.0.4 Premium</Text>
             </View>
+          </Animated.View>
+        </View>
+      </Modal>
 
-            <View style={styles.divider} />
+      {/* PREMIUM LOGOUT CONFIRMATION MODAL */}
+      <Modal
+        visible={logoutModalVisible}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.logoutOverlay}>
+          <Animated.View style={[
+            styles.logoutCard,
+            { transform: [{ scale: logoutScaleAnim }] }
+          ]}>
+            <LinearGradient
+              colors={["#FFFFFF", "#FFF5F5"]}
+              style={styles.logoutContent}
+            >
+              <View style={styles.logoutIconCircle}>
+                <Ionicons name="log-out" size={36 * scale} color="#EF4444" />
+              </View>
 
-            {/* AUTH SECTION */}
-            <View style={styles.listSection}>
-              {user ? (
+              <Text style={styles.logoutTitle}>Sign Out?</Text>
+              <Text style={styles.logoutMsg}>
+                Are you sure you want to sign out? You'll need to sign back in to place new orders.
+              </Text>
+
+              <View style={styles.logoutActionRow}>
                 <TouchableOpacity
-                  style={[styles.menuItem, styles.logoutItem]}
-                  onPress={handleLogout}
-                  activeOpacity={0.6}
+                  style={styles.cancelLogoutBtn}
+                  onPress={cancelLogout}
                 >
-                  <View style={[styles.menuIconBox, { backgroundColor: "#EF444415" }]}>
-                    <Ionicons name="log-out-outline" size={22} color="#EF4444" />
-                  </View>
-                  <Text style={[styles.menuLabel, { color: "#EF4444" }]}>Sign Out</Text>
-                  <View style={styles.chevronBox}>
-                    <Ionicons name="chevron-forward" size={16} color="#FFDADA" />
-                  </View>
+                  <Text style={styles.cancelLogoutText}>Stay</Text>
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setVisible(false);
-                    setTimeout(() => navigation.replace("Login"), 200);
-                  }}
-                  activeOpacity={0.6}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: "#FF2B5C15" }]}>
-                    <Ionicons name="log-in-outline" size={22} color="#FF2B5C" />
-                  </View>
-                  <Text style={styles.menuLabel}>Sign In</Text>
-                  <View style={styles.chevronBox}>
-                    <Ionicons name="chevron-forward" size={16} color="#DDD" />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
 
-          {/* SIDEBAR FOOTER */}
-          <View style={styles.sidebarFooter}>
-            <Text style={styles.footerBrand}>CRISPY DOSA</Text>
-            <Text style={styles.footerVersion}>v 1.0.4 Premium</Text>
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
+                <TouchableOpacity
+                  style={styles.confirmLogoutBtn}
+                  onPress={confirmLogout}
+                >
+                  <LinearGradient
+                    colors={["#EF4444", "#DC2626"]}
+                    style={styles.confirmLogoutGrad}
+                  >
+                    <Text style={styles.confirmLogoutText}>Sign Out</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -330,5 +402,85 @@ const styles = StyleSheet.create({
     fontFamily: "PoppinsMedium",
     color: "#EEE",
     marginTop: 4,
+  },
+
+  /* LOGOUT MODAL STYLES */
+  logoutOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoutCard: {
+    width: "80%",
+    borderRadius: 25,
+    overflow: "hidden",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  logoutContent: {
+    padding: 25,
+    alignItems: "center",
+  },
+  logoutIconCircle: {
+    width: 70 * scale,
+    height: 70 * scale,
+    borderRadius: 35 * scale,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.2)",
+  },
+  logoutTitle: {
+    fontSize: 22 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#1F2937",
+    marginBottom: 10,
+  },
+  logoutMsg: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsMedium",
+    color: "#4B5563",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 20 * scale,
+  },
+  logoutActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  cancelLogoutBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginRight: 10,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  cancelLogoutText: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#4B5563",
+  },
+  confirmLogoutBtn: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  confirmLogoutGrad: {
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  confirmLogoutText: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#FFF",
   },
 });

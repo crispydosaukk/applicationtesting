@@ -9,6 +9,9 @@ import {
     Share,
     TextInput,
     Alert,
+    Modal,
+    Animated,
+    Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -16,8 +19,18 @@ import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Clipboard from "@react-native-clipboard/clipboard";
 
+const { width } = Dimensions.get("window");
+const scale = width / 400;
+
 export default function InviteFriends({ navigation }) {
     const [user, setUser] = useState(null);
+
+    // Premium Alert State
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMsg, setAlertMsg] = useState("");
+    const [alertType, setAlertType] = useState("info");
+    const alertScale = React.useRef(new Animated.Value(0)).current;
 
     // Load user data
     useEffect(() => {
@@ -34,10 +47,31 @@ export default function InviteFriends({ navigation }) {
 
     const referralCode = user?.referral_code || "—";
 
+    const showPremiumAlert = (title, msg, type = "info") => {
+        setAlertTitle(title);
+        setAlertMsg(msg);
+        setAlertType(type);
+        setAlertVisible(true);
+        Animated.spring(alertScale, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: true,
+        }).start();
+    };
+
+    const hidePremiumAlert = () => {
+        Animated.timing(alertScale, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+        }).start(() => setAlertVisible(false));
+    };
+
     const handleCopy = () => {
         if (!user?.referral_code) return;
         Clipboard.setString(user.referral_code);
-        Alert.alert("Copied", "Referral code copied to clipboard");
+        showPremiumAlert("Copied", "Referral code copied to clipboard", "success");
     };
 
     const handleShare = async () => {
@@ -126,6 +160,43 @@ export default function InviteFriends({ navigation }) {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* PREMIUM ALERT MODAL */}
+            <Modal visible={alertVisible} transparent animationType="fade">
+                <View style={styles.alertOverlay}>
+                    <Animated.View style={[styles.alertCard, { transform: [{ scale: alertScale }] }]}>
+                        <LinearGradient
+                            colors={alertType === 'error' ? ["#FFF5F5", "#FFFFFF"] : ["#F0FDF4", "#FFFFFF"]}
+                            style={styles.alertContent}
+                        >
+                            <View style={[
+                                styles.alertIconRing,
+                                { backgroundColor: alertType === 'error' ? '#FEE2E2' : '#DCFCE7' }
+                            ]}>
+                                <Ionicons
+                                    name={
+                                        alertType === 'error' ? "close-circle"
+                                            : alertType === 'success' ? "checkmark-circle"
+                                                : "information-circle"
+                                    }
+                                    size={40}
+                                    color={alertType === 'error' ? "#EF4444" : "#16A34A"}
+                                />
+                            </View>
+                            <Text style={styles.alertTitleText}>{alertTitle}</Text>
+                            <Text style={styles.alertMsgText}>{alertMsg}</Text>
+                            <TouchableOpacity style={styles.alertBtn} onPress={hidePremiumAlert}>
+                                <LinearGradient
+                                    colors={alertType === 'error' ? ["#EF4444", "#DC2626"] : ["#16A34A", "#15803D"]}
+                                    style={styles.alertBtnGrad}
+                                >
+                                    <Text style={styles.alertBtnText}>Ok</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </LinearGradient>
+                    </Animated.View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -255,5 +326,66 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#555",
         lineHeight: 20,
+    },
+
+    /* ALERT STYLES */
+    alertOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(15,23,42,0.6)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    alertCard: {
+        width: "85%",
+        borderRadius: 30,
+        overflow: "hidden",
+        elevation: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 15,
+    },
+    alertContent: {
+        padding: 30,
+        alignItems: "center",
+    },
+    alertIconRing: {
+        width: 80 * scale,
+        height: 80 * scale,
+        borderRadius: 40 * scale,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 20,
+    },
+    alertTitleText: {
+        fontSize: 22 * scale,
+        fontFamily: "PoppinsBold",
+        color: "#0F172A",
+        fontWeight: "900",
+        marginBottom: 10,
+        textAlign: "center",
+    },
+    alertMsgText: {
+        fontSize: 14 * scale,
+        fontFamily: "PoppinsMedium",
+        color: "#475569",
+        textAlign: "center",
+        marginBottom: 25,
+        lineHeight: 22 * scale,
+    },
+    alertBtn: {
+        width: "100%",
+        borderRadius: 15,
+        overflow: "hidden",
+    },
+    alertBtnGrad: {
+        paddingVertical: 14,
+        alignItems: "center",
+    },
+    alertBtnText: {
+        fontSize: 15 * scale,
+        fontFamily: "PoppinsBold",
+        color: "#FFF",
+        fontWeight: "800",
     },
 });

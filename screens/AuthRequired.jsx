@@ -89,7 +89,6 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: "row",
-    gap: 12,
   },
   primaryBtn: {
     backgroundColor: "#0b7a2a",
@@ -99,6 +98,7 @@ const styles = StyleSheet.create({
     minWidth: 110,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 12,
   },
   primaryText: {
     color: "#fff",
