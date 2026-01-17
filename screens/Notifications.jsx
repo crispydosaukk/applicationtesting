@@ -202,10 +202,10 @@ export default function Notifications({ navigation }) {
 
           <View style={styles.content}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.title}>{(item.title || "").replace(/Delivered/g, "Collected").replace(/delivered/g, "collected")}</Text>
               {isUnread && <View style={styles.dot} />}
             </View>
-            <Text style={styles.body}>{item.body}</Text>
+            <Text style={styles.body}>{(item.body || "").replace(/Delivered/g, "Collected").replace(/delivered/g, "collected")}</Text>
 
             <Text style={styles.time}>
               {new Date(item.created_at).toLocaleString()}

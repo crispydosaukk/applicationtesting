@@ -90,6 +90,38 @@ export default function CartSummary({ navigation }) {
     const customerId = parsedUser?.id ?? parsedUser?.customer_id;
     if (!customerId) return;
 
+    // Sync to AsyncStorage for "Replace Cart" popup logic
+    // We assume item.user_id is the Restaurant ID (product owner)
+    const restaurantId = item.user_id || item.restaurant_id;
+
+    if (products.length === 1 && updated <= 0) {
+      // If this is the last item being removed, strictly clear the entire cart cache
+      await AsyncStorage.removeItem("cart");
+    } else if (restaurantId) {
+      try {
+        const storedCart = await AsyncStorage.getItem("cart");
+        const parsedCart = storedCart ? JSON.parse(storedCart) : {};
+        const restCart = parsedCart[restaurantId] || {};
+
+        if (updated <= 0) {
+          delete restCart[item.product_id];
+        } else {
+          restCart[item.product_id] = updated;
+        }
+
+        // Update the restaurant entry - If empty, remove the restaurant key entirely
+        if (Object.keys(restCart).length === 0) {
+          delete parsedCart[restaurantId];
+        } else {
+          parsedCart[restaurantId] = restCart;
+        }
+
+        await AsyncStorage.setItem("cart", JSON.stringify(parsedCart));
+      } catch (e) {
+        console.warn("Failed to sync local cart", e);
+      }
+    }
+
     setUpdating((s) => ({ ...s, [item.product_id]: true }));
     try {
       if (updated <= 0) {
@@ -103,7 +135,7 @@ export default function CartSummary({ navigation }) {
       } else {
         await addToCart({
           customer_id: customerId,
-          user_id: parsedUser.id,
+          user_id: parsedUser.id, // Current implementation uses customer ID here, keeping as is
           product_id: item.product_id,
           product_name: item.product_name,
           product_price: item.product_price,
@@ -257,23 +289,23 @@ export default function CartSummary({ navigation }) {
                   <View style={styles.actionCol}>
                     <View style={styles.qtyContainer}>
                       <TouchableOpacity
-                        style={styles.actionBtn}
+                        style={styles.actionBtnMinus}
                         onPress={() => updateQty(item, -1)}
                         disabled={!!updating[item.product_id]}
                       >
                         {updating[item.product_id] ? (
                           <ActivityIndicator size="small" color="#FF2B5C" />
                         ) : (
-                          <Ionicons name={qty === 1 ? "trash-outline" : "remove"} size={18} color="#FF2B5C" />
+                          <Ionicons name={qty === 1 ? "trash-outline" : "remove"} size={20} color="#FF2B5C" />
                         )}
                       </TouchableOpacity>
                       <Text style={styles.qtyText}>{qty}</Text>
                       <TouchableOpacity
-                        style={styles.actionBtn}
+                        style={styles.actionBtnPlus}
                         onPress={() => updateQty(item, 1)}
                         disabled={!!updating[item.product_id]}
                       >
-                        <Ionicons name="add" size={18} color="#FF2B5C" />
+                        <Ionicons name="add" size={22} color="#FFF" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -411,9 +443,10 @@ const styles = StyleSheet.create({
   itemPriceUnit: { fontSize: 14 * scale, fontFamily: 'PoppinsSemiBold', color: '#FF2B5C', marginTop: 8 },
 
   actionCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
-  qtyContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 10, padding: 4, borderWidth: 1, borderColor: '#EEE' },
-  actionBtn: { width: 30, height: 30, backgroundColor: '#FFF', borderRadius: 8, alignItems: 'center', justifyContent: 'center', elevation: 1 },
-  qtyText: { fontSize: 14 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginHorizontal: 12 },
+  qtyContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#EEE' },
+  actionBtnMinus: { width: 34, height: 34, backgroundColor: '#FFF', borderRadius: 10, alignItems: 'center', justifyContent: 'center', elevation: 1, borderWidth: 1, borderColor: '#E2E8F0' },
+  actionBtnPlus: { width: 34, height: 34, backgroundColor: '#FF2B5C', borderRadius: 10, alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#FF2B5C', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 } },
+  qtyText: { fontSize: 16 * scale, fontFamily: 'PoppinsBold', fontWeight: '900', color: '#1C1C1C', marginHorizontal: 12, minWidth: 20, textAlign: 'center' },
   totalTextSmall: { fontSize: 15 * scale, fontFamily: 'PoppinsBold', color: '#1C1C1C', marginTop: 10 },
 
   billSummary: { padding: 16, paddingBottom: 10 },

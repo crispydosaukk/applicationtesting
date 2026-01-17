@@ -262,12 +262,7 @@ export default function CreditsScreen({ navigation }) {
         cartItems={cartItems}
         onMenuPress={() => setMenuVisible(true)}
       />
-
-      {loadingUser ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#16a34a" />
-        </View>
-      ) : !user ? (
+      {!user ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
           <AuthRequiredInline onSignIn={() => navigation.replace("Login")} description={"Sign in to view your wallet, referral rewards and credits details."} />
         </View>
@@ -287,7 +282,7 @@ export default function CreditsScreen({ navigation }) {
 
           <View style={styles.column}>
             {/* LOYALTY CARD */}
-            <View style={styles.card}>
+            <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: "#3b82f6" }]}>
               <View style={styles.cardHeader}>
                 <Ionicons name="gift-outline" size={22} color="#3b82f6" />
                 <Text style={styles.cardLabel}>Loyalty Credits</Text>
@@ -408,7 +403,7 @@ export default function CreditsScreen({ navigation }) {
             </View>
 
             {/* WALLET CARD */}
-            <View style={[styles.card, { marginTop: 16 }]}>
+            <View style={[styles.card, { marginTop: 16, borderLeftWidth: 4, borderLeftColor: "#10b981" }]}>
               <View style={styles.cardHeader}>
                 <Ionicons name="wallet-outline" size={22} color="#10b981" />
                 <View style={{ flex: 1, marginLeft: 10 }}>
@@ -429,7 +424,7 @@ export default function CreditsScreen({ navigation }) {
           <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: "#8b5cf6" }]}>
             <View style={styles.cardHeader}>
               <Ionicons name="people-outline" size={24} color="#8b5cf6" />
-              <Text style={[styles.cardLabel, { fontSize: 16 }]}>Referrals & Rewards</Text>
+              <Text style={[styles.cardLabel, { fontSize: 14 }]}>Referrals & Rewards</Text>
             </View>
 
             <View style={styles.referralStats}>
@@ -558,8 +553,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f9fafb" },
   content: { paddingHorizontal: 16, paddingBottom: 40, paddingTop: 16 },
 
-  title: { fontSize: 24, fontWeight: "800", color: "#111827", marginBottom: 6 },
-  subtitle: { fontSize: 13, color: "#6b7280", marginBottom: 20 },
+  title: { fontSize: 20, fontWeight: "800", color: "#111827", marginBottom: 6 },
+  subtitle: { fontSize: 12, color: "#6b7280", marginBottom: 20 },
 
   column: { marginBottom: 16 },
   card: {
@@ -578,10 +573,10 @@ const styles = StyleSheet.create({
   // creditsCard: { borderLeftWidth: 4, borderLeftColor: "#3b82f6" },
 
   cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  cardLabel: { fontSize: 15, fontFamily: 'PoppinsBold', color: '#1F2937', fontWeight: '700', marginLeft: 10 },
-  cardSubLabel: { fontSize: 11, fontFamily: 'PoppinsMedium', color: '#6B7280', marginTop: 2 },
-  cardValue: { fontSize: 32, fontFamily: 'PoppinsBold', color: '#111827', marginBottom: 8, fontWeight: '900' },
-  cardHint: { fontSize: 13, fontFamily: 'PoppinsMedium', color: '#6B7280', lineHeight: 20 },
+  cardLabel: { fontSize: 14, fontFamily: 'PoppinsBold', color: '#1F2937', fontWeight: '700', marginLeft: 10 },
+  cardSubLabel: { fontSize: 10, fontFamily: 'PoppinsMedium', color: '#6B7280', marginTop: 2 },
+  cardValue: { fontSize: 26, fontFamily: 'PoppinsBold', color: '#111827', marginBottom: 8, fontWeight: '900' },
+  cardHint: { fontSize: 11, fontFamily: 'PoppinsMedium', color: '#6B7280', lineHeight: 18 },
 
   creditsRow: { flexDirection: "row", alignItems: "baseline" },
   pointsSubText: { fontSize: 14, color: "#6b7280", fontWeight: "500" },

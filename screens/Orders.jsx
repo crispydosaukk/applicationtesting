@@ -41,13 +41,13 @@ export default function Orders({ navigation, route }) {
     1: { label: "Accepted", color: "#3b82f6", icon: "checkmark-circle" }, // Blue
     2: { label: "Rejected", color: "#ef4444", icon: "close-circle" }, // Red
     3: { label: "Ready", color: "#8b5cf6", icon: "gift" }, // Purple
-    4: { label: "Delivered", color: "#16a34a", icon: "checkmark-done-circle" }, // Vibrant Green
+    4: { label: "Collected", color: "#16a34a", icon: "checkmark-done-circle" }, // Vibrant Green
     5: { label: "Cancelled", color: "#6b7280", icon: "ban" } // Gray
   };
 
   const getOrderUIState = (status, etaTime) => {
     const s = Number(status);
-    if (s === 4) return { state: "DELIVERED" };
+    if (s === 4) return { state: "COLLECTED" };
     if (s === 2) return { state: "REJECTED" };
     if (s === 5) return { state: "CANCELLED" };
     if (s === 3) return { state: "READY" };
@@ -296,7 +296,7 @@ export default function Orders({ navigation, route }) {
                 </Text>
               </View>
             )}
-            {ui.state === "DELIVERED" && (
+            {ui.state === "COLLECTED" && (
               <View
                 style={[
                   styles.statusBadge,
@@ -310,7 +310,7 @@ export default function Orders({ navigation, route }) {
                   style={{ marginRight: 8 }}
                 />
                 <Text style={[styles.statusBadgeText, { color: "#16a34a" }]}>
-                  Order delivered successfully
+                  Order collected successfully
                 </Text>
               </View>
             )}
@@ -391,44 +391,64 @@ export default function Orders({ navigation, route }) {
         />
       )}
       <MenuModal visible={menuVisible} setVisible={setMenuVisible} user={user} navigation={navigation} />
-      <Modal visible={detailsVisible} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }}>
-          <View style={{ flex: 1, backgroundColor: "#fff", marginTop: 80, borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderColor: "#eee", flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: "800" }}>{orderDetails?.order_no || "Order Details"}</Text>
-              <TouchableOpacity onPress={() => setDetailsVisible(false)}><Text style={{ color: "#007AFF" }}>Close</Text></TouchableOpacity>
+      <Modal visible={detailsVisible} transparent animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setDetailsVisible(false)} />
+          <View style={styles.bottomSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <View>
+                <Text style={styles.sheetTitle}>{orderDetails?.order_no || "Order Details"}</Text>
+                {orderDetails?.created_at && (
+                  <Text style={styles.sheetSubtitle}>
+                    {new Date(orderDetails.created_at).toLocaleString()}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => setDetailsVisible(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={24} color="#555" />
+              </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
-              {detailsLoading ? <ActivityIndicator size="large" /> : orderDetails ? (
+
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+              {detailsLoading ? <ActivityIndicator size="large" style={{ marginTop: 20 }} /> : orderDetails ? (
                 <>
-                  <Text style={{ fontWeight: "800", marginBottom: 8 }}>Items</Text>
-                  {(orderDetails.items || orderDetails.order_items || orderDetails.products || []).map((it, idx) => (
-                    <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={{ flex: 1 }}>{it.name || it.product_name}</Text>
-                      <Text>x{it.quantity || it.product_quantity}</Text>
-                      <Text style={{ marginLeft: 12 }}>£{(Number(it.price || it.product_price) * (it.quantity || it.product_quantity)).toFixed(2)}</Text>
-                    </View>
-                  ))}
-                  <View style={{ marginTop: 16, borderTopWidth: 1, borderColor: '#eee', paddingTop: 16 }}>
-                    <View style={styles.summaryRow}>
-                      <Text style={{ fontFamily: 'PoppinsMedium' }}>Subtotal</Text>
-                      <Text style={{ fontFamily: 'PoppinsBold' }}>£{Number(orderDetails.sub_total || orderDetails.total_amount || orderDetails.grand_total || (orderDetails.items || orderDetails.order_items || []).reduce((sum, item) => sum + (Number(item.price || item.product_price) * (item.quantity || item.product_quantity)), 0)).toFixed(2)}</Text>
+                  <View style={styles.itemsList}>
+                    {(orderDetails.items || orderDetails.order_items || orderDetails.products || []).map((it, idx) => (
+                      <View key={idx} style={styles.itemRow}>
+                        <View style={styles.itemInfo}>
+                          <Text style={styles.itemName}>{it.name || it.product_name}</Text>
+                          {it.contains ? <Text style={styles.itemMeta}>{it.contains}</Text> : null}
+                        </View>
+                        <Text style={styles.itemQty}>x{it.quantity || it.product_quantity}</Text>
+                        <Text style={styles.itemPrice}>£{(Number(it.price || it.product_price) * (it.quantity || it.product_quantity)).toFixed(2)}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.billSection}>
+                    <View style={styles.billRow}>
+                      <Text style={styles.billLabel}>Subtotal</Text>
+                      <Text style={styles.billValue}>£{Number(orderDetails.sub_total || orderDetails.total_amount || orderDetails.grand_total || (orderDetails.items || orderDetails.order_items || []).reduce((sum, item) => sum + (Number(item.price || item.product_price) * (item.quantity || item.product_quantity)), 0)).toFixed(2)}</Text>
                     </View>
                     {Number(orderDetails.wallet_used || 0) > 0 && (
-                      <View style={styles.summaryRow}>
-                        <Text style={{ fontFamily: 'PoppinsMedium', color: '#16a34a' }}>Wallet Used</Text>
-                        <Text style={{ fontFamily: 'PoppinsBold', color: '#16a34a' }}>-£{Number(orderDetails.wallet_used).toFixed(2)}</Text>
+                      <View style={styles.billRow}>
+                        <Text style={[styles.billLabel, { color: '#16a34a' }]}>Wallet Used</Text>
+                        <Text style={[styles.billValue, { color: '#16a34a' }]}>-£{Number(orderDetails.wallet_used).toFixed(2)}</Text>
                       </View>
                     )}
                     {Number(orderDetails.loyalty_used || 0) > 0 && (
-                      <View style={styles.summaryRow}>
-                        <Text style={{ fontFamily: 'PoppinsMedium', color: '#0EA5E9' }}>Loyalty Discount</Text>
-                        <Text style={{ fontFamily: 'PoppinsBold', color: '#0EA5E9' }}>-£{Number(orderDetails.loyalty_used).toFixed(2)}</Text>
+                      <View style={styles.billRow}>
+                        <Text style={[styles.billLabel, { color: '#0EA5E9' }]}>Loyalty Discount</Text>
+                        <Text style={[styles.billValue, { color: '#0EA5E9' }]}>-£{Number(orderDetails.loyalty_used).toFixed(2)}</Text>
                       </View>
                     )}
-                    <View style={styles.summaryRow}>
-                      <Text style={{ fontFamily: 'PoppinsBold', fontWeight: '900', fontSize: 16 }}>Grand Total</Text>
-                      <Text style={{ fontFamily: 'PoppinsBold', fontWeight: '900', fontSize: 16, color: '#16a34a' }}>
+                    <View style={styles.divider} />
+                    <View style={styles.totalRow}>
+                      <Text style={styles.totalLabel}>Grand Total</Text>
+                      <Text style={styles.totalValue}>
                         £{Number(orderDetails.net_amount || orderDetails.total_amount || orderDetails.grand_total || orderDetails.amount || 0).toFixed(2)}
                       </Text>
                     </View>
@@ -581,5 +601,146 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 8,
+  },
+
+  // PREMIUM MODAL STYLES
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  bottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    minHeight: '50%',
+    maxHeight: '90%',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  sheetTitle: {
+    fontSize: 18 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#0F172A',
+    fontWeight: '900',
+  },
+  sheetSubtitle: {
+    fontSize: 12 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 50,
+  },
+  itemsList: {
+    marginTop: 20,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  itemInfo: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  itemName: {
+    fontSize: 15 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#1E293B',
+    marginBottom: 2,
+  },
+  itemMeta: {
+    fontSize: 12 * scale,
+    color: '#64748B',
+  },
+  itemQty: {
+    fontSize: 14 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#64748B',
+    marginRight: 16,
+    width: 30,
+    textAlign: 'center',
+  },
+  itemPrice: {
+    fontSize: 15 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#0F172A',
+    minWidth: 60,
+    textAlign: 'right',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 16,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 1,
+  },
+  billSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+  },
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  billLabel: {
+    fontSize: 14 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#64748B',
+  },
+  billValue: {
+    fontSize: 14 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#1E293B',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalLabel: {
+    fontSize: 18 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#0F172A',
+    fontWeight: '900',
+  },
+  totalValue: {
+    fontSize: 20 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#16a34a',
+    fontWeight: '900',
   },
 });

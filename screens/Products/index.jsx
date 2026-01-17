@@ -51,6 +51,8 @@ export default function Products({ route, navigation }) {
   const [pending, setPending] = useState({});
   const [noteInput, setNoteInput] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
+  const [replaceModalVisible, setReplaceModalVisible] = useState(false);
+  const [replaceAction, setReplaceAction] = useState(null);
 
   const bannerHeight = useRef(new Animated.Value(40 * scale)).current;
   const [bannerVisible, setBannerVisible] = useState(true);
@@ -488,44 +490,34 @@ export default function Products({ route, navigation }) {
       });
 
       if (hasConflict) {
-        Alert.alert(
-          "Replace Cart Items?",
-          "Your cart contains items from another restaurant. Do you want to discard them and start a new order with this restaurant?",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Replace",
-              style: "destructive",
-              onPress: async () => {
-                // Show a small loader or just proceed
-                const uid = user?.id ?? user?.customer_id;
+        setReplaceAction(() => async () => {
+          // Show a small loader or just proceed
+          const uid = user?.id ?? user?.customer_id;
 
-                if (uid) {
-                  setLoading(true); // temporary show loader while clearing
-                  try {
-                    const res = await getCart(uid);
-                    if (res?.status === 1 && Array.isArray(res.data)) {
-                      // Remove everything from server
-                      await Promise.all(
-                        res.data.map(item => removeFromCart(item.cart_id || item.id))
-                      );
-                    }
-                  } catch (err) {
-                    console.log("Error clearing server cart", err);
-                  }
-                }
-
-                // Clear everything locally
-                await AsyncStorage.removeItem("cart");
-                setCartItems({});
-                setLoading(false);
-
-                // Add the NEW item
-                performAddItem(id);
+          if (uid) {
+            setLoading(true); // temporary show loader while clearing
+            try {
+              const res = await getCart(uid);
+              if (res?.status === 1 && Array.isArray(res.data)) {
+                // Remove everything from server
+                await Promise.all(
+                  res.data.map(item => removeFromCart(item.cart_id || item.id))
+                );
               }
+            } catch (err) {
+              console.log("Error clearing server cart", err);
             }
-          ]
-        );
+          }
+
+          // Clear everything locally
+          await AsyncStorage.removeItem("cart");
+          setCartItems({});
+          setLoading(false);
+
+          // Add the NEW item
+          performAddItem(id);
+        });
+        setReplaceModalVisible(true);
         return;
       }
 
@@ -928,62 +920,116 @@ export default function Products({ route, navigation }) {
       <Modal visible={popupVisible} transparent animationType="fade">
         <View style={styles.popupOverlay}>
           <View style={styles.popupBox}>
-            {/* TOP ROW RESTORED EXACTLY LIKE BEFORE */}
-            <View style={styles.popupTopRow}>
-              <TouchableOpacity
-                onPress={() => {
-                  setPopupVisible(false);
-                  setPopupTargetIds(null);
-                }}
-                style={styles.popupBackIconWrap}
-              >
-                <Ionicons name="arrow-back" size={20 * scale} color="#222222" />
-              </TouchableOpacity>
-
-              <Text style={styles.popupTopTitle}>Special Instructions</Text>
-            </View>
-
-            {/* NAME LEFT, PRICE RIGHT (YOUR REQUEST) */}
-            {currentProduct && (
-              <View style={styles.popupTitleRow}>
-                <Text style={styles.popupTitle}>{currentProduct.name}</Text>
-                <Text style={styles.popupPrice}>£{currentProduct.price}</Text>
+            <LinearGradient
+              colors={["#F0FDF4", "#DCFCE7"]}
+              style={styles.popupContent}
+            >
+              {/* ICON CIRCLE */}
+              <View style={styles.addIconCircle}>
+                <Ionicons name="cart-outline" size={36 * scale} color="#16a34a" />
               </View>
-            )}
 
-            <Text style={styles.popupHint}>
-              Enter any instructions like spice level, allergies or packing.
-            </Text>
+              {/* HEADER ROW */}
+              <View style={styles.popupHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  {currentProduct && (
+                    <Text style={styles.popupTitle}>{currentProduct.name}</Text>
+                  )}
+                  {currentProduct && (
+                    <Text style={styles.popupPrice}>£{currentProduct.price}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setPopupVisible(false);
+                    setPopupTargetIds(null);
+                  }}
+                  style={styles.popupCloseBtn}
+                >
+                  <Ionicons name="close" size={24 * scale} color="#999" />
+                </TouchableOpacity>
+              </View>
 
-            <TextInput
-              style={styles.popupInput}
-              placeholder="Type your instructions..."
-              value={noteInput}
-              onChangeText={setNoteInput}
-              multiline
-              placeholderTextColor="#999999"
-            />
+              <Text style={styles.popupHint}>
+                Enter any special instructions (e.g. "Spicy", "No Onion")
+              </Text>
 
-            {/* BUTTONS — PROFESSIONAL NAMES */}
-            <View style={styles.popupRow}>
-              {popupIndex > 0 && (
+              <TextInput
+                style={styles.popupInput}
+                placeholder="Type your instructions..."
+                value={noteInput}
+                onChangeText={setNoteInput}
+                multiline
+                placeholderTextColor="#999999"
+              />
+
+              {/* BUTTONS */}
+              <View style={styles.popupRow}>
+                {popupIndex > 0 && (
+                  <TouchableOpacity
+                    style={styles.popupSecondaryBtn}
+                    onPress={handleBackPopup}
+                  >
+                    <Text style={styles.popupSecondaryText}>Back</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.popupPrimaryWrap}
+                  onPress={handleNextPopup}
+                >
+                  <LinearGradient
+                    colors={["#16a34a", "#15803d"]}
+                    style={styles.popupPrimaryBtn}
+                  >
+                    <Text style={styles.popupPrimaryText}>
+                      {popupIndex === popupIds.length - 1 ? "Add to Cart" : "Continue"}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Replace Cart Modal */}
+      <Modal visible={replaceModalVisible} transparent animationType="fade" onRequestClose={() => setReplaceModalVisible(false)}>
+        <View style={styles.popupOverlay}>
+          <View style={styles.replaceBox}>
+            <LinearGradient
+              colors={["#FFF0F1", "#FFE4E6"]}
+              style={styles.popupContent}
+            >
+              <View style={styles.replaceIconCircle}>
+                <Ionicons name="warning-outline" size={36 * scale} color="#EF4444" />
+              </View>
+
+              <Text style={styles.replaceTitle}>Replace Cart Items?</Text>
+              <Text style={styles.replaceMessage}>
+                Your cart contains items from another restaurant. Do you want to discard them and start a new order with this restaurant?
+              </Text>
+              <View style={styles.popupRow}>
                 <TouchableOpacity
                   style={styles.popupSecondaryBtn}
-                  onPress={handleBackPopup}
+                  onPress={() => setReplaceModalVisible(false)}
                 >
-                  <Text style={styles.popupSecondaryText}>Back</Text>
+                  <Text style={styles.popupSecondaryText}>Cancel</Text>
                 </TouchableOpacity>
-              )}
 
-              <TouchableOpacity
-                style={styles.popupPrimaryBtn}
-                onPress={handleNextPopup}
-              >
-                <Text style={styles.popupPrimaryText}>
-                  {popupIndex === popupIds.length - 1 ? "Add to Cart" : "Continue"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.replaceConfirmWrap}
+                  onPress={() => { setReplaceModalVisible(false); if (replaceAction) replaceAction(); }}
+                >
+                  <LinearGradient
+                    colors={["#EF4444", "#DC2626"]}
+                    style={styles.popupPrimaryBtn}
+                  >
+                    <Text style={styles.popupPrimaryText}>Replace</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
           </View>
         </View>
       </Modal>
@@ -1308,101 +1354,177 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
 
-  /* POPUP */
+  /* POPUP PREMIUM (MATCHING SIGN OUT STYLE) */
   popupOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
   popupBox: {
-    width: "88%",
-    backgroundColor: "#ffffff",
-    padding: 18,
-    borderRadius: 5,
-    elevation: 10,
+    width: "85%",
+    borderRadius: 25,
+    overflow: "hidden",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    backgroundColor: '#fff' // required for shadow on iOS
   },
-
-  popupTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-
-  popupBackIconWrap: { padding: 4, marginRight: 6 },
-
-  popupTopTitle: {
-    fontSize: 14 * scale,
-    fontWeight: "600",
-    color: "#555555",
+  replaceBox: {
+    width: "80%",
+    borderRadius: 25,
+    overflow: "hidden",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    backgroundColor: '#fff'
   },
-
-  popupTitleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-
-  popupTitle: {
-    fontSize: 17 * scale,
-    fontWeight: "700",
-    color: "#222222",
-    flex: 1,
-  },
-
-  popupPrice: {
-    fontSize: 15 * scale,
-    fontWeight: "700",
-    color: "#16a34a",
-  },
-
-  popupHint: {
-    fontSize: 12.5 * scale,
-    color: "#777777",
-    marginBottom: 8,
-  },
-
-  popupInput: {
-    borderWidth: 1,
-    borderColor: "#dddddd",
-    minHeight: 80,
-    borderRadius: 5,
-    padding: 10,
-    textAlignVertical: "top",
-    fontSize: 13 * scale,
-    color: "#222222",
-    marginBottom: 16,
-  },
-
-  popupRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
+  popupContent: {
+    padding: 24,
     alignItems: "center",
   },
 
-  popupSecondaryBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+  /* ICONS */
+  replaceIconCircle: {
+    width: 70 * scale,
+    height: 70 * scale,
+    borderRadius: 35 * scale,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#cccccc",
-    marginRight: 8,
+    borderColor: "rgba(239, 68, 68, 0.2)",
+  },
+  addIconCircle: {
+    width: 70 * scale,
+    height: 70 * scale,
+    borderRadius: 35 * scale,
+    backgroundColor: "rgba(22, 163, 74, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(22, 163, 74, 0.2)",
   },
 
-  popupSecondaryText: {
+  /* HEADERS */
+  replaceTitle: {
+    fontSize: 22 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  replaceMessage: {
+    fontSize: 14 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#4B5563',
+    lineHeight: 20 * scale,
+    marginBottom: 24,
+    textAlign: "center",
+  },
+
+  popupHeaderRow: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12
+  },
+  popupTitle: {
+    fontSize: 20 * scale,
+    fontFamily: "PoppinsBold",
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  popupPrice: {
+    fontSize: 18 * scale,
+    fontFamily: "PoppinsBold",
+    fontWeight: "900",
+    color: "#16a34a",
+  },
+  popupCloseBtn: {
+    padding: 4,
+  },
+
+  popupHint: {
     fontSize: 13 * scale,
-    fontWeight: "600",
-    color: "#444444",
+    fontFamily: "PoppinsMedium",
+    color: "#64748B",
+    marginBottom: 12,
+    textAlign: 'center'
   },
 
+  popupInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    minHeight: 100,
+    width: '100%',
+    borderRadius: 16,
+    padding: 16,
+    textAlignVertical: "top",
+    fontSize: 14 * scale,
+    color: "#0F172A",
+    marginBottom: 24,
+    fontFamily: 'PoppinsMedium',
+  },
+
+  /* BUTTONS (MATCHING SIGN OUT STYLE) */
+  popupRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    width: '100%'
+  },
+  popupSecondaryBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginRight: 10,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6", // Grey background like cancelLogoutStyle
+    borderWidth: 0,
+  },
+  popupSecondaryText: {
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    color: "#4B5563",
+  },
+
+  popupPrimaryWrap: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  replaceConfirmWrap: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
   popupPrimaryBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: "#16a34a",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: 'center',
+    width: '100%'
   },
-
   popupPrimaryText: {
-    fontSize: 13.5 * scale,
-    fontWeight: "700",
+    fontSize: 14 * scale,
+    fontFamily: "PoppinsBold",
+    fontWeight: "800",
     color: "#ffffff",
   },
+  popupTopRow: { display: 'none' }, // hidden now
+  popupBackIconWrap: { display: 'none' }, // hidden
+  popupTopTitle: { display: 'none' }, // hidden
+  replaceCancelText: { display: 'none' },
+  replaceConfirmText: { display: 'none' },
+  popupTitleRow: { display: 'none' },
   voiceOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",

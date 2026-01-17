@@ -226,14 +226,7 @@ export default function Profile({ navigation }) {
     }).start(() => setLogoutModalVisible(false));
   };
 
-  if (loading && !profile) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={styles.loaderText}>Elevating your profile...</Text>
-      </View>
-    );
-  }
+
 
   if (!userLocal) {
     return (
@@ -470,7 +463,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 35, backgroundColor: 'rgba(0,0,0,0.15)', padding: 18, borderRadius: 25 },
   statBox: { flex: 1, alignItems: 'center' },
   statVal: { fontSize: 20 * scale, fontFamily: "PoppinsBold", color: "#FFF", fontWeight: '900' },
-  statLabel: { fontSize: 9 * scale, fontFamily: "PoppinsBold", color: "rgba(255,255,255,0.9)", textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
+  statLabel: { fontSize: 10 * scale, fontFamily: "PoppinsBold", fontWeight: '900', color: "#FFFFFF", textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 },
   statDivider: { width: 1.5, height: '50%', backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center' },
 
   section: { paddingHorizontal: 20, marginTop: 25 },
