@@ -242,6 +242,15 @@ export default function Orders({ navigation, route }) {
               </View>
             </View>
 
+            {item.special_instruction ? (
+              <View style={styles.listInstructionBox}>
+                <Ionicons name="chatbubble-ellipses-outline" size={14 * scale} color="#F59E0B" style={{ marginRight: 6 }} />
+                <Text style={styles.listInstructionText} numberOfLines={2}>
+                  <Text style={{ fontFamily: 'PoppinsBold' }}>Note: </Text>{item.special_instruction}
+                </Text>
+              </View>
+            ) : null}
+
             {ui.state === "COUNTDOWN" && (
               <View
                 style={[
@@ -395,67 +404,164 @@ export default function Orders({ navigation, route }) {
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setDetailsVisible(false)} />
           <View style={styles.bottomSheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <View>
-                <Text style={styles.sheetTitle}>{orderDetails?.order_no || "Order Details"}</Text>
-                {orderDetails?.created_at && (
-                  <Text style={styles.sheetSubtitle}>
-                    {new Date(orderDetails.created_at).toLocaleString()}
-                  </Text>
-                )}
+            <LinearGradient
+              colors={['#1e293b', '#334155', '#1e293b']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={{ flex: 1 }}
+            >
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <View>
+                  <Text style={styles.sheetTitle}>{orderDetails?.order_no || "Order Details"}</Text>
+                  {orderDetails?.created_at && (
+                    <Text style={styles.sheetSubtitle}>
+                      {new Date(orderDetails.created_at).toLocaleString()}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity onPress={() => setDetailsVisible(false)} style={styles.closeBtn}>
+                  <Ionicons name="close" size={24} color="#FFF" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => setDetailsVisible(false)} style={styles.closeBtn}>
-                <Ionicons name="close" size={24} color="#555" />
-              </TouchableOpacity>
-            </View>
 
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 30 }}>
-              {detailsLoading ? <ActivityIndicator size="large" style={{ marginTop: 20 }} /> : orderDetails ? (
-                <>
-                  <View style={styles.itemsList}>
-                    {(orderDetails.items || orderDetails.order_items || orderDetails.products || []).map((it, idx) => (
-                      <View key={idx} style={styles.itemRow}>
-                        <View style={styles.itemInfo}>
-                          <Text style={styles.itemName}>{it.name || it.product_name}</Text>
-                          {it.contains ? <Text style={styles.itemMeta}>{it.contains}</Text> : null}
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+                {detailsLoading ? <ActivityIndicator size="large" style={{ marginTop: 20 }} /> : orderDetails ? (
+                  <>
+                    {/* ORDER INFO CARD */}
+                    <View style={styles.orderInfoCard}>
+                      <View style={styles.orderInfoRow}>
+                        <View style={styles.orderInfoItem}>
+                          <Text style={styles.orderInfoLabel}>TYPE</Text>
+                          <View style={[styles.orderInfoValueBox, { backgroundColor: (orderDetails.order_type === 'kerbside' || orderDetails.delivery_type === 'kerbside') ? '#DBEAFE' : '#DCFCE7' }]}>
+                            <Ionicons
+                              name={(orderDetails.order_type === 'kerbside' || orderDetails.delivery_type === 'kerbside') ? "car-sport" : (orderDetails.order_type === 'delivery' || orderDetails.shipping_method === 'delivery' ? "bicycle" : "storefront")}
+                              size={14}
+                              color={(orderDetails.order_type === 'kerbside' || orderDetails.delivery_type === 'kerbside') ? "#1E40AF" : "#15803d"}
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text style={[styles.orderInfoValue, { color: (orderDetails.order_type === 'kerbside' || orderDetails.delivery_type === 'kerbside') ? '#1E40AF' : '#15803d' }]}>
+                              {(() => {
+                                const type = (orderDetails.order_type || orderDetails.shipping_method || orderDetails.delivery_type || "").toLowerCase();
+                                if (type.includes('kerb') || type.includes('curb')) return "KERBSIDE";
+                                if (type.includes('deliver')) return "DELIVERY";
+                                return "IN-STORE";
+                              })()}
+                            </Text>
+                          </View>
                         </View>
-                        <Text style={styles.itemQty}>x{it.quantity || it.product_quantity}</Text>
-                        <Text style={styles.itemPrice}>£{(Number(it.price || it.product_price) * (it.quantity || it.product_quantity)).toFixed(2)}</Text>
+                        <View style={styles.verticalDivider} />
+                        <View style={styles.orderInfoItem}>
+                          <Text style={styles.orderInfoLabel}>PAYMENT</Text>
+                          <Text style={styles.orderInfoValueBasic}>
+                            {(orderDetails.payment_method || orderDetails.payment_type || "Paid").toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.verticalDivider} />
+                        <View style={styles.orderInfoItem}>
+                          <Text style={styles.orderInfoLabel}>STATUS</Text>
+                          <Text style={[styles.orderInfoValueBasic, { color: ORDER_STATUS[Number(orderDetails.status)]?.color || '#333' }]}>
+                            {ORDER_STATUS[Number(orderDetails.status)]?.label || "Unknown"}
+                          </Text>
+                        </View>
                       </View>
-                    ))}
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.billSection}>
-                    <View style={styles.billRow}>
-                      <Text style={styles.billLabel}>Subtotal</Text>
-                      <Text style={styles.billValue}>£{Number(orderDetails.sub_total || orderDetails.total_amount || orderDetails.grand_total || (orderDetails.items || orderDetails.order_items || []).reduce((sum, item) => sum + (Number(item.price || item.product_price) * (item.quantity || item.product_quantity)), 0)).toFixed(2)}</Text>
                     </View>
-                    {Number(orderDetails.wallet_used || 0) > 0 && (
-                      <View style={styles.billRow}>
-                        <Text style={[styles.billLabel, { color: '#16a34a' }]}>Wallet Used</Text>
-                        <Text style={[styles.billValue, { color: '#16a34a' }]}>-£{Number(orderDetails.wallet_used).toFixed(2)}</Text>
+
+                    {/* KERBSIDE VEHICLE DETAILS */}
+                    {((orderDetails.order_type || orderDetails.delivery_type || "").toLowerCase().includes('kerb') || (orderDetails.order_type || orderDetails.delivery_type || "").toLowerCase().includes('curb')) && (
+                      <View style={styles.kerbsideBox}>
+                        <View style={styles.kerbsideHeader}>
+                          <Ionicons name="car-sport" size={16} color="#3B82F6" style={{ marginRight: 8 }} />
+                          <Text style={styles.kerbsideTitle}>Vehicle Details</Text>
+                        </View>
+                        <View style={styles.kerbsideDetailsRow}>
+                          {(orderDetails.car_number || orderDetails.vehicle_number) ? (
+                            <View style={styles.kerbsideDetailItem}>
+                              <Text style={styles.kerbsideLabel}>NUMBER</Text>
+                              <Text style={styles.kerbsideValue}>{(orderDetails.car_number || orderDetails.vehicle_number).toUpperCase()}</Text>
+                            </View>
+                          ) : null}
+                          {(orderDetails.car_model || orderDetails.vehicle_model) ? (
+                            <View style={styles.kerbsideDetailItem}>
+                              <Text style={styles.kerbsideLabel}>MODEL</Text>
+                              <Text style={styles.kerbsideValue}>{orderDetails.car_model || orderDetails.vehicle_model}</Text>
+                            </View>
+                          ) : null}
+                          {(orderDetails.car_color || orderDetails.vehicle_color) ? (
+                            <View style={styles.kerbsideDetailItem}>
+                              <Text style={styles.kerbsideLabel}>COLOR</Text>
+                              <Text style={styles.kerbsideValue}>{orderDetails.car_color || orderDetails.vehicle_color}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
                     )}
-                    {Number(orderDetails.loyalty_used || 0) > 0 && (
-                      <View style={styles.billRow}>
-                        <Text style={[styles.billLabel, { color: '#0EA5E9' }]}>Loyalty Discount</Text>
-                        <Text style={[styles.billValue, { color: '#0EA5E9' }]}>-£{Number(orderDetails.loyalty_used).toFixed(2)}</Text>
+
+                    <Text style={styles.sectionHeader}>ITEMS</Text>
+                    <View style={styles.itemsList}>
+                      {(orderDetails.items || orderDetails.order_items || orderDetails.products || []).map((it, idx) => (
+                        <View key={idx} style={styles.itemRowContainer}>
+                          <View style={styles.itemRow}>
+                            <View style={styles.itemInfo}>
+                              <Text style={styles.itemName}>{it.name || it.product_name}</Text>
+                              {it.contains ? <Text style={styles.itemMeta}>{it.contains}</Text> : null}
+                            </View>
+                            <Text style={styles.itemQty}>x{it.quantity || it.product_quantity}</Text>
+                            <Text style={styles.itemPrice}>£{(Number(it.price || it.product_price) * (it.quantity || it.product_quantity)).toFixed(2)}</Text>
+                          </View>
+                          {(it.special_instruction || it.notes || it.instruction || it.special_instructions || it.note || it.textfield || (it.pivot && it.pivot.special_instruction)) ? (
+                            <View style={styles.specialInstructionBox}>
+                              <Ionicons name="chatbox-ellipses-outline" size={12 * scale} color="#94A3B8" style={{ marginRight: 6, marginTop: 2 }} />
+                              <Text style={styles.specialInstruction}>
+                                {it.special_instruction || it.notes || it.instruction || it.special_instructions || it.note || it.textfield || (it.pivot && it.pivot.special_instruction)}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+
+                    {orderDetails.special_instruction ? (
+                      <View style={styles.globalInstructionBox}>
+                        <View style={styles.instructionHeader}>
+                          <Ionicons name="warning" size={16 * scale} color="#047857" style={{ marginRight: 6 }} />
+                          <Text style={styles.globalInstructionLabel}>SPECIAL INSTRUCTION</Text>
+                        </View>
+                        <Text style={styles.globalInstructionText}>{orderDetails.special_instruction}</Text>
                       </View>
-                    )}
+                    ) : null}
+
                     <View style={styles.divider} />
-                    <View style={styles.totalRow}>
-                      <Text style={styles.totalLabel}>Grand Total</Text>
-                      <Text style={styles.totalValue}>
-                        £{Number(orderDetails.net_amount || orderDetails.total_amount || orderDetails.grand_total || orderDetails.amount || 0).toFixed(2)}
-                      </Text>
+
+                    <View style={styles.billSection}>
+                      <View style={styles.billRow}>
+                        <Text style={styles.billLabel}>Subtotal</Text>
+                        <Text style={styles.billValue}>£{Number(orderDetails.sub_total || orderDetails.total_amount || orderDetails.grand_total || (orderDetails.items || orderDetails.order_items || []).reduce((sum, item) => sum + (Number(item.price || item.product_price) * (item.quantity || item.product_quantity)), 0)).toFixed(2)}</Text>
+                      </View>
+                      {Number(orderDetails.wallet_used || 0) > 0 && (
+                        <View style={styles.billRow}>
+                          <Text style={[styles.billLabel, { color: '#16a34a' }]}>Wallet Used</Text>
+                          <Text style={[styles.billValue, { color: '#16a34a' }]}>-£{Number(orderDetails.wallet_used).toFixed(2)}</Text>
+                        </View>
+                      )}
+                      {Number(orderDetails.loyalty_used || 0) > 0 && (
+                        <View style={styles.billRow}>
+                          <Text style={[styles.billLabel, { color: '#0EA5E9' }]}>Loyalty Discount</Text>
+                          <Text style={[styles.billValue, { color: '#0EA5E9' }]}>-£{Number(orderDetails.loyalty_used).toFixed(2)}</Text>
+                        </View>
+                      )}
+                      <View style={styles.divider} />
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Grand Total</Text>
+                        <Text style={styles.totalValue}>
+                          £{Number(orderDetails.net_amount || orderDetails.total_amount || orderDetails.grand_total || orderDetails.amount || 0).toFixed(2)}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                </>
-              ) : null}
-            </ScrollView>
+                  </>
+                ) : null}
+              </ScrollView>
+            </LinearGradient>
           </View>
         </View>
       </Modal>
@@ -613,21 +719,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   bottomSheet: {
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff', // Removed to let gradient show
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    minHeight: '50%',
+    minHeight: '60%',
     maxHeight: '90%',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 20,
+    overflow: 'hidden', // Ensure gradient stays inside bounds
   },
   sheetHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#334155',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -640,33 +747,162 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(255,255,255,0.1)', // Subtle separator
   },
   sheetTitle: {
     fontSize: 18 * scale,
     fontFamily: 'PoppinsBold',
-    color: '#0F172A',
+    color: '#F8FAFC',
     fontWeight: '900',
   },
   sheetSubtitle: {
     fontSize: 12 * scale,
     fontFamily: 'PoppinsMedium',
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   closeBtn: {
     padding: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 50,
   },
   itemsList: {
-    marginTop: 20,
+    paddingBottom: 8,
+  },
+  itemRowContainer: {
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  specialInstructionBox: {
+    flexDirection: 'row',
+    marginTop: 6,
+    paddingLeft: 2,
+    alignItems: 'flex-start',
+  },
+  listInstructionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 251, 235, 0.6)',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(253, 230, 138, 0.4)',
+  },
+  listInstructionText: {
+    fontSize: 12 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#92400E',
+    flex: 1,
+  },
+  globalInstructionBox: {
+    backgroundColor: '#ECFDF5',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+    shadowColor: "#059669",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  instructionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  globalInstructionLabel: {
+    fontSize: 12 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#047857',
+    letterSpacing: 1,
+    fontWeight: '900',
+  },
+  globalInstructionText: {
+    fontSize: 14 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#064E3B',
+    lineHeight: 22,
+  },
+  orderInfoCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  orderInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  orderInfoItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  verticalDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  orderInfoLabel: {
+    fontSize: 10 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#94A3B8',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  orderInfoValueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  orderInfoValue: {
+    fontSize: 12 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#15803d',
+    fontWeight: '800',
+  },
+  orderInfoValueBasic: {
+    fontSize: 13 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#F8FAFC',
+  },
+  sectionHeader: {
+    fontSize: 13 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#94A3B8',
+    marginBottom: 10,
+    letterSpacing: 1,
+    marginLeft: 4,
+  },
+  specialInstruction: {
+    fontSize: 11 * scale,
+    fontFamily: 'PoppinsMedium', // Italic style handled by font or just normal
+    fontStyle: 'italic',
+    color: '#CBD5E1',
+    flexShrink: 1,
+    lineHeight: 16,
   },
   itemInfo: {
     flex: 1,
@@ -675,17 +911,17 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 15 * scale,
     fontFamily: 'PoppinsBold',
-    color: '#1E293B',
+    color: '#F8FAFC',
     marginBottom: 2,
   },
   itemMeta: {
     fontSize: 12 * scale,
-    color: '#64748B',
+    color: '#94A3B8',
   },
   itemQty: {
     fontSize: 14 * scale,
     fontFamily: 'PoppinsBold',
-    color: '#64748B',
+    color: '#CBD5E1',
     marginRight: 16,
     width: 30,
     textAlign: 'center',
@@ -693,21 +929,21 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 15 * scale,
     fontFamily: 'PoppinsBold',
-    color: '#0F172A',
+    color: '#F8FAFC',
     minWidth: 60,
     textAlign: 'right',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginVertical: 8,
     borderStyle: 'dashed',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 1,
   },
   billSection: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)', // Semi-transparent to blend with gradient
     borderRadius: 16,
     padding: 16,
   },
@@ -719,12 +955,12 @@ const styles = StyleSheet.create({
   billLabel: {
     fontSize: 14 * scale,
     fontFamily: 'PoppinsMedium',
-    color: '#64748B',
+    color: '#94A3B8',
   },
   billValue: {
     fontSize: 14 * scale,
     fontFamily: 'PoppinsBold',
-    color: '#1E293B',
+    color: '#F8FAFC',
   },
   totalRow: {
     flexDirection: 'row',
@@ -734,13 +970,54 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 18 * scale,
     fontFamily: 'PoppinsBold',
-    color: '#0F172A',
+    color: '#F8FAFC',
     fontWeight: '900',
   },
   totalValue: {
     fontSize: 20 * scale,
     fontFamily: 'PoppinsBold',
-    color: '#16a34a',
+    color: '#4ade80',
     fontWeight: '900',
+  },
+  kerbsideBox: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  kerbsideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(59, 130, 246, 0.1)',
+    paddingBottom: 8,
+  },
+  kerbsideTitle: {
+    fontSize: 13 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#60A5FA',
+    letterSpacing: 0.5,
+  },
+  kerbsideDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  kerbsideDetailItem: {
+    flex: 1,
+    marginRight: 8,
+  },
+  kerbsideLabel: {
+    fontSize: 10 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#94A3B8',
+    marginBottom: 2,
+  },
+  kerbsideValue: {
+    fontSize: 13 * scale,
+    fontFamily: 'PoppinsBold',
+    color: '#F8FAFC',
   },
 });
