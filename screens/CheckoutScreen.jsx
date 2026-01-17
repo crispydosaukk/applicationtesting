@@ -337,6 +337,7 @@ export default function CheckoutScreen({ navigation }) {
           discount_amount: i.discount_price ? i.product_price - i.discount_price : 0,
           vat: 0,
           quantity: Number(i.product_quantity) || 0,
+          textfield: i.textfield || i.special_instruction || "",
         })),
       };
 
