@@ -34,7 +34,7 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Crispy Dosa needs access to your location to find the nearest restaurants near you.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Crispy Dosa needs access to your microphone for voice searching items.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

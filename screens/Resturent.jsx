@@ -22,6 +22,7 @@ import { PermissionsAndroid } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import { useIsFocused } from "@react-navigation/native";
 import { RefreshControl } from "react-native";
+import Geolocation from 'react-native-geolocation-service';
 import useRefresh from "../hooks/useRefresh";
 
 import AppHeader from "./AppHeader";
@@ -38,7 +39,7 @@ const { width } = Dimensions.get("window");
 const scale = width / 400;
 const FONT_FAMILY = Platform.select({ ios: "System", android: "System" });
 
-function RestaurantCard({ name, address, photo, onPress, instore, kerbside, index }) {
+function RestaurantCard({ name, address, photo, onPress, instore, kerbside, distance, index }) {
   const isEven = index % 2 === 0;
   return (
     <TouchableOpacity
@@ -74,10 +75,20 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside, inde
 
           <View style={cardStyles.addressRow}>
             <Ionicons name="location-sharp" size={14 * scale} color="#E23744" style={{ marginTop: 2 }} />
-            <Text style={cardStyles.address} numberOfLines={2}>
+            <Text style={cardStyles.address} numberOfLines={1}>
               {address}
             </Text>
           </View>
+
+          {distance !== null && distance !== undefined && (
+            <View style={cardStyles.distanceRow}>
+              <View style={cardStyles.distanceBadge}>
+                <Ionicons name="navigate" size={12 * scale} color="#FFF" />
+                <Text style={cardStyles.distanceText}>{distance} km</Text>
+              </View>
+              <Text style={cardStyles.awayText}>away from you</Text>
+            </View>
+          )}
 
           <View style={cardStyles.serviceRow}>
             {instore && (
@@ -107,6 +118,8 @@ export default function Resturent({ navigation }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [restaurants, setRestaurants] = useState([]);
   const [cartItems, setCartItems] = useState({});
+  const [currentLocationName, setCurrentLocationName] = useState("Fetching location...");
+  const [locationLoading, setLocationLoading] = useState(true);
 
   const scrollRef = useRef(null);
   const isFocused = useIsFocused();
@@ -143,6 +156,26 @@ export default function Resturent({ navigation }) {
     },
   ];
 
+  const GOOGLE_MAPS_API_KEY = "AIzaSyA-CXsyKpvFtpidpOkhOiIQGfXFO3O5lKA";
+
+  const fetchAddressFromCoords = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      if (data.status === "OK" && data.results.length > 0) {
+        // Try to find a nice short address
+        const result = data.results[0];
+        return result.formatted_address;
+      }
+      return "Unknown Location";
+    } catch (error) {
+      console.error("Geocoding Error:", error);
+      return "Location unavailable";
+    }
+  };
+
   // Load User
   useEffect(() => {
     const loadUser = async () => {
@@ -152,13 +185,104 @@ export default function Resturent({ navigation }) {
     loadUser();
   }, []);
 
+  const requestLocationPermission = async () => {
+    if (Platform.OS === "android") {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: "Location Permission",
+            message: "Crispy Dosa needs access to your location to find the nearest restaurants.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK",
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const getCurrentLocation = () => {
+    return new Promise((resolve) => {
+      // First attempt: High Accuracy
+      Geolocation.getCurrentPosition(
+        (position) => {
+          resolve(position.coords);
+        },
+        (error) => {
+          console.log("High Accuracy Error:", error.code, error.message);
+
+          // Second attempt: Low Accuracy (Better for emulators/indoor)
+          Geolocation.getCurrentPosition(
+            (pos) => {
+              resolve(pos.coords);
+            },
+            (err) => {
+              console.log("Low Accuracy Error:", err.code, err.message);
+
+              // Third attempt: Last Known Location
+              Geolocation.getCurrentPosition(
+                (p) => resolve(p.coords),
+                (e) => {
+                  if (e.code === 2 || e.code === 5) {
+                    Alert.alert(
+                      "Location Disabled",
+                      "Please turn on your GPS/Location services to find the nearest restaurants.",
+                      [{ text: "OK" }]
+                    );
+                  }
+                  resolve(null);
+                },
+                { enableHighAccuracy: false, timeout: 5000, maximumAge: 100000 }
+              );
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+      );
+    });
+  };
+
+  const loadAllData = async () => {
+    setLocationLoading(true);
+    setCurrentLocationName("Updating location...");
+
+    // Request permission again if not granted
+    const hasPermission = await requestLocationPermission();
+    let coords = null;
+
+    if (hasPermission) {
+      coords = await getCurrentLocation();
+    } else {
+      Alert.alert("Permission Denied", "Location permission is required to find nearest restaurants.");
+    }
+
+    if (coords) {
+      const address = await fetchAddressFromCoords(coords.latitude, coords.longitude);
+      setCurrentLocationName(address);
+    } else {
+      setCurrentLocationName("Location not available");
+      Alert.alert(
+        "Debug: Missing Location",
+        "The app couldn't fetch your coordinates. Please:\n1. Rebuild the app (npm run android)\n2. Ensure Location is ON in emulator settings\n3. Set a location in Emulator (...) -> Location",
+        [{ text: "OK" }]
+      );
+    }
+
+    const data = await fetchRestaurants(coords?.latitude, coords?.longitude);
+    setRestaurants(data);
+    setLocationLoading(false);
+  };
+
   // Fetch Restaurants
   useEffect(() => {
-    const loadRestaurants = async () => {
-      const data = await fetchRestaurants();
-      setRestaurants(data);
-    };
-    loadRestaurants();
+    loadAllData();
   }, []);
 
   // Fetch Cart
@@ -337,8 +461,7 @@ export default function Resturent({ navigation }) {
   }, []);
 
   const { refreshing, onRefresh } = useRefresh(async () => {
-    const list = await fetchRestaurants();
-    setRestaurants(list);
+    await loadAllData();
 
     if (user) {
       const customerId = user.id ?? user.customer_id;
@@ -363,6 +486,36 @@ export default function Resturent({ navigation }) {
         backgroundColor={offers[activeIndex].colors[0]}
         barStyle={offers[activeIndex].textColor === "#FFFFFF" ? "light-content" : "dark-content"}
       />
+
+      {/* Top Location Bar */}
+      <View style={[styles.locationBar, { backgroundColor: offers[activeIndex].colors[0] }]}>
+        <View style={styles.locationContent}>
+          <Ionicons name="location" size={16 * scale} color={offers[activeIndex].textColor} />
+          <View style={styles.locationTextContainer}>
+            <Text style={[styles.deliveringTo, { color: offers[activeIndex].textColor, opacity: 0.8 }]}>
+              Delivering to
+            </Text>
+            <View style={styles.locationRow}>
+              <Text style={[styles.currentLocationText, { color: offers[activeIndex].textColor }]} numberOfLines={1}>
+                {currentLocationName}
+              </Text>
+              {currentLocationName === "Location not available" && (
+                <TouchableOpacity onPress={loadAllData} style={styles.retryBtn}>
+                  <Text style={[styles.retryText, { color: offers[activeIndex].textColor }]}>Retry</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity onPress={loadAllData}>
+          <Ionicons
+            name={locationLoading ? "sync" : "chevron-down"}
+            size={18 * scale}
+            color={offers[activeIndex].textColor}
+            style={locationLoading ? { transform: [{ rotate: '0deg' }] } : {}}
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* Top Zomato-style Unified Section - Fully Dynamic Immersive Gradient */}
       <View style={styles.topSection}>
@@ -521,6 +674,7 @@ export default function Resturent({ navigation }) {
               photo={r.photo}
               instore={r.instore}
               kerbside={r.kerbside}
+              distance={r.distance}
               onPress={() =>
                 navigation.navigate("Categories", { userId: r.userId })
               }
@@ -617,6 +771,50 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     zIndex: 10,
     overflow: "hidden", // Clip the full-width slider to the rounded corners
+  },
+  locationBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 20,
+  },
+  locationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  locationTextContainer: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  deliveringTo: {
+    fontSize: 10 * scale,
+    fontFamily: 'PoppinsMedium',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  currentLocationText: {
+    fontSize: 13 * scale,
+    fontFamily: 'PoppinsSemiBold',
+    flex: 1,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  retryBtn: {
+    marginLeft: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  retryText: {
+    fontSize: 10 * scale,
+    fontFamily: 'PoppinsBold',
   },
   searchWrapper: {
     paddingHorizontal: 16,
@@ -1022,7 +1220,7 @@ const cardStyles = StyleSheet.create({
   },
   serviceRow: {
     flexDirection: "row",
-    marginTop: 10,
+    marginTop: 8,
   },
   serviceChip: {
     flexDirection: "row",
@@ -1038,4 +1236,29 @@ const cardStyles = StyleSheet.create({
     fontFamily: "PoppinsBold",
     letterSpacing: 0.3,
   },
+  distanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E23744',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  distanceText: {
+    color: '#FFF',
+    fontSize: 12 * scale,
+    fontFamily: 'PoppinsBold',
+    marginLeft: 4,
+  },
+  awayText: {
+    color: '#666',
+    fontSize: 12 * scale,
+    fontFamily: 'PoppinsMedium',
+  }
 });

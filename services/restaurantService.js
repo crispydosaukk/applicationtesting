@@ -2,9 +2,13 @@
 import api from "../config/api";
 
 // Fetch all restaurants
-export const fetchRestaurants = async () => {
+export const fetchRestaurants = async (lat, lng) => {
   try {
-    const res = await api.get("/restaurants");
+    let url = "/restaurants";
+    if (lat && lng) {
+      url += `?lat=${lat}&lng=${lng}`;
+    }
+    const res = await api.get(url);
     if (res.data.status === 1) {
       return res.data.data.map(r => ({
         id: r.id,
@@ -14,6 +18,7 @@ export const fetchRestaurants = async () => {
         photo: r.photo,
         instore: r.instore,
         kerbside: r.kerbside,
+        distance: r.distance,
       }));
     }
     return [];
