@@ -12,7 +12,7 @@ const { width } = Dimensions.get("window");
 // Scale factor for responsiveness
 const scale = width / 375;
 
-export default function AppHeader({ user, onMenuPress, navigation, cartItems, transparent, statusColor, textColor, barStyle }) {
+export default function AppHeader({ user, onMenuPress, navigation, cartItems, transparent, statusColor, textColor, barStyle, disableSafeArea }) {
   const insets = useSafeAreaInsets();
   const totalItems = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
 
@@ -114,7 +114,7 @@ export default function AppHeader({ user, onMenuPress, navigation, cartItems, tr
       {/* Container with top padding for status bar */}
       <View style={[
         styles.headerContainer,
-        { paddingTop: insets.top },
+        { paddingTop: disableSafeArea ? 0 : insets.top },
         transparent && { backgroundColor: "transparent", elevation: 0, shadowOpacity: 0 }
       ]}>
         <View style={styles.headerContent}>
@@ -306,12 +306,12 @@ const styles = StyleSheet.create({
     marginBottom: -2 * scale,
   },
   goldSmallText: {
-  fontSize: 8 * scale,
-  fontFamily: "PoppinsBold",
-  fontWeight: "900",
-  color: "#D4AF37",
-  letterSpacing: 0.6,
-},
+    fontSize: 8 * scale,
+    fontFamily: "PoppinsBold",
+    fontWeight: "900",
+    color: "#D4AF37",
+    letterSpacing: 0.6,
+  },
 
   premiumBadgeText: {
     color: "#1C1C1C",

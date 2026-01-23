@@ -23,6 +23,7 @@ import LinearGradient from "react-native-linear-gradient";
 import { useIsFocused } from "@react-navigation/native";
 import { RefreshControl } from "react-native";
 import Geolocation from 'react-native-geolocation-service';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import useRefresh from "../hooks/useRefresh";
 
 import AppHeader from "./AppHeader";
@@ -112,6 +113,7 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside, dist
 }
 
 export default function Resturent({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [search, setSearch] = useState("");
@@ -502,13 +504,13 @@ export default function Resturent({ navigation }) {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => setSearchLocationModal(true)}
-        style={[styles.locationBar, { backgroundColor: offers[activeIndex].colors[0] }]}
+        style={[styles.locationBar, { backgroundColor: offers[activeIndex].colors[0], paddingTop: insets.top }]}
       >
         <View style={styles.locationContent}>
           <Ionicons name="location" size={16 * scale} color={offers[activeIndex].textColor} />
           <View style={styles.locationTextContainer}>
             <Text style={[styles.deliveringTo, { color: offers[activeIndex].textColor, opacity: 0.8 }]}>
-              Delivering to
+              Your Current Location
             </Text>
             <View style={styles.locationRow}>
               <Text style={[styles.currentLocationText, { color: offers[activeIndex].textColor }]} numberOfLines={2}>
@@ -559,6 +561,7 @@ export default function Resturent({ navigation }) {
           statusColor={offers[activeIndex].colors[0]}
           textColor={offers[activeIndex].textColor}
           barStyle={offers[activeIndex].textColor === "#FFFFFF" ? "light-content" : "dark-content"}
+          disableSafeArea
         />
 
         {/* Search Bar */}
