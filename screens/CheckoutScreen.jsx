@@ -60,6 +60,9 @@ export default function CheckoutScreen({ navigation }) {
   const [loyaltyUsed, setLoyaltyUsed] = useState(0);
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
+  const [earnedAmount, setEarnedAmount] = useState(0);
+  const [redeemPoints, setRedeemPoints] = useState(10);
+  const [earnRate, setEarnRate] = useState(1);
 
   // Premium Alert State
   const [alertVisible, setAlertVisible] = useState(false);
@@ -343,7 +346,27 @@ export default function CheckoutScreen({ navigation }) {
 
       const orderRes = await createOrder(payload);
       if (orderRes.status === 1) {
-        // Show success
+        // 1. Initial calculation based on current cart
+        const paidTotal = getFinalTotal();
+        const pts = Math.floor(paidTotal * earnRate);
+        let calculatedEarned = ((pts / redeemPoints) * 1).toFixed(2);
+        setEarnedAmount(calculatedEarned);
+
+        // 2. Refresh wallet data to get the EXACT amount from backend
+        try {
+          const walletData = await getWalletSummary();
+          // Backend returns newest first at index 0
+          if (walletData?.loyalty_pending_list?.length > 0) {
+            const currentOrderCredits = walletData.loyalty_pending_list[0];
+            if (currentOrderCredits?.credit_value) {
+              setEarnedAmount(Number(currentOrderCredits.credit_value).toFixed(2));
+            }
+          }
+        } catch (e) {
+          console.log("Post-order wallet sync failed:", e);
+        }
+
+        // Show success animation
         triggerSuccessAnimation();
         setCart([]);
         await AsyncStorage.removeItem("cart");
@@ -378,6 +401,9 @@ export default function CheckoutScreen({ navigation }) {
     (async () => {
       const data = await getWalletSummary();
       setWalletBalance(Number(data.wallet_balance || 0));
+      setRedeemPoints(Number(data.loyalty_redeem_points || 10));
+      setEarnRate(Number(data.loyalty_points_per_gbp || 1));
+
       const usableCredits = (data.loyalty_expiry_list || []).filter(c => new Date(c.expires_at) > new Date());
       setLoyaltyCredits(usableCredits);
       setUseLoyalty(false);
@@ -723,7 +749,7 @@ export default function CheckoutScreen({ navigation }) {
               <View style={styles.rewardCard}>
                 <Ionicons name="gift" size={30} color="#EAB308" />
                 <View style={{ marginLeft: 15 }}>
-                  <Text style={styles.rewardTitle}>Congrats! Rewards Earned</Text>
+                  <Text style={styles.rewardTitle}>Congrats! £{earnedAmount} Earned</Text>
                   <Text style={styles.rewardSub}>Check details in your Credits screen</Text>
                 </View>
               </View>

@@ -20,3 +20,13 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            // Force an older version of play-services-location that RNFusedLocation expects (class instead of interface)
+            // or upgrade react-native-geolocation-service in package.json
+            force 'com.google.android.gms:play-services-location:20.0.0'
+        }
+    }
+}

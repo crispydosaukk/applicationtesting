@@ -117,7 +117,7 @@ export default function CreditsScreen({ navigation }) {
         setWalletBalance(Number(data.wallet_balance || 0));
         setLoyaltyPoints(Number(data.loyalty_points || 0));
         setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0));
-        setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24));
+        setAvailableAfterHours(data.loyalty_available_after_hours !== undefined ? Number(data.loyalty_available_after_hours) : 24);
         setReferralCredits(Number(data.referral_credits || 0));
         setLoyaltyExpiryList(Array.isArray(data.loyalty_expiry_list) ? data.loyalty_expiry_list : []);
         setPendingLoyaltyList(Array.isArray(data.loyalty_pending_list) ? data.loyalty_pending_list : []);
@@ -140,7 +140,7 @@ export default function CreditsScreen({ navigation }) {
       setWalletBalance(Number(data.wallet_balance || 0));
       setLoyaltyPoints(Number(data.loyalty_points || 0));
       setPendingLoyaltyPoints(Number(data.loyalty_pending_points || 0));
-      setAvailableAfterHours(Number(data.loyalty_available_after_hours || 24));
+      setAvailableAfterHours(data.loyalty_available_after_hours !== undefined ? Number(data.loyalty_available_after_hours) : 24);
       setReferralCredits(Number(data.referral_credits || 0));
       setLoyaltyExpiryList(
         Array.isArray(data.loyalty_expiry_list)
@@ -305,7 +305,9 @@ export default function CreditsScreen({ navigation }) {
                     🎉 £{pendingValue} earned!
                   </Text>
                   <Text style={styles.pendingDesc}>
-                    Available to use after {availableAfterHours} hour(s).
+                    {availableAfterHours > 0
+                      ? `Available to use after ${availableAfterHours} hour(s).`
+                      : "Available instantly after your order is collected."}
                   </Text>
                 </View>
               )}
@@ -343,7 +345,9 @@ export default function CreditsScreen({ navigation }) {
                               £{Number(item.credit_value).toFixed(2)}
                             </Text>
                             <Text style={styles.itemSubText}>
-                              Unlocks in {hoursLeft} hour(s)
+                              {hoursLeft > 0
+                                ? `Unlocks in ${hoursLeft} hour(s)`
+                                : "Unlocks instantly upon order collection"}
                             </Text>
                           </View>
                         );

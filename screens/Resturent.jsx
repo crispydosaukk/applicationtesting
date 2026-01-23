@@ -14,10 +14,10 @@ import {
   Animated,
   Modal,
   Alert,
+  SafeAreaView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import Voice from "@react-native-voice/voice";
 import { PermissionsAndroid } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import { useIsFocused } from "@react-navigation/native";
@@ -75,7 +75,7 @@ function RestaurantCard({ name, address, photo, onPress, instore, kerbside, dist
 
           <View style={cardStyles.addressRow}>
             <Ionicons name="location-sharp" size={14 * scale} color="#E23744" style={{ marginTop: 2 }} />
-            <Text style={cardStyles.address} numberOfLines={1}>
+            <Text style={cardStyles.address} numberOfLines={3}>
               {address}
             </Text>
           </View>
@@ -120,6 +120,9 @@ export default function Resturent({ navigation }) {
   const [cartItems, setCartItems] = useState({});
   const [currentLocationName, setCurrentLocationName] = useState("Fetching location...");
   const [locationLoading, setLocationLoading] = useState(true);
+  const [searchLocationModal, setSearchLocationModal] = useState(false);
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
 
   const scrollRef = useRef(null);
   const isFocused = useIsFocused();
@@ -165,15 +168,78 @@ export default function Resturent({ navigation }) {
       );
       const data = await response.json();
       if (data.status === "OK" && data.results.length > 0) {
-        // Try to find a nice short address
+        // Try to find a nice short address (e.g. neighborhood/sublocality)
         const result = data.results[0];
-        return result.formatted_address;
+
+        // Find a more readable short name if possible
+        const sublocality = result.address_components.find(c => c.types.includes('sublocality_level_1'));
+        const city = result.address_components.find(c => c.types.includes('locality'));
+
+        if (sublocality && city) {
+          return `${sublocality.long_name}, ${city.long_name}`;
+        }
+
+        return result.formatted_address.split(',')[0] + ', ' + result.formatted_address.split(',')[1];
       }
       return "Unknown Location";
     } catch (error) {
       console.error("Geocoding Error:", error);
       return "Location unavailable";
     }
+  };
+
+  const searchPlaces = async (query) => {
+    if (!query || query.length < 3) return;
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${query}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      if (data.status === "OK") {
+        setLocationSuggestions(data.predictions);
+      }
+    } catch (err) {
+      console.error("Place Search Error:", err);
+    }
+  };
+
+  const getPlaceDetails = async (placeId) => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      if (data.status === "OK") {
+        const { lat, lng } = data.result.geometry.location;
+        return { latitude: lat, longitude: lng };
+      }
+      return null;
+    } catch (err) {
+      console.error("Place Details Error:", err);
+      return null;
+    }
+  };
+  const handleManualLocationSelect = async (suggestion) => {
+    setLocationLoading(true);
+    setSearchLocationModal(false);
+    setCurrentLocationName(suggestion.structured_formatting.main_text);
+
+    const coords = await getPlaceDetails(suggestion.place_id);
+    if (coords) {
+      try {
+        const locationData = {
+          name: suggestion.structured_formatting.main_text,
+          coords: coords,
+          manual: true
+        };
+        await AsyncStorage.setItem("user_manual_location", JSON.stringify(locationData));
+      } catch (e) {
+        console.log("Error saving location:", e);
+      }
+      const data = await fetchRestaurants(coords.latitude, coords.longitude);
+      setRestaurants(data);
+    }
+    setLocationLoading(false);
   };
 
   // Load User
@@ -203,6 +269,9 @@ export default function Resturent({ navigation }) {
         console.warn(err);
         return false;
       }
+    } else if (Platform.OS === "ios") {
+      const status = await Geolocation.requestAuthorization("whenInUse");
+      return status === "granted";
     }
     return true;
   };
@@ -217,7 +286,7 @@ export default function Resturent({ navigation }) {
         (error) => {
           console.log("High Accuracy Error:", error.code, error.message);
 
-          // Second attempt: Low Accuracy (Better for emulators/indoor)
+          // Second attempt: Low Accuracy / Balanced Power
           Geolocation.getCurrentPosition(
             (pos) => {
               resolve(pos.coords);
@@ -225,10 +294,11 @@ export default function Resturent({ navigation }) {
             (err) => {
               console.log("Low Accuracy Error:", err.code, err.message);
 
-              // Third attempt: Last Known Location
+              // Third attempt: Fallback to any available position
               Geolocation.getCurrentPosition(
                 (p) => resolve(p.coords),
                 (e) => {
+                  console.log("Final attempt Error:", e.code, e.message);
                   if (e.code === 2 || e.code === 5) {
                     Alert.alert(
                       "Location Disabled",
@@ -238,19 +308,55 @@ export default function Resturent({ navigation }) {
                   }
                   resolve(null);
                 },
-                { enableHighAccuracy: false, timeout: 5000, maximumAge: 100000 }
+                {
+                  enableHighAccuracy: false,
+                  timeout: 10000,
+                  maximumAge: 300000, // 5 minutes old is okay as a last resort
+                }
               );
             },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
+            {
+              enableHighAccuracy: false,
+              timeout: 15000,
+              maximumAge: 60000, // 1 minute old
+              forceRequestLocation: true,
+              showLocationDialog: true,
+            }
           );
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+        {
+          enableHighAccuracy: true,
+          timeout: 20000, // Increased timeout for better fix
+          maximumAge: 0, // Force fresh location for the first attempt
+          forceRequestLocation: true,
+          showLocationDialog: true,
+        }
       );
     });
   };
 
-  const loadAllData = async () => {
+  const loadAllData = async (forceRefreshAuto = false) => {
     setLocationLoading(true);
+
+    try {
+      // CHECK FOR PERSISTED MANUAL LOCATION
+      if (!forceRefreshAuto) {
+        const storedLoc = await AsyncStorage.getItem("user_manual_location");
+        if (storedLoc) {
+          const loc = JSON.parse(storedLoc);
+          setCurrentLocationName(loc.name);
+          const data = await fetchRestaurants(loc.coords.latitude, loc.coords.longitude);
+          setRestaurants(data);
+          setLocationLoading(false);
+          return;
+        }
+      } else {
+        await AsyncStorage.removeItem("user_manual_location");
+      }
+    } catch (e) {
+      console.log("AsyncStorage load error:", e);
+    }
+
     setCurrentLocationName("Updating location...");
 
     // Request permission again if not granted
@@ -268,11 +374,6 @@ export default function Resturent({ navigation }) {
       setCurrentLocationName(address);
     } else {
       setCurrentLocationName("Location not available");
-      Alert.alert(
-        "Debug: Missing Location",
-        "The app couldn't fetch your coordinates. Please:\n1. Rebuild the app (npm run android)\n2. Ensure Location is ON in emulator settings\n3. Set a location in Emulator (...) -> Location",
-        [{ text: "OK" }]
-      );
     }
 
     const data = await fetchRestaurants(coords?.latitude, coords?.longitude);
@@ -282,6 +383,12 @@ export default function Resturent({ navigation }) {
 
   // Fetch Restaurants
   useEffect(() => {
+    if (Platform.OS === 'ios') {
+      Geolocation.setRNConfiguration({
+        skipPermissionRequests: false,
+        authorizationLevel: 'whenInUse',
+      });
+    }
     loadAllData();
   }, []);
 
@@ -357,102 +464,6 @@ export default function Resturent({ navigation }) {
     }).start(() => setAlertVisible(false));
   };
 
-  const [voiceListening, setVoiceListening] = useState(false);
-
-  useEffect(() => {
-    if (!Voice) return;
-    Voice.onSpeechStart = () => setVoiceListening(true);
-    Voice.onSpeechEnd = () => setVoiceListening(false);
-    Voice.onSpeechError = (e) => {
-      console.log("onSpeechError: ", e);
-      setVoiceListening(false);
-    };
-    Voice.onSpeechResults = (e) => {
-      if (e.value && e.value.length > 0) {
-        setSearch(e.value[0]);
-      }
-      setVoiceListening(false);
-    };
-    Voice.onSpeechPartialResults = (e) => {
-      if (e.value && e.value.length > 0) {
-        setSearch(e.value[0]);
-      }
-    };
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners).catch(err => console.log("Voice Cleanup Err:", err));
-    };
-  }, []);
-
-  const requestAudioPermission = async () => {
-    if (Platform.OS === "android") {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: "Microphone Permission",
-            message: "Crispy Dosa needs access to your microphone to search.",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK",
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const startVoiceSearch = async () => {
-    try {
-      if (!Voice || typeof Voice.start !== 'function') {
-        showPremiumAlert("Voice Not Ready", "Voice search module is not initialized. Please restart the app or ensure permissions are granted.", "error");
-        return;
-      }
-
-      await Voice.stop().catch(() => { });
-      await Voice.destroy().catch(() => { });
-
-      const hasPermission = await requestAudioPermission();
-      if (!hasPermission) return;
-
-      setSearch("");
-      setVoiceListening(true);
-
-      Voice.onSpeechStart = () => setVoiceListening(true);
-      Voice.onSpeechResults = (e) => {
-        if (e.value && e.value.length > 0) setSearch(e.value[0]);
-        setVoiceListening(false);
-      };
-      Voice.onSpeechError = (e) => {
-        console.error("Speech Error:", e);
-        setVoiceListening(false);
-      };
-
-      await Voice.start("en-US");
-    } catch (e) {
-      console.error("Voice Error:", e);
-      setVoiceListening(false);
-      if (e?.message?.includes('null')) {
-        showPremiumAlert("Voice Error", "Native voice module not found. A clean build/re-install may be required.", "error");
-      }
-    }
-  };
-
-  const cancelVoiceSearch = async () => {
-    try {
-      if (Voice && typeof Voice.stop === 'function') {
-        await Voice.stop().catch(() => { });
-      }
-      setVoiceListening(false);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -488,7 +499,11 @@ export default function Resturent({ navigation }) {
       />
 
       {/* Top Location Bar */}
-      <View style={[styles.locationBar, { backgroundColor: offers[activeIndex].colors[0] }]}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => setSearchLocationModal(true)}
+        style={[styles.locationBar, { backgroundColor: offers[activeIndex].colors[0] }]}
+      >
         <View style={styles.locationContent}>
           <Ionicons name="location" size={16 * scale} color={offers[activeIndex].textColor} />
           <View style={styles.locationTextContainer}>
@@ -496,26 +511,18 @@ export default function Resturent({ navigation }) {
               Delivering to
             </Text>
             <View style={styles.locationRow}>
-              <Text style={[styles.currentLocationText, { color: offers[activeIndex].textColor }]} numberOfLines={1}>
+              <Text style={[styles.currentLocationText, { color: offers[activeIndex].textColor }]} numberOfLines={2}>
                 {currentLocationName}
               </Text>
-              {currentLocationName === "Location not available" && (
-                <TouchableOpacity onPress={loadAllData} style={styles.retryBtn}>
-                  <Text style={[styles.retryText, { color: offers[activeIndex].textColor }]}>Retry</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
         </View>
-        <TouchableOpacity onPress={loadAllData}>
-          <Ionicons
-            name={locationLoading ? "sync" : "chevron-down"}
-            size={18 * scale}
-            color={offers[activeIndex].textColor}
-            style={locationLoading ? { transform: [{ rotate: '0deg' }] } : {}}
-          />
-        </TouchableOpacity>
-      </View>
+        <Ionicons
+          name={locationLoading ? "sync" : "chevron-down"}
+          size={18 * scale}
+          color={offers[activeIndex].textColor}
+        />
+      </TouchableOpacity>
 
       {/* Top Zomato-style Unified Section - Fully Dynamic Immersive Gradient */}
       <View style={styles.topSection}>
@@ -571,10 +578,6 @@ export default function Resturent({ navigation }) {
                 style={styles.searchInput}
               />
             </View>
-            <View style={styles.searchDivider} />
-            <TouchableOpacity style={styles.micButton} onPress={startVoiceSearch}>
-              <Ionicons name="mic-outline" size={22 * scale} color="#E23744" />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -691,29 +694,69 @@ export default function Resturent({ navigation }) {
       />
       <BottomBar navigation={navigation} />
 
-      {/* Voice Overlay - Modal for absolute visibility */}
-      <Modal visible={voiceListening} transparent animationType="fade">
-        <View style={styles.voiceOverlay}>
-          <LinearGradient
-            colors={["rgba(226,55,68,0.98)", "rgba(185,28,38,0.95)"]}
-            style={styles.voiceOverlayInner}
-          >
-            <View style={styles.voicePulseCircle}>
-              <Ionicons name="mic" size={60 * scale} color="#FFF" />
-            </View>
-            <Text style={styles.voiceText}>Listening...</Text>
-            <Text style={styles.voiceSubtext}>Try saying "Milton Keynes" or "Crispy Dosa"</Text>
-            <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
-                style={styles.voiceCloseInner}
-              >
-                <Ionicons name="close" size={28 * scale} color="#FFF" />
-              </LinearGradient>
+      {/* LOCATION SEARCH MODAL */}
+      <Modal visible={searchLocationModal} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
+          <View style={styles.searchLocHeader}>
+            <TouchableOpacity onPress={() => setSearchLocationModal(false)} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24 * scale} color="#1c1c1c" />
             </TouchableOpacity>
-          </LinearGradient>
-        </View>
+            <View style={styles.searchLocInputBox}>
+              <Ionicons name="search" size={20 * scale} color="#E23744" />
+              <TextInput
+                placeholder="Search for area, street name..."
+                placeholderTextColor="#999"
+                style={styles.searchLocInput}
+                autoFocus
+                value={locationSearchQuery}
+                onChangeText={(text) => {
+                  setLocationSearchQuery(text);
+                  searchPlaces(text);
+                }}
+              />
+              {locationSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setLocationSearchQuery("")}>
+                  <Ionicons name="close-circle" size={18 * scale} color="#999" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          <ScrollView style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={styles.useCurrentLocBtn}
+              onPress={() => {
+                setSearchLocationModal(false);
+                loadAllData(true);
+              }}
+            >
+              <Ionicons name="locate" size={20 * scale} color="#E23744" />
+              <View style={{ marginLeft: 12 }}>
+                <Text style={styles.useCurrentLocText}>Use current location</Text>
+                <Text style={{ fontSize: 11 * scale, color: '#999', fontFamily: 'PoppinsMedium' }}>Reset to automatic GPS detection</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.suggestionList}>
+              {locationSuggestions.map((item, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.suggestionItem}
+                  onPress={() => handleManualLocationSelect(item)}
+                >
+                  <Ionicons name="location-outline" size={20 * scale} color="#666" style={{ marginTop: 2 }} />
+                  <View style={styles.suggestionTextCol}>
+                    <Text style={styles.suggestionMain}>{item.structured_formatting.main_text}</Text>
+                    <Text style={styles.suggestionSub} numberOfLines={1}>{item.structured_formatting.secondary_text}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
+
+      {/* Voice Overlay - Modal for absolute visibility */}
 
       {/* PREMIUM ALERT MODAL */}
       <Modal visible={alertVisible} transparent animationType="fade">
@@ -1132,6 +1175,73 @@ const styles = StyleSheet.create({
     fontFamily: "PoppinsBold",
     color: "#FFF",
     fontWeight: "800",
+  },
+
+  /* LOCATION SEARCH MODAL STYLES */
+  searchLocHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  backBtn: {
+    padding: 4,
+    marginRight: 10,
+  },
+  searchLocInputBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 2,
+  },
+  searchLocInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 15 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#1c1c1c',
+  },
+  useCurrentLocBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 8,
+    borderBottomColor: '#F7F7F7',
+  },
+  useCurrentLocText: {
+    marginLeft: 12,
+    fontSize: 15 * scale,
+    fontFamily: 'PoppinsSemiBold',
+    color: '#E23744',
+  },
+  suggestionList: {
+    paddingHorizontal: 16,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionTextCol: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  suggestionMain: {
+    fontSize: 15 * scale,
+    fontFamily: 'PoppinsSemiBold',
+    color: '#1c1c1c',
+  },
+  suggestionSub: {
+    fontSize: 13 * scale,
+    fontFamily: 'PoppinsMedium',
+    color: '#666',
+    marginTop: 2,
   },
 });
 

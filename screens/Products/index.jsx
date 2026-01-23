@@ -16,7 +16,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import Voice from "@react-native-voice/voice";
 import { PermissionsAndroid, Platform } from "react-native";
 import { RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -251,101 +250,7 @@ export default function Products({ route, navigation }) {
     }
   }, [searchText, products]);
 
-  const [voiceListening, setVoiceListening] = useState(false);
-
-  useEffect(() => {
-    if (!Voice) return;
-    Voice.onSpeechStart = () => setVoiceListening(true);
-    Voice.onSpeechEnd = () => setVoiceListening(false);
-    Voice.onSpeechError = (e) => {
-      console.log("onSpeechError: ", e);
-      setVoiceListening(false);
-    };
-    Voice.onSpeechResults = (e) => {
-      if (e.value && e.value.length > 0) {
-        setSearchText(e.value[0]);
-      }
-      setVoiceListening(false);
-    };
-    Voice.onSpeechPartialResults = (e) => {
-      if (e.value && e.value.length > 0) {
-        setSearchText(e.value[0]);
-      }
-    };
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners).catch(err => console.log("Voice Cleanup Err:", err));
-    };
-  }, []);
-
-  const requestAudioPermission = async () => {
-    if (Platform.OS === "android") {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: "Microphone Permission",
-            message: "Crispy Dosa needs access to your microphone to search.",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK",
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const startVoiceSearch = async () => {
-    try {
-      if (!Voice || typeof Voice.start !== 'function') {
-        Alert.alert("Voice Not Ready", "Voice search module is not initialized. Please restart the app or ensure permissions are granted.");
-        return;
-      }
-
-      await Voice.stop().catch(() => { });
-      await Voice.destroy().catch(() => { });
-
-      const hasPermission = await requestAudioPermission();
-      if (!hasPermission) return;
-
-      setSearchText("");
-      setVoiceListening(true);
-
-      Voice.onSpeechStart = () => setVoiceListening(true);
-      Voice.onSpeechResults = (e) => {
-        if (e.value && e.value.length > 0) setSearchText(e.value[0]);
-        setVoiceListening(false);
-      };
-      Voice.onSpeechError = (e) => {
-        console.error("Speech Error:", e);
-        setVoiceListening(false);
-      };
-
-      await Voice.start("en-US");
-    } catch (e) {
-      console.error("Voice Error:", e);
-      setVoiceListening(false);
-      if (e?.message?.includes('null')) {
-        Alert.alert("Voice Error", "Native voice module not found. A clean build/re-install may be required.");
-      }
-    }
-  };
-
-  const cancelVoiceSearch = async () => {
-    try {
-      if (Voice && typeof Voice.stop === 'function') {
-        await Voice.stop().catch(() => { });
-      }
-      setVoiceListening(false);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  // Cleanup on unmount
 
   // Cleanup on unmount
   useEffect(() => {
@@ -813,35 +718,10 @@ export default function Products({ route, navigation }) {
             onChangeText={setSearchText}
             placeholderTextColor="#aaaaaa"
           />
-          <TouchableOpacity onPress={startVoiceSearch}>
-            <Ionicons name="mic-outline" size={20 * scale} color="#FF2B5C" />
-          </TouchableOpacity>
         </View>
       </View>
 
       {/* Voice Overlay - Modal for absolute visibility */}
-      <Modal visible={voiceListening} transparent animationType="fade">
-        <View style={styles.voiceOverlay}>
-          <LinearGradient
-            colors={["rgba(226,55,68,0.98)", "rgba(185,28,38,0.95)"]}
-            style={styles.voiceOverlayInner}
-          >
-            <View style={styles.voicePulseCircle}>
-              <Ionicons name="mic" size={60 * scale} color="#FFF" />
-            </View>
-            <Text style={styles.voiceText}>Listening...</Text>
-            <Text style={styles.voiceSubtext}>Try saying "Dosa" or "Paneer"</Text>
-            <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
-                style={styles.voiceCloseInner}
-              >
-                <Ionicons name="close" size={28 * scale} color="#FFF" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </Modal>
 
       {/* List */}
       {loading ? (
@@ -1525,53 +1405,6 @@ const styles = StyleSheet.create({
   replaceCancelText: { display: 'none' },
   replaceConfirmText: { display: 'none' },
   popupTitleRow: { display: 'none' },
-  voiceOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  voiceOverlayInner: {
-    width: '100%',
-    height: '100%',
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  voicePulseCircle: {
-    width: 140 * scale,
-    height: 140 * scale,
-    borderRadius: 70 * scale,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  voiceText: {
-    fontSize: 24 * scale,
-    fontFamily: "PoppinsBold",
-    color: "#FFF",
-    marginTop: 20,
-  },
-  voiceSubtext: {
-    fontSize: 14 * scale,
-    fontFamily: "PoppinsMedium",
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 10,
-  },
-  voiceClose: {
-    position: 'absolute',
-    bottom: 80,
-    alignItems: 'center',
-  },
-  voiceCloseInner: {
-    width: 60 * scale,
-    height: 60 * scale,
-    borderRadius: 30 * scale,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
   flyingItem: {
     position: 'absolute',
     top: 300,

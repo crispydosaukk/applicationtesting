@@ -17,7 +17,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import Voice from "@react-native-voice/voice";
 import { PermissionsAndroid, Platform } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import AppHeader from "../AppHeader";
@@ -169,111 +168,6 @@ export default function Categories({ route, navigation }) {
   const filteredCategories = categories.filter((c) =>
     (c?.name || "").toLowerCase().includes(searchText.toLowerCase())
   );
-
-  const [voiceListening, setVoiceListening] = useState(false);
-
-  useEffect(() => {
-    if (!Voice) return;
-    Voice.onSpeechStart = () => setVoiceListening(true);
-    Voice.onSpeechEnd = () => setVoiceListening(false);
-    Voice.onSpeechError = (e) => {
-      console.log("onSpeechError: ", e);
-      setVoiceListening(false);
-    };
-    Voice.onSpeechResults = (e) => {
-      if (e.value && e.value.length > 0) {
-        setSearchText(e.value[0]);
-      }
-      setVoiceListening(false);
-    };
-    Voice.onSpeechPartialResults = (e) => {
-      if (e.value && e.value.length > 0) {
-        setSearchText(e.value[0]);
-      }
-    };
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners).catch(err => console.log("Voice Cleanup Err:", err));
-    };
-  }, []);
-
-  const requestAudioPermission = async () => {
-    if (Platform.OS === "android") {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: "Microphone Permission",
-            message: "Crispy Dosa needs access to your microphone to search.",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK",
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const startVoiceSearch = async () => {
-    try {
-      if (!Voice || typeof Voice.start !== 'function') {
-        Alert.alert("Voice Not Ready", "Voice search module is not initialized. Please restart the app or ensure permissions are granted.");
-        return;
-      }
-
-      // Clear any previous state
-      await Voice.stop().catch(() => { });
-      await Voice.destroy().catch(() => { });
-
-      const hasPermission = await requestAudioPermission();
-      if (!hasPermission) return;
-
-      setSearchText("");
-      setVoiceListening(true);
-
-      // Re-initialize listeners due to Voice.destroy()
-      Voice.onSpeechStart = () => setVoiceListening(true);
-      Voice.onSpeechResults = (e) => {
-        if (e.value && e.value.length > 0) setSearchText(e.value[0]);
-        setVoiceListening(false);
-      };
-      Voice.onSpeechError = (e) => {
-        console.error("Speech Error:", e);
-        setVoiceListening(false);
-      };
-
-      await Voice.start("en-US");
-    } catch (e) {
-      console.error("Voice Error:", e);
-      setVoiceListening(false);
-      if (e?.message?.includes('null')) {
-        Alert.alert("Voice Error", "Native voice module not found. A clean build/re-install may be required.");
-      }
-    }
-  };
-
-  const cancelVoiceSearch = async () => {
-    try {
-      if (Voice && typeof Voice.stop === 'function') {
-        await Voice.stop().catch(() => { });
-      }
-      setVoiceListening(false);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      // Any cleanup logic here
-    };
-  }, []);
 
   const { refreshing, onRefresh } = useRefresh(async () => {
     // Reload restaurant
@@ -440,7 +334,7 @@ export default function Categories({ route, navigation }) {
                     <View style={styles.locIconBtn}>
                       <Ionicons name="location" size={14} color="#FF2B5C" />
                     </View>
-                    <Text style={styles.locText} numberOfLines={2}>
+                    <Text style={styles.locText} numberOfLines={4}>
                       {restaurant.restaurant_address}
                     </Text>
                   </View>
@@ -503,9 +397,6 @@ export default function Categories({ route, navigation }) {
             value={searchText}
             onChangeText={setSearchText}
           />
-          <TouchableOpacity onPress={startVoiceSearch}>
-            <Ionicons name="mic-outline" size={20} color="#FF2B5C" />
-          </TouchableOpacity>
         </View>
 
         {/* CATEGORY GRID */}
@@ -524,28 +415,6 @@ export default function Categories({ route, navigation }) {
       </ScrollView>
 
       {/* Voice Overlay - Modal for absolute visibility */}
-      <Modal visible={voiceListening} transparent animationType="fade">
-        <View style={styles.voiceOverlay}>
-          <LinearGradient
-            colors={["rgba(226,55,68,0.98)", "rgba(185,28,38,0.95)"]}
-            style={styles.voiceOverlayInner}
-          >
-            <View style={styles.voicePulseCircle}>
-              <Ionicons name="mic" size={60 * scale} color="#FFF" />
-            </View>
-            <Text style={styles.voiceText}>Listening...</Text>
-            <Text style={styles.voiceSubtext}>Try saying "Dosa" or "Snacks"</Text>
-            <TouchableOpacity style={styles.voiceClose} onPress={cancelVoiceSearch}>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
-                style={styles.voiceCloseInner}
-              >
-                <Ionicons name="close" size={28 * scale} color="#FFF" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </Modal>
 
       <MenuModal
         visible={menuVisible}

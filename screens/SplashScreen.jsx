@@ -118,7 +118,7 @@ export default function SplashScreen({ navigation }) {
             style={{
               opacity: opacityAnim,
               alignItems: "center",
-              transform: [{ scale: Animated.multiply(scaleAnim, pulseAnim) }],
+              transform: [{ scale: scaleAnim }],
             }}
           >
             {/* TEXT LOGO */}
