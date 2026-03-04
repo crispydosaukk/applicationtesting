@@ -42,6 +42,16 @@ messaging().setBackgroundMessageHandler(async remoteMessage => { });
 
 export default function App() {
   const [isOffline, setIsOffline] = useState(false);
+  const [stripeKey, setStripeKey] = useState("");
+
+  // Expose key update globally so we can refresh from any screen
+  useEffect(() => {
+    global.updateStripeKey = (newKey) => {
+      if (newKey && newKey !== stripeKey) {
+        setStripeKey(newKey);
+      }
+    };
+  }, [stripeKey]);
 
   // ===============================
   // 🌐 NETWORK STATUS
@@ -136,7 +146,7 @@ export default function App() {
   // 🚀 MAIN APP
   // ===============================
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+    <StripeProvider publishableKey={stripeKey}>
       <SafeAreaProvider>
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>

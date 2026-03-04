@@ -1,4 +1,4 @@
-package com.crispydosa
+package com.crispydosa.app
 
 import android.app.Application
 import com.facebook.react.PackageList

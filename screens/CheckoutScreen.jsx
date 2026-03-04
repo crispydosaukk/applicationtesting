@@ -28,6 +28,7 @@ import { getCart } from "../services/cartService";
 import { createOrder } from "../services/orderService";
 import { getWalletSummary } from "../services/walletService";
 import { useStripe } from "@stripe/stripe-react-native";
+import { fetchStripeKey } from "../services/restaurantService";
 import { API_BASE_URL } from "../config/baseURL";
 
 const { width, height } = Dimensions.get("window");
@@ -80,6 +81,8 @@ export default function CheckoutScreen({ navigation }) {
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
   const [paymentIntent, setPaymentIntent] = useState(null);
+  const [stripeConfigured, setStripeConfigured] = useState(false);
+  const [isKeyLoading, setIsKeyLoading] = useState(true);
 
   const isFocused = useIsFocused();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -253,10 +256,17 @@ export default function CheckoutScreen({ navigation }) {
       const amount = getFinalTotal();
       if (amount <= 0) return;
 
+      const restaurantId = cart[0]?.restaurant_id || cart[0]?.user_id;
+      if (!restaurantId) return;
+
       const res = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({
+          amount,
+          currency: "gbp",
+          restaurant_id: restaurantId
+        }),
       });
 
       const data = await res.json();
@@ -274,9 +284,38 @@ export default function CheckoutScreen({ navigation }) {
 
   useEffect(() => {
     if (isFocused && user && cart.length > 0) {
-      preparePayment();
+      const initStripeKey = async () => {
+        setIsKeyLoading(true);
+        const restaurantId = cart[0]?.restaurant_id || cart[0]?.user_id;
+
+        if (!restaurantId) {
+          showPremiumAlert("Context Error", "We couldn't identify the restaurant for this order. Please try re-adding items.", "error");
+          setIsKeyLoading(false);
+          return;
+        }
+
+        const key = await fetchStripeKey(restaurantId);
+        if (key && key.trim() !== "") {
+          global.updateStripeKey(key);
+          setStripeConfigured(true);
+          // Wait briefly for Provider to catch up
+          setTimeout(() => {
+            preparePayment();
+            setIsKeyLoading(false);
+          }, 800);
+        } else {
+          setStripeConfigured(false);
+          setIsKeyLoading(false);
+          showPremiumAlert(
+            "Payments Unavailable",
+            "This restaurant does not currently support online payments. Please choose another location or contact the store directly.",
+            "error"
+          );
+        }
+      };
+      initStripeKey();
     }
-  }, [isFocused, user, cart, useWallet, useLoyalty]);
+  }, [isFocused, user, cart.length, useWallet, useLoyalty]);
 
   const placeOrder = async () => {
     if (processingPayment) return;
@@ -296,14 +335,20 @@ export default function CheckoutScreen({ navigation }) {
       // If intent not ready or amount changed, fetch fresh one
       if (!activeIntent || activeIntent.amount !== getFinalTotal()) {
         const amount = getFinalTotal();
+        const restaurantId = cart[0]?.restaurant_id || cart[0]?.user_id;
+
         const res = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount }),
+          body: JSON.stringify({
+            amount,
+            currency: "gbp",
+            restaurant_id: restaurantId
+          }),
         });
         activeIntent = await res.json();
         if (!activeIntent.clientSecret) {
-          showPremiumAlert("Payment Error", "Payment initialization failed. Please try again.", "error");
+          showPremiumAlert("Payment Error", activeIntent.message || "Payment initialization failed. Please try again.", "error");
           setProcessingPayment(false);
           return;
         }
@@ -605,20 +650,24 @@ export default function CheckoutScreen({ navigation }) {
             <View style={[styles.premiumStickyBar, { paddingBottom: insets.bottom > 0 ? insets.bottom + 5 : 15 }]}>
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={styles.actionBtnPremium}
+                style={[styles.actionBtnPremium, (!stripeConfigured || isKeyLoading) && { opacity: 0.5 }]}
                 onPress={placeOrder}
-                disabled={processingPayment}
+                disabled={processingPayment || !stripeConfigured || isKeyLoading}
               >
                 <LinearGradient
-                  colors={["#16a34a", "#15803d"]}
+                  colors={!stripeConfigured || isKeyLoading ? ["#94a3b8", "#64748b"] : ["#16a34a", "#15803d"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.btnGradient}
                 >
-                  {processingPayment ? <ActivityIndicator size="small" color="#FFF" /> : (
+                  {processingPayment || isKeyLoading ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
                     <>
-                      <Text style={styles.btnTextPremium}>Place Order</Text>
-                      <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+                      <Text style={styles.btnTextPremium}>
+                        {!stripeConfigured ? "Payment Unavailable" : "Place Order"}
+                      </Text>
+                      <Ionicons name={!stripeConfigured ? "lock-closed" : "arrow-forward"} size={20} color="#FFF" style={{ marginLeft: 8 }} />
                     </>
                   )}
                 </LinearGradient>

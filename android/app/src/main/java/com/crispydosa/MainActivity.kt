@@ -1,4 +1,4 @@
-package com.crispydosa
+package com.crispydosa.app
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

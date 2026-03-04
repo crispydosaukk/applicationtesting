@@ -14,6 +14,7 @@ import {
   Dimensions,
   Modal,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -141,7 +142,7 @@ export default function SignupScreen({ navigation }) {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
     if (!name.trim()) return "Full name is required.";
     if (!email.trim()) return "Email is required.";
-    if (!emailRegex.test(email)) return "Enter valid Gmail address (@gmail.com).";
+    if (!emailRegex.test(email.trim())) return "Enter valid Gmail address (@gmail.com).";
     if (!phone.trim()) return "Phone number is required.";
     if (!password.trim()) return "Password is required.";
     if (password.length < 6) return "Password must be 6+ characters.";
@@ -180,14 +181,14 @@ export default function SignupScreen({ navigation }) {
     setLoading(true);
     try {
       await registerUser({
-        full_name: name,
-        email,
-        mobile_number: phone,
+        full_name: name.trim(),
+        email: email.trim(),
+        mobile_number: phone.trim(),
         country_code: `+${callingCode}`,
         password,
         preferred_restaurant: preferredRestaurant,
         date_of_birth: dob ? dob.toISOString().split("T")[0] : null,
-        referral_code: referralCode || null,
+        referral_code: referralCode.trim() || null,
         gender: gender || null,
       });
 
@@ -310,9 +311,10 @@ export default function SignupScreen({ navigation }) {
 
             {showDobPicker && (
               <DateTimePicker
-                value={dob || new Date()}
+                value={dob || new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
                 mode="date"
-                display="spinner"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                maximumDate={new Date()}
                 onChange={(e, date) => {
                   setShowDobPicker(false);
                   if (date) setDob(date);
@@ -343,14 +345,13 @@ export default function SignupScreen({ navigation }) {
             <TouchableOpacity style={styles.termsRow} onPress={() => setTermsAccepted(!termsAccepted)}>
               <Ionicons name={termsAccepted ? "checkbox" : "square-outline"} size={22} color={termsAccepted ? "#16a34a" : "#CBD5E1"} />
               <Text style={styles.termsText}>
-                I agree to the <Text style={styles.link} onPress={() => navigation.navigate("TermsConditions")}>Terms</Text> & <Text style={styles.link} onPress={() => navigation.navigate("PrivacyPolicy")}>Privacy Policy</Text>
+                I agree to the <Text style={styles.link} onPress={() => navigation.navigate("TermsConditions")}>Terms</Text> & <Text style={styles.link} onPress={() => navigation.navigate("PrivacyPolicy")}>Privacy Policy</Text> <Text style={{ color: 'red' }}>*</Text>
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.mainBtn, !termsAccepted && { opacity: 0.6 }]}
+              style={styles.mainBtn}
               onPress={handleSignup}
-              disabled={!termsAccepted}
             >
               <LinearGradient colors={["#16a34a", "#15803d"]} style={styles.btnGradient}>
                 {loading ? (
