@@ -18,12 +18,14 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Clipboard from "@react-native-clipboard/clipboard";
+import { fetchAppSettings } from "../services/settingsService";
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
 
 export default function InviteFriends({ navigation }) {
     const [user, setUser] = useState(null);
+    const [settings, setSettings] = useState(null);
 
     // Premium Alert State
     const [alertVisible, setAlertVisible] = useState(false);
@@ -42,7 +44,12 @@ export default function InviteFriends({ navigation }) {
                 console.log("Failed to load user:", e);
             }
         };
+        const loadSettings = async () => {
+            const data = await fetchAppSettings();
+            if (data) setSettings(data);
+        };
         loadUser();
+        loadSettings();
     }, []);
 
     const referralCode = user?.referral_code || "—";
@@ -108,7 +115,7 @@ export default function InviteFriends({ navigation }) {
                     <Ionicons name="gift" size={64} color="#0b7a2a" />
                     <Text style={styles.heroTitle}>Share the Love!</Text>
                     <Text style={styles.heroSubtitle}>
-                        Invite your friends and earn rewards when they make their first order
+                        Invite your friends and earn {settings ? `£${Number(settings.referral_bonus_amount).toFixed(2)}` : "rewards"} when they make their first order
                     </Text>
                 </View>
 

@@ -31,6 +31,7 @@ import {
 import { getCart } from "../../services/cartService";
 import { RefreshControl } from "react-native";
 import useRefresh from "../../hooks/useRefresh";
+import { fetchAppSettings } from "../../services/settingsService";
 
 
 const { width } = Dimensions.get("window");
@@ -60,16 +61,28 @@ export default function Categories({ route, navigation }) {
     { colors: ["#F2994A", "#F2C94C"], textColor: "#5D4037", icon: "wallet" },
   ];
   const [activeIndex, setActiveIndex] = useState(0);
-  const animatedTexts = [
-    "EARN £0.25 ON EVERY ORDER",
-    "REFER & EARN £0.25",
-    "£0.25 WELCOME BONUS",
-  ];
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const data = await fetchAppSettings();
+      if (data) {
+        setSettings(data);
+      }
+    };
+    loadSettings();
+  }, []);
+  const animatedTexts = settings ? [
+    `EARN £${Number(settings.earn_per_order_amount).toFixed(2)} ON EVERY ORDER`,
+    `REFER & EARN £${Number(settings.referral_bonus_amount).toFixed(2)}`,
+    `£${Number(settings.signup_bonus_amount).toFixed(2)} WELCOME BONUS`,
+  ] : [];
   const formatTime = (t) => (!t ? "" : t.slice(0, 5));
 
   // offer text animation
   useEffect(() => {
     const animate = () => {
+      if (animatedTexts.length === 0) return;
       fadeAnim.setValue(0);
       Animated.sequence([
         Animated.timing(fadeAnim, {
@@ -93,7 +106,7 @@ export default function Categories({ route, navigation }) {
       });
     };
     animate();
-  }, []);
+  }, [animatedTexts.length]);
 
   // load user
   useEffect(() => {
@@ -170,6 +183,10 @@ export default function Categories({ route, navigation }) {
   );
 
   const { refreshing, onRefresh } = useRefresh(async () => {
+    // Reload settings
+    const sData = await fetchAppSettings();
+    if (sData) setSettings(sData);
+
     // Reload restaurant
     const d = await fetchRestaurantDetails(userId);
     setRestaurant(d);
@@ -253,7 +270,8 @@ export default function Categories({ route, navigation }) {
     : "Loading...";
 
   const highlightAmount = (text) => {
-    const regex = /(£\s?0\.25|£0\.25)/i;
+    if (!settings) return <Text style={styles.offerText}>{text}</Text>;
+    const regex = new RegExp(`(£\\s?${Number(settings.signup_bonus_amount).toFixed(2)}|£${Number(settings.signup_bonus_amount).toFixed(2)}|£\\s?${Number(settings.referral_bonus_amount).toFixed(2)}|£${Number(settings.referral_bonus_amount).toFixed(2)}|£\\s?${Number(settings.earn_per_order_amount).toFixed(2)}|£${Number(settings.earn_per_order_amount).toFixed(2)})`, 'i');
     const parts = text.split(regex);
 
     return (
@@ -290,22 +308,24 @@ export default function Categories({ route, navigation }) {
         />
 
         {/* DYNAMIC COLOR OFFER PILL */}
-        <Animated.View style={[styles.premiumOfferWrap, { opacity: fadeAnim }]}>
-          <LinearGradient
-            colors={offers[activeIndex]?.colors || ["#FF2B5C", "#FF6B8B"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.premiumOfferInner}
-          >
-            <View style={styles.offerIconBadge}>
-              <Ionicons name={offers[activeIndex]?.icon || "gift"} size={18 * scale} color="#FFFFFF" />
-            </View>
-            <View style={styles.offerTextContainer}>
-              {highlightAmount(animatedTexts[textIndex])}
-            </View>
-            <View style={[styles.glowingDot, { backgroundColor: '#FFFFFF' }]} />
-          </LinearGradient>
-        </Animated.View>
+        {settings && animatedTexts.length > 0 && (
+          <Animated.View style={[styles.premiumOfferWrap, { opacity: fadeAnim }]}>
+            <LinearGradient
+              colors={offers[activeIndex]?.colors || ["#FF2B5C", "#FF6B8B"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.premiumOfferInner}
+            >
+              <View style={styles.offerIconBadge}>
+                <Ionicons name={offers[activeIndex]?.icon || "gift"} size={18 * scale} color="#FFFFFF" />
+              </View>
+              <View style={styles.offerTextContainer}>
+                {highlightAmount(animatedTexts[textIndex])}
+              </View>
+              <View style={[styles.glowingDot, { backgroundColor: '#FFFFFF' }]} />
+            </LinearGradient>
+          </Animated.View>
+        )}
 
         {/* EXECUTIVE RESTAURANT CARD (The Boutique Experience) */}
         {restaurant && (

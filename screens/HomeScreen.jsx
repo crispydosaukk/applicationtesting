@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { Alert, Modal } from "react-native";
+import { fetchAppSettings } from "../services/settingsService";
 
 const { width, height } = Dimensions.get("window");
 const isVerySmallScreen = height <= 640;
@@ -32,12 +33,23 @@ export default function HomeScreen({ navigation }) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [msgIndex, setMsgIndex] = useState(0);
+  const [settings, setSettings] = useState(null);
 
-  const messages = [
-    "Earn £0.25 on every order",
-    "Loyalty credits earn £0.25",
-    "Earn £0.25 welcome gift",
-  ];
+  useEffect(() => {
+    const loadSettings = async () => {
+      const data = await fetchAppSettings();
+      if (data) {
+        setSettings(data);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const messages = settings ? [
+    `Earn £${Number(settings.earn_per_order_amount).toFixed(2)} on every order`,
+    `Loyalty credits earn £${Number(settings.earn_per_order_amount).toFixed(2)}`,
+    `Earn £${Number(settings.signup_bonus_amount).toFixed(2)} welcome gift`,
+  ] : [];
 
   const offers = [
     { colors: ["#FF416C", "#FF4B2B"], textColor: "#FFFFFF" },
@@ -114,6 +126,7 @@ export default function HomeScreen({ navigation }) {
   // Smooth Cross-Fade Animation logic
   useEffect(() => {
     const timer = setInterval(() => {
+      if (messages.length === 0) return;
       // 1. Fade OUT
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -148,7 +161,7 @@ export default function HomeScreen({ navigation }) {
     }, 4000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [messages.length]);
 
   const logoWidth = isVerySmallScreen
     ? width * 0.5
@@ -164,26 +177,30 @@ export default function HomeScreen({ navigation }) {
   const verticalPadding = isVerySmallScreen ? 4 : isSmallScreen ? 8 : 12;
 
   const highlightOffer = (text) => {
-    const parts = text.split("£0.25");
+    if (!settings) return <Text style={styles.offerText}>{text}</Text>;
+    const regex = new RegExp(`(£\\s?${Number(settings.signup_bonus_amount).toFixed(2)}|£${Number(settings.signup_bonus_amount).toFixed(2)}|£\\s?${Number(settings.referral_bonus_amount).toFixed(2)}|£${Number(settings.referral_bonus_amount).toFixed(2)}|£\\s?${Number(settings.earn_per_order_amount).toFixed(2)}|£${Number(settings.earn_per_order_amount).toFixed(2)})`, 'i');
+    const parts = text.split(regex);
 
     return (
       <Text style={[styles.offerText, { color: "#FFFFFF" }]}>
         {parts[0].toUpperCase()}
-        <Text
-          style={[
-            styles.offerAmount,
-            {
-              color: "#FBFF00", // Brighter yellow
-              fontWeight: "900",
-              textShadowColor: 'rgba(0, 0, 0, 0.4)',
-              textShadowOffset: { width: 1, height: 1 },
-              textShadowRadius: 3,
-            },
-          ]}
-        >
-          £0.25
-        </Text>
-        {parts[1]?.toUpperCase()}
+        {parts[1] && (
+          <Text
+            style={[
+              styles.offerAmount,
+              {
+                color: "#FBFF00",
+                fontWeight: "900",
+                textShadowColor: 'rgba(0, 0, 0, 0.4)',
+                textShadowOffset: { width: 1, height: 1 },
+                textShadowRadius: 3,
+              },
+            ]}
+          >
+            {parts[1]}
+          </Text>
+        )}
+        {parts[2]?.toUpperCase()}
       </Text>
     );
   };
@@ -242,28 +259,30 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.subtitle}>Fresh • Authentic • Pure Veg</Text>
             </View>
 
-            <View style={{ width: "100%", alignItems: "center", marginTop: 8 }}>
-              <Animated.View
-                style={[
-                  {
-                    opacity: fadeAnim,
-                    transform: [{ translateY: slideAnim }],
-                  },
-                ]}
-              >
-                <LinearGradient
-                  colors={offers[msgIndex % offers.length].colors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.offerPill}
+            {settings && messages.length > 0 && (
+              <View style={{ width: "100%", alignItems: "center", marginTop: 8 }}>
+                <Animated.View
+                  style={[
+                    {
+                      opacity: fadeAnim,
+                      transform: [{ translateY: slideAnim }],
+                    },
+                  ]}
                 >
-                  <Ionicons name="gift-outline" size={20} color="#fcf9f9ff" />
-                  <Text style={styles.offerText}>
-                    {highlightOffer(messages[msgIndex])}
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            </View>
+                  <LinearGradient
+                    colors={offers[msgIndex % offers.length].colors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.offerPill}
+                  >
+                    <Ionicons name="gift-outline" size={20} color="#fcf9f9ff" />
+                    <Text style={styles.offerText}>
+                      {highlightOffer(messages[msgIndex])}
+                    </Text>
+                  </LinearGradient>
+                </Animated.View>
+              </View>
+            )}
 
             {/* 🔻 Buttons brought closer under subtitle */}
             <View style={styles.bottomSection}>

@@ -35,6 +35,7 @@ import Rating5 from "../assets/rating-5.png";
 
 import { fetchRestaurants } from "../services/restaurantService";
 import { getCart } from "../services/cartService";
+import { fetchAppSettings } from "../services/settingsService";
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
@@ -131,10 +132,27 @@ export default function Resturent({ navigation }) {
 
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  const offers = [
+  const [settings, setSettings] = useState(null);
+
+  const loadSettings = async () => {
+    try {
+      const data = await fetchAppSettings();
+      if (data) {
+        setSettings(data);
+      }
+    } catch (err) {
+      console.error("Failed to load settings in Resturent:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const offers = settings ? [
     {
       title: "SIGNUP BONUS",
-      subtitle: "EARN £0.25 COMPLETELY FREE",
+      subtitle: `EARN £${Number(settings?.signup_bonus_amount || 0).toFixed(2)} COMPLETELY FREE`,
       desc: "Register now and get instant credit in your wallet.",
       icon: "gift-outline",
       colors: ["#FF416C", "#FF4B2B"], // Red
@@ -143,7 +161,7 @@ export default function Resturent({ navigation }) {
     },
     {
       title: "LOYALTY REWARDS",
-      subtitle: "EARN £0.25 ON EVERY ORDER",
+      subtitle: `EARN £${Number(settings?.earn_per_order_amount || 0).toFixed(2)} ON EVERY ORDER`,
       desc: "Order your favorite food and get cashback every time.",
       icon: "ribbon-outline",
       colors: ["#1D976C", "#93F9B9"], // Green
@@ -152,14 +170,14 @@ export default function Resturent({ navigation }) {
     },
     {
       title: "REFER & EARN",
-      subtitle: "EARN £0.25 PER FRIEND",
+      subtitle: `EARN £${Number(settings?.referral_bonus_amount || 0).toFixed(2)} PER FRIEND`,
       desc: "Invite your friends and earn rewards when they join.",
       icon: "people-outline",
       colors: ["#F2994A", "#F2C94C"], // Gold
       textColor: "#5D4037", // Dark brown for contrast
       badgeColor: "rgba(93,64,55,0.15)",
     },
-  ];
+  ] : [];
 
   const GOOGLE_MAPS_API_KEY = "AIzaSyA-CXsyKpvFtpidpOkhOiIQGfXFO3O5lKA";
 
@@ -425,6 +443,7 @@ export default function Resturent({ navigation }) {
   // Slider Auto Move
   useEffect(() => {
     const timer = setInterval(() => {
+      if (offers.length === 0) return;
       let next = activeIndex + 1;
       if (next >= offers.length) next = 0;
       scrollRef.current?.scrollTo({ x: next * width, animated: true });
@@ -432,7 +451,7 @@ export default function Resturent({ navigation }) {
     }, 4000);
 
     return () => clearInterval(timer);
-  }, [activeIndex]);
+  }, [activeIndex, offers.length]);
 
   const filteredRestaurants = restaurants.filter((r) =>
     r.name.toLowerCase().includes(search.toLowerCase())
@@ -474,6 +493,7 @@ export default function Resturent({ navigation }) {
   }, []);
 
   const { refreshing, onRefresh } = useRefresh(async () => {
+    await loadSettings();
     await loadAllData();
 
     if (user) {
@@ -496,24 +516,24 @@ export default function Resturent({ navigation }) {
   return (
     <View style={styles.root}>
       <StatusBar
-        backgroundColor={offers[activeIndex].colors[0]}
-        barStyle={offers[activeIndex].textColor === "#FFFFFF" ? "light-content" : "dark-content"}
+        backgroundColor={offers[activeIndex]?.colors?.[0] || "#E23744"}
+        barStyle={offers[activeIndex]?.textColor === "#FFFFFF" ? "light-content" : "dark-content"}
       />
 
       {/* Top Location Bar */}
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => setSearchLocationModal(true)}
-        style={[styles.locationBar, { backgroundColor: offers[activeIndex].colors[0], paddingTop: insets.top }]}
+        style={[styles.locationBar, { backgroundColor: offers[activeIndex]?.colors?.[0] || "#E23744", paddingTop: insets.top }]}
       >
         <View style={styles.locationContent}>
-          <Ionicons name="location" size={16 * scale} color={offers[activeIndex].textColor} />
+          <Ionicons name="location" size={16 * scale} color={offers[activeIndex]?.textColor || "#FFFFFF"} />
           <View style={styles.locationTextContainer}>
-            <Text style={[styles.deliveringTo, { color: offers[activeIndex].textColor, opacity: 0.8 }]}>
+            <Text style={[styles.deliveringTo, { color: offers[activeIndex]?.textColor || "#FFFFFF", opacity: 0.8 }]}>
               Your Current Location
             </Text>
             <View style={styles.locationRow}>
-              <Text style={[styles.currentLocationText, { color: offers[activeIndex].textColor }]} numberOfLines={2}>
+              <Text style={[styles.currentLocationText, { color: offers[activeIndex]?.textColor || "#FFFFFF" }]} numberOfLines={2}>
                 {currentLocationName}
               </Text>
             </View>
@@ -522,7 +542,7 @@ export default function Resturent({ navigation }) {
         <Ionicons
           name={locationLoading ? "sync" : "chevron-down"}
           size={18 * scale}
-          color={offers[activeIndex].textColor}
+          color={offers[activeIndex]?.textColor || "#FFFFFF"}
         />
       </TouchableOpacity>
 
@@ -558,9 +578,9 @@ export default function Resturent({ navigation }) {
           cartItems={cartItems}
           onMenuPress={() => setMenuVisible(true)}
           transparent
-          statusColor={offers[activeIndex].colors[0]}
-          textColor={offers[activeIndex].textColor}
-          barStyle={offers[activeIndex].textColor === "#FFFFFF" ? "light-content" : "dark-content"}
+          statusColor={offers[activeIndex]?.colors?.[0] || "#E23744"}
+          textColor={offers[activeIndex]?.textColor || "#FFFFFF"}
+          barStyle={offers[activeIndex]?.textColor === "#FFFFFF" ? "light-content" : "dark-content"}
           disableSafeArea
         />
 

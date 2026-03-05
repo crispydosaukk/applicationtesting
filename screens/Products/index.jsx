@@ -26,6 +26,7 @@ import AppHeader from "../AppHeader";
 import BottomBar from "../BottomBar";
 import MenuModal from "../MenuModal";
 import LinearGradient from "react-native-linear-gradient";
+import { fetchAppSettings } from "../../services/settingsService";
 
 const { width } = Dimensions.get("window");
 const scale = width / 400;
@@ -73,14 +74,26 @@ export default function Products({ route, navigation }) {
     { colors: ["#F2994A", "#F2C94C"], textColor: "#5D4037", icon: "wallet" },
   ];
   const [activeIndex, setActiveIndex] = useState(0);
-  const animatedTexts = [
-    "EARN £0.25 ON EVERY ORDER",
-    "REFER & EARN £0.25",
-    "£0.25 WELCOME BONUS",
-  ];
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const data = await fetchAppSettings();
+      if (data) {
+        setSettings(data);
+      }
+    };
+    loadSettings();
+  }, []);
+  const animatedTexts = settings ? [
+    `EARN £${Number(settings.earn_per_order_amount).toFixed(2)} ON EVERY ORDER`,
+    `REFER & EARN £${Number(settings.referral_bonus_amount).toFixed(2)}`,
+    `£${Number(settings.signup_bonus_amount).toFixed(2)} WELCOME BONUS`,
+  ] : [];
 
   const highlightAmount = (text) => {
-    const regex = /(£\s?0\.25|£0\.25)/i;
+    if (!settings) return <Text style={styles.offerText}>{text}</Text>;
+    const regex = new RegExp(`(£\\s?${Number(settings.signup_bonus_amount).toFixed(2)}|£${Number(settings.signup_bonus_amount).toFixed(2)}|£\\s?${Number(settings.referral_bonus_amount).toFixed(2)}|£${Number(settings.referral_bonus_amount).toFixed(2)}|£\\s?${Number(settings.earn_per_order_amount).toFixed(2)}|£${Number(settings.earn_per_order_amount).toFixed(2)})`, 'i');
     const parts = text.split(regex);
 
     return (
@@ -96,6 +109,7 @@ export default function Products({ route, navigation }) {
   // animated banner text
   useEffect(() => {
     const run = () => {
+      if (animatedTexts.length === 0) return;
       fadeAnim.setValue(0);
       Animated.sequence([
         Animated.timing(fadeAnim, {
@@ -119,7 +133,7 @@ export default function Products({ route, navigation }) {
       });
     };
     run();
-  }, []);
+  }, [animatedTexts.length]);
 
   const collapseBanner = () => {
     Animated.timing(bannerHeight, {
@@ -686,27 +700,29 @@ export default function Products({ route, navigation }) {
         />
 
         {/* DYNAMIC COLOR OFFER PILL */}
-        <Animated.View style={[styles.premiumOfferWrap, { opacity: fadeAnim }]}>
-          <LinearGradient
-            colors={offers[activeIndex]?.colors || ["#FF2B5C", "#FF6B8B"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.premiumOfferInner}
-          >
-            <View style={styles.offerIconBadge}>
-              <Ionicons
-                name={offers[activeIndex]?.icon || "gift"}
-                size={16 * scale}
-                color="#FFFFFF"
-              />
+        {settings && animatedTexts.length > 0 && (
+          <Animated.View style={[styles.premiumOfferWrap, { opacity: fadeAnim }]}>
+            <LinearGradient
+              colors={offers[activeIndex]?.colors || ["#FF2B5C", "#FF6B8B"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.premiumOfferInner}
+            >
+              <View style={styles.offerIconBadge}>
+                <Ionicons
+                  name={offers[activeIndex]?.icon || "gift"}
+                  size={16 * scale}
+                  color="#FFFFFF"
+                />
 
-            </View>
-            <View style={styles.offerTextContainer}>
-              {highlightAmount(animatedTexts[textIndex])}
-            </View>
-            <View style={[styles.glowingDot, { backgroundColor: '#FFFFFF' }]} />
-          </LinearGradient>
-        </Animated.View>
+              </View>
+              <View style={styles.offerTextContainer}>
+                {highlightAmount(animatedTexts[textIndex])}
+              </View>
+              <View style={[styles.glowingDot, { backgroundColor: '#FFFFFF' }]} />
+            </LinearGradient>
+          </Animated.View>
+        )}
 
         {/* SEARCH BOX */}
         <View style={styles.searchBoxPremium}>
